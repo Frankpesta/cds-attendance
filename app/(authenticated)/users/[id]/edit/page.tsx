@@ -47,7 +47,7 @@ export default function EditUserPage() {
         role: user.role || "",
         address: user.address || "",
         ppa: user.ppa || "",
-        cds_group_id: user.cds_group_id || "",
+        cds_group_id: (user as any).cds_group_id || "",
       });
     }
   }, [user]);
