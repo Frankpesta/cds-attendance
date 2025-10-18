@@ -37,7 +37,7 @@ export default function AttendanceMonitorPage() {
 
   // Calculate real-time statistics
   const totalMembers = filteredAttendance.length;
-  const presentCount = filteredAttendance.filter(record => record.status === "present").length;
+  const presentCount = filteredAttendance.filter((record: any) => record.status === "present").length;
   const absentCount = totalMembers - presentCount;
   const attendanceRate = totalMembers > 0 ? ((presentCount / totalMembers) * 100).toFixed(1) : "0";
 
@@ -53,7 +53,7 @@ export default function AttendanceMonitorPage() {
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  const groupOptions = cdsGroups?.map(group => ({
+  const groupOptions = cdsGroups?.map((group: { _id: string; name: string }) => ({
     value: group._id,
     label: group.name
   })) || [];
@@ -220,7 +220,7 @@ export default function AttendanceMonitorPage() {
           { 
             key: "user_name", 
             label: "Member",
-            render: (value, item) => {
+            render: (value: any, item: any) => {
               // This would need to be populated from user data
               return `User ${item.user_id.substring(0, 8)}...`;
             }
@@ -228,15 +228,15 @@ export default function AttendanceMonitorPage() {
           { 
             key: "group_name", 
             label: "CDS Group",
-            render: (value, item) => {
-              const group = cdsGroups?.find(g => g._id === item.cds_group_id);
+            render: (value: any, item: any) => {
+              const group = cdsGroups?.find((g: { _id: string; name: string }) => g._id === item.cds_group_id);
               return group ? group.name : "Unknown Group";
             }
           },
           { 
             key: "scanned_at", 
             label: "Time",
-            render: (value) => {
+            render: (value: any) => {
               const date = new Date(value);
               return date.toLocaleTimeString('en-US', {
                 hour: '2-digit',
@@ -248,7 +248,7 @@ export default function AttendanceMonitorPage() {
           { 
             key: "status", 
             label: "Status",
-            render: (value) => (
+            render: (value: any) => (
               <div className="flex items-center gap-2">
                 {getStatusIcon(value)}
                 <span className={value === "present" ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
@@ -260,7 +260,7 @@ export default function AttendanceMonitorPage() {
           { 
             key: "location_verified", 
             label: "Location",
-            render: (value, item) => getLocationStatus(item)
+            render: (value: any, item: any) => getLocationStatus(item)
           }
         ]}
       />
