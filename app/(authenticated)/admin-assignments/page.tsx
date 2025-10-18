@@ -133,7 +133,7 @@ export default function AdminAssignmentsPage() {
           { 
             key: "admin_id", 
             label: "Admin",
-            render: (value: any, item: { admin_id: string }) => {
+            render: (value: any, item: any) => {
               const admin = admins?.find((a: { _id: string; name: string; email: string }) => a._id === item.admin_id);
               return admin ? `${admin.name} (${admin.email})` : "Unknown Admin";
             }
@@ -141,7 +141,7 @@ export default function AdminAssignmentsPage() {
           { 
             key: "cds_group_id", 
             label: "CDS Group",
-            render: (value: any, item: { cds_group_id: string }) => {
+            render: (value: any, item: any) => {
               const group = groups?.find((g: { _id: string; name: string }) => g._id === item.cds_group_id);
               return group ? group.name : "Unknown Group";
             }
@@ -154,7 +154,7 @@ export default function AdminAssignmentsPage() {
           {
             key: "actions",
             label: "Actions",
-            render: (_: any, item: { _id: string }) => (
+            render: (_: any, item: any) => (
               <Button 
                 variant="ghost" 
                 size="sm"
