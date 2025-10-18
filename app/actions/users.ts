@@ -35,7 +35,7 @@ export async function createUserAction(formData: FormData) {
       password,
       address: address || undefined,
       ppa: ppa || undefined,
-      cds_group_id: cds_group_id || undefined,
+      cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
     });
     return { ok: true, data: res } as const;
   } catch (e: any) {
@@ -71,7 +71,7 @@ export async function updateUserAction(id: string, formData: FormData) {
       role: role as any,
       address: address || undefined,
       ppa: ppa || undefined,
-      cds_group_id: cds_group_id || undefined,
+      cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
     });
     return { ok: true, data: res } as const;
   } catch (e: any) {
