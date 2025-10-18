@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import {
   generateQrToken,
   isWithinMeetingWindow,
@@ -144,7 +145,7 @@ export const startQrSession = mutation({
     });
 
     // schedule rotation
-    await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, "qr:rotate", {
+    await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, api.qr.rotate, {
       meetingDate: today,
       nextSequence: 2,
       adminId: admin._id,
@@ -190,7 +191,7 @@ export const rotate = mutation({
       is_consumed: false,
     });
 
-    await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, "qr:rotate", {
+    await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, api.qr.rotate, {
       meetingDate,
       nextSequence: nextSequence + 1,
       adminId,
