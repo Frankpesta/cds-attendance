@@ -13,7 +13,7 @@ async function assertCanOnboard(ctx: any, actorUserId: string, targetGroupId: st
   // Admin must be assigned to the group
   const assignment = await ctx.db
     .query("admin_group_assignments")
-    .filter((q) =>
+    .filter((q: any) =>
       q.and(
         q.eq(q.field("admin_id"), actor._id),
         q.eq(q.field("cds_group_id"), targetGroupId),
@@ -44,7 +44,7 @@ export const onboardCorpsMember = mutation({
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query("sessions")
-      .filter((q) => q.eq(q.field("session_token"), args.actorSessionToken))
+      .filter((q: any) => q.eq(q.field("session_token"), args.actorSessionToken))
       .unique();
     if (!session) throw new Error("Unauthorized");
     const actor = await ctx.db.get(session.user_id);
@@ -55,7 +55,7 @@ export const onboardCorpsMember = mutation({
     // Unique email check
     const existingByEmail = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), args.email))
+      .filter((q: any) => q.eq(q.field("email"), args.email))
       .unique();
     if (existingByEmail) {
       throw new Error(
