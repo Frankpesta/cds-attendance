@@ -14,7 +14,7 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [manualToken, setManualToken] = useState("");
   const [cameraActive, setCameraActive] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
@@ -173,17 +173,23 @@ export default function ScanPage() {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        });
 
         if (code) {
           console.log("QR Code detected:", code.data);
-          submitToken(code.data);
-          return; // Stop scanning after detection
+          submitToken(code.data).then((success) => {
+            if (!success && cameraActive) {
+              scanningIntervalRef.current = requestAnimationFrame(scanFrame);
+            }
+          });
+          return; // Pause scanning until submission completes
         }
       }
 
-      // Continue scanning if not processing submission
-      if (cameraActive && !scanning) {
+      // Continue scanning
+      if (cameraActive) {
         scanningIntervalRef.current = requestAnimationFrame(scanFrame);
       }
     };
@@ -203,7 +209,9 @@ export default function ScanPage() {
         context.drawImage(video, 0, 0);
 
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        });
         if (code) {
           return code.data;
         }
@@ -212,13 +220,13 @@ export default function ScanPage() {
     return null;
   };
 
-  const submitToken = async (token: string) => {
+  const submitToken = async (token: string): Promise<boolean> => {
     if (!token.trim()) {
       setError("Please enter a valid token");
-      return;
+      return false;
     }
 
-    setScanning(true);
+    setIsSubmitting(true);
     setError(null);
     setSuccessMessage(null);
 
@@ -236,10 +244,13 @@ export default function ScanPage() {
       setTimeout(() => {
         stopCamera();
       }, 1500);
+
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
+      return false;
     } finally {
-      setScanning(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -322,7 +333,7 @@ export default function ScanPage() {
                       <Button
                         onClick={retryLocation}
                         className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg text-sm"
-                        disabled={scanning || cameraLoading}
+                        disabled={isSubmitting || cameraLoading}
                       >
                         <RefreshCw className="w-4 h-4 mr-2 inline" />
                         Retry Location
@@ -333,7 +344,7 @@ export default function ScanPage() {
                   <Button
                     onClick={startCamera}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
-                    disabled={scanning || cameraLoading}
+                    disabled={isSubmitting || cameraLoading}
                   >
                     <Camera className="w-4 h-4 mr-2 inline" />
                     {cameraLoading ? "Starting..." : "Start Camera"}
@@ -373,25 +384,33 @@ export default function ScanPage() {
                   <Button
                     onClick={handleScanClick}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
-                    disabled={scanning}
+                    disabled={isSubmitting}
                   >
                     <QrCode className="w-4 h-4 mr-2" />
-                    {scanning ? "Scanning..." : "Capture & Scan"}
+                    {isSubmitting ? "Scanning..." : "Manual Capture & Scan"}
                   </Button>
                   <Button
                     onClick={stopCamera}
                     className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
-                    disabled={scanning}
+                    disabled={isSubmitting}
                   >
                     Stop
                   </Button>
                 </div>
 
-                {scanning && (
+                {isSubmitting && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center justify-center gap-2 text-blue-800">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                       <span className="text-sm font-medium">Processing attendance...</span>
+                    </div>
+                  </div>
+                )}
+                {!isSubmitting && cameraActive && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-center gap-2 text-blue-800">
+                      <div className="animate-pulse rounded-full h-4 w-4 bg-blue-600"></div>
+                      <span className="text-sm font-medium">Scanning automatically...</span>
                     </div>
                   </div>
                 )}
@@ -445,10 +464,10 @@ export default function ScanPage() {
               <Button
                 onClick={handleManualSubmit}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!manualToken.trim() || scanning}
+                disabled={!manualToken.trim() || isSubmitting}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                {scanning ? "Processing..." : "Mark Attendance"}
+                {isSubmitting ? "Processing..." : "Mark Attendance"}
               </Button>
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
