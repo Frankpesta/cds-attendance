@@ -21,12 +21,12 @@ export default function AdminAssignmentsPage() {
   const groups = useQuery(api.cds_groups.list, {});
   const assignments = useQuery(api.admin_assignments.list, {});
 
-  const adminOptions = admins?.filter(user => user.role === "admin").map(admin => ({
+  const adminOptions = admins?.filter((user: { role: string }) => user.role === "admin").map((admin: { _id: string; name: string; email: string }) => ({
     value: admin._id,
     label: `${admin.name} (${admin.email})`
   })) || [];
 
-  const groupOptions = groups?.map(group => ({
+  const groupOptions = groups?.map((group: { _id: string; name: string }) => ({
     value: group._id,
     label: group.name
   })) || [];
@@ -133,28 +133,28 @@ export default function AdminAssignmentsPage() {
           { 
             key: "admin_name", 
             label: "Admin",
-            render: (value, item) => {
-              const admin = admins?.find(a => a._id === item.admin_id);
+            render: (value: any, item: { admin_id: string }) => {
+              const admin = admins?.find((a: { _id: string; name: string; email: string }) => a._id === item.admin_id);
               return admin ? `${admin.name} (${admin.email})` : "Unknown Admin";
             }
           },
           { 
             key: "group_name", 
             label: "CDS Group",
-            render: (value, item) => {
-              const group = groups?.find(g => g._id === item.cds_group_id);
+            render: (value: any, item: { cds_group_id: string }) => {
+              const group = groups?.find((g: { _id: string; name: string }) => g._id === item.cds_group_id);
               return group ? group.name : "Unknown Group";
             }
           },
           { 
             key: "created_at", 
             label: "Assigned Date",
-            render: (value) => new Date(value).toLocaleDateString()
+            render: (value: number) => new Date(value).toLocaleDateString()
           },
           {
             key: "actions",
             label: "Actions",
-            render: (_, item) => (
+            render: (_: any, item: { _id: string }) => (
               <Button 
                 variant="ghost" 
                 size="sm"
