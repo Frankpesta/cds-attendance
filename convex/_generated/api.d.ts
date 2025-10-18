@@ -17,7 +17,6 @@ import type * as email from "../email.js";
 import type * as onboarding from "../onboarding.js";
 import type * as qr from "../qr.js";
 import type * as reports from "../reports.js";
-import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 
@@ -45,7 +44,6 @@ declare const fullApi: ApiFromModules<{
   onboarding: typeof onboarding;
   qr: typeof qr;
   reports: typeof reports;
-  seed: typeof seed;
   users: typeof users;
   utils: typeof utils;
 }>;

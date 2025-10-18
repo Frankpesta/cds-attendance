@@ -4,7 +4,6 @@ import { loginAction } from "../actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { seedSuperAdminAction } from "../actions/seed";
 
 export default function LoginPage() {
   const [stateCode, setStateCode] = useState("");
@@ -12,9 +11,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
-  const [showSeed, setShowSeed] = useState(false);
-  const [seedLoading, setSeedLoading] = useState(false);
-  const [seed, setSeed] = useState({ secret: "", name: "", email: "", password: "", stateCode: "AK/24A/0001" });
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,42 +71,6 @@ export default function LoginPage() {
           Sign In
         </Button>
       </form>
-          <div className="mt-6 pt-4 border-t">
-            <button className="text-xs text-gray-500 underline" onClick={() => setShowSeed((s) => !s)}>
-              {showSeed ? "Hide" : "Seed Super Admin"}
-            </button>
-            {showSeed && (
-              <form
-                className="mt-3 space-y-2"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setSeedLoading(true);
-                  const fd = new FormData();
-                  fd.set("secret", seed.secret);
-                  fd.set("name", seed.name);
-                  fd.set("email", seed.email);
-                  fd.set("password", seed.password);
-                  fd.set("stateCode", seed.stateCode);
-                  const res = await seedSuperAdminAction(fd);
-                  setSeedLoading(false);
-                  if (!res.ok) {
-                    push({ variant: "error", title: "Seed failed", description: res.error });
-                  } else {
-                    push({ variant: "success", title: "Super admin created" });
-                  }
-                }}
-              >
-                <div className="grid sm:grid-cols-2 gap-2">
-                  <Input placeholder="SESSION_SECRET" value={seed.secret} onChange={(e) => setSeed({ ...seed, secret: e.target.value })} />
-                  <Input placeholder="Name" value={seed.name} onChange={(e) => setSeed({ ...seed, name: e.target.value })} />
-                  <Input placeholder="Email" value={seed.email} onChange={(e) => setSeed({ ...seed, email: e.target.value })} />
-                  <Input placeholder="Password" type="password" value={seed.password} onChange={(e) => setSeed({ ...seed, password: e.target.value })} />
-                  <Input placeholder="State Code" value={seed.stateCode} onChange={(e) => setSeed({ ...seed, stateCode: e.target.value })} />
-                </div>
-                <Button type="submit" loading={seedLoading} variant="secondary" className="mt-2">Seed Super Admin</Button>
-              </form>
-            )}
-          </div>
         </div>
       </div>
     </div>
