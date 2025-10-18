@@ -36,13 +36,13 @@ export default function AttendanceHistoryPage() {
     { value: `${currentYear}-12`, label: `December ${currentYear}` },
   ];
 
-  const groupOptions = cdsGroups?.map(group => ({
+  const groupOptions = cdsGroups?.map((group: { _id: string; name: string }) => ({
     value: group._id,
     label: group.name
   })) || [];
 
   // Filter attendance data
-  const filteredAttendance = attendanceHistory?.filter(record => {
+  const filteredAttendance = attendanceHistory?.filter((record: any) => {
     const recordDate = new Date(record.timestamp);
     const recordMonth = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
     
@@ -54,8 +54,8 @@ export default function AttendanceHistoryPage() {
 
   // Calculate statistics
   const totalAttendance = filteredAttendance.length;
-  const presentCount = filteredAttendance.filter(record => record.status === "present").length;
-  const absentCount = filteredAttendance.filter(record => record.status === "absent").length;
+  const presentCount = filteredAttendance.filter((record: any) => record.status === "present").length;
+  const absentCount = filteredAttendance.filter((record: any) => record.status === "absent").length;
   const attendanceRate = totalAttendance > 0 ? ((presentCount / totalAttendance) * 100).toFixed(1) : "0";
 
   return (
@@ -156,7 +156,7 @@ export default function AttendanceHistoryPage() {
           { 
             key: "date", 
             label: "Date",
-            render: (value, item) => {
+            render: (value: any, item: any) => {
               const date = new Date(item.timestamp);
               return date.toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -169,7 +169,7 @@ export default function AttendanceHistoryPage() {
           { 
             key: "time", 
             label: "Time",
-            render: (value, item) => {
+            render: (value: any, item: any) => {
               const date = new Date(item.timestamp);
               return date.toLocaleTimeString('en-US', {
                 hour: '2-digit',
@@ -180,15 +180,15 @@ export default function AttendanceHistoryPage() {
           { 
             key: "cds_group_name", 
             label: "CDS Group",
-            render: (value, item) => {
-              const group = cdsGroups?.find(g => g._id === item.cds_group_id);
+            render: (value: any, item: any) => {
+              const group = cdsGroups?.find((g: { _id: string; name: string }) => g._id === item.cds_group_id);
               return group ? group.name : "Unknown Group";
             }
           },
           { 
             key: "status", 
             label: "Status",
-            render: (value) => (
+            render: (value: any) => (
               <div className="flex items-center gap-2">
                 {value === "present" ? (
                   <>
