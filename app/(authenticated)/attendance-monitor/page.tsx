@@ -31,7 +31,7 @@ export default function AttendanceMonitorPage() {
   const attendanceStats = useQuery(api.dashboard.getStats, {});
 
   // Filter attendance by selected group
-  const filteredAttendance = todayAttendance?.filter(record => 
+  const filteredAttendance = todayAttendance?.filter((record: any) => 
     !selectedGroup || record.cds_group_id === selectedGroup
   ) || [];
 
