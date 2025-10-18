@@ -180,7 +180,7 @@ export default function AdminAssignmentsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {adminOptions.map(admin => (
+              {adminOptions.map((admin: { value: string; label: string }) => (
                 <div key={admin.value} className="flex items-center justify-between p-2 bg-muted rounded">
                   <span className="text-sm">{admin.label}</span>
                   <UserCheck className="w-4 h-4 text-green-600" />
@@ -203,7 +203,7 @@ export default function AdminAssignmentsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {groupOptions.map(group => (
+              {groupOptions.map((group: { value: string; label: string }) => (
                 <div key={group.value} className="flex items-center justify-between p-2 bg-muted rounded">
                   <span className="text-sm">{group.label}</span>
                   <Building2 className="w-4 h-4 text-blue-600" />
