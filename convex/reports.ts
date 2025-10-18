@@ -1,4 +1,5 @@
 import { query, action } from "./_generated/server";
+import { api } from "./_generated/api";
 import { v } from "convex/values";
 
 export const monthlyReport = query({
@@ -54,7 +55,7 @@ export const monthlyReport = query({
 export const exportCsv = action({
 	args: { year: v.number(), month: v.number(), cdsGroupId: v.optional(v.id("cds_groups")) },
 	handler: async (ctx, args) => {
-		const rep = await ctx.runQuery(monthlyReport, args as any);
+		const rep = await ctx.runQuery(api.reports.monthlyReport, args as any);
 		const lines = ["State Code,Name,Group,Attendance Count,Dates"];
 		for (const row of rep.data as any[]) {
 			lines.push(
