@@ -94,7 +94,7 @@ export const getRecentActivity = query({
           id: record._id,
           user: user?.name || "Unknown",
           group: group?.name || "Unknown",
-          timestamp: record.created_at,
+          timestamp: record.scanned_at,
           type: "attendance"
         };
       })
