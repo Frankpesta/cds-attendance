@@ -273,7 +273,7 @@ export default function AttendanceMonitorPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3 max-h-64 overflow-y-auto">
-            {filteredAttendance.slice(0, 10).map((record, index) => (
+            {filteredAttendance.slice(0, 10).map((record: any, index: number) => (
               <div key={record._id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                 <div className="flex-shrink-0">
                   {getStatusIcon(record.status)}
