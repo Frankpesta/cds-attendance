@@ -92,7 +92,7 @@ export default function AttendanceMonitorPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant={autoRefresh ? "default" : "outline"}
+            variant={autoRefresh ? "primary" : "secondary"}
             size="sm"
             onClick={() => setAutoRefresh(!autoRefresh)}
           >
