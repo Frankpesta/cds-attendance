@@ -20,7 +20,7 @@ export default function UsersPage() {
   const users = useQuery(api.dashboard.getStats, {});
   const allUsers = useQuery(api.users.list, {});
 
-  const filteredUsers = allUsers?.filter(user => {
+  const filteredUsers = allUsers?.filter((user: any) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.state_code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -104,7 +104,7 @@ export default function UsersPage() {
           { 
             key: "role", 
             label: "Role",
-            render: (value) => (
+            render: (value: any) => (
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                 value === "super_admin" ? "bg-purple-100 text-purple-800" :
                 value === "admin" ? "bg-blue-100 text-blue-800" :
@@ -117,12 +117,12 @@ export default function UsersPage() {
           { 
             key: "created_at", 
             label: "Created",
-            render: (value) => new Date(value).toLocaleDateString()
+            render: (value: any) => new Date(value).toLocaleDateString()
           },
           {
             key: "actions",
             label: "Actions",
-            render: (_, user) => (
+            render: (_: any, user: any) => (
               <div className="flex gap-2">
                 <Link href={`/users/${user._id}/edit`}>
                   <Button variant="ghost" size="sm">
