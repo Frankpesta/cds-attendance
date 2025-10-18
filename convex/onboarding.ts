@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
+import { api } from "./_generated/api";
 import bcrypt from "bcryptjs";
 import { formatStateCode, generateTempPassword, nowMs } from "./utils";
 
@@ -85,7 +86,7 @@ export const onboardCorpsMember = mutation({
     });
 
     // Fire-and-forget email via action
-    await ctx.scheduler.runAfter(0, "email:sendOnboardingEmail", {
+    await ctx.scheduler.runAfter(0, api.email.sendOnboardingEmail, {
       to: args.email,
       name: args.name,
       stateCode,
