@@ -63,14 +63,14 @@ export const seedSuperAdmin = action({
   },
   handler: async (ctx, { secret, name, email, password, stateCode }) => {
     // Allow seeding without secret only if no super admin exists yet
-    const firstTimeBootstrap = !(await ctx.runQuery(api.seed.superAdminsExist, {}));
+    const firstTimeBootstrap = !(await superAdminsExist(ctx, {}));
     if (!firstTimeBootstrap && secret !== process.env.SESSION_SECRET) {
       throw new Error("Unauthorized");
     }
-    const exists = await ctx.runQuery(api.seed.getUserByEmail, { email });
+    const exists = await getUserByEmail(ctx, { email });
     if (exists) return { ok: false, error: "User exists" } as const;
     const hashed = bcrypt.hashSync(password, 10);
-    const id = await ctx.runMutation(api.seed.createSuperAdmin, {
+    const id = await createSuperAdmin(ctx, {
       name,
       email,
       passwordHash: hashed,
