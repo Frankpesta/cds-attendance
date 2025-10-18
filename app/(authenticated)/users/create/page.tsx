@@ -252,7 +252,7 @@ export default function CreateUserPage() {
                     setForm({ ...form, cds_group_id: e.target.value });
                     clearFieldError("cds_group_id");
                   }}
-                  options={cdsGroups?.map(group => ({ value: group._id, label: group.name })) || []}
+                  options={cdsGroups?.map((group: { _id: string; name: string }) => ({ value: group._id, label: group.name })) || []}
                 />
                 {getFieldError("cds_group_id") && (
                   <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
