@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "./card";
 import { cn } from "@/lib/utils";
 
 interface Column<T> {
-  key: keyof T;
+  key: string;
   label: string;
   render?: (value: any, item: T) => React.ReactNode;
   className?: string;
@@ -68,8 +68,8 @@ export function DataTable<T>({
                         )}
                       >
                         {column.render
-                          ? column.render(item[column.key], item)
-                          : String(item[column.key] || "-")}
+                          ? column.render((item as any)[column.key], item)
+                          : String((item as any)[column.key] || "-")}
                       </td>
                     ))}
                   </tr>
