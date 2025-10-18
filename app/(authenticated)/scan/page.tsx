@@ -3,8 +3,9 @@ import { useRef, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, QrCode, Smartphone, AlertCircle, CheckCircle, MapPin } from "lucide-react";
-import jsQR  from "jsqr";
+import { Camera, QrCode, Smartphone, AlertCircle, CheckCircle, MapPin, RefreshCw } from "lucide-react";
+import jsQR from "jsqr";
+import { submitAttendanceAction } from "@/app/actions/attendance";
 
 export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -18,6 +19,17 @@ export default function ScanPage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [locationPermissionState, setLocationPermissionState] = useState<PermissionState | null>(null);
+
+  // Check location permission state
+  useEffect(() => {
+    if ("permissions" in navigator) {
+      navigator.permissions.query({ name: "geolocation" }).then((result) => {
+        setLocationPermissionState(result.state);
+        result.onchange = () => setLocationPermissionState(result.state);
+      });
+    }
+  }, []);
 
   // Get user location
   const getLocation = () => {
@@ -31,7 +43,13 @@ export default function ScanPage() {
           setLocationError(null);
         },
         (error) => {
-          setLocationError("Location access denied. Attendance may not be recorded.");
+          let errorMessage = "Location access denied. Attendance may not be recorded.";
+          if (error.code === error.TIMEOUT) {
+            errorMessage = "Location request timed out. Please try again.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errorMessage = "Location information is unavailable.";
+          }
+          setLocationError(errorMessage);
           console.error("Geolocation error:", error);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
@@ -41,65 +59,82 @@ export default function ScanPage() {
     }
   };
 
+  const retryLocation = () => {
+    setLocationError(null);
+    getLocation();
+  };
+
   const startCamera = async () => {
     try {
       setCameraLoading(true);
       setError(null);
-      
-      // Get location first
+
+      // Get location
       getLocation();
-      
+
       // Try with back camera first, fallback to any camera
-      let stream;
+      let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
             facingMode: "environment",
             width: { ideal: 1280 },
-            height: { ideal: 720 }
-          } 
+            height: { ideal: 720 },
+          },
         });
+        console.log("Using environment-facing camera");
       } catch (backCameraError) {
-        console.log("Back camera failed, trying any camera:", backCameraError);
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true 
-        });
+        console.warn("Back camera failed, trying any camera:", backCameraError);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        console.log("Using default camera");
       }
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        
-        // Wait for video to be ready and play
-        videoRef.current.onloadedmetadata = async () => {
-          try {
-            if (videoRef.current) {
-              await videoRef.current.play();
+
+        // Wait for video to be ready
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
               console.log("Video playing successfully");
               setCameraActive(true);
               setCameraLoading(false);
-              
+
               // Start scanning after a short delay to ensure video is rendering
               setTimeout(() => {
                 startScanning();
               }, 500);
-            }
-          } catch (playError) {
-            console.error("Error playing video:", playError);
-            setError("Could not start video playback");
-            setCameraLoading(false);
-          }
-        };
-        
+            })
+            .catch((playError) => {
+              console.error("Error playing video:", playError);
+              setError("Could not start video playback. Please ensure camera permissions are granted.");
+              setCameraLoading(false);
+              stopCamera(); // Clean up stream on error
+            });
+        }
+
         videoRef.current.onerror = (e) => {
           console.error("Video error:", e);
-          setCameraLoading(false);
           setError("Video stream error. Please try again.");
+          setCameraLoading(false);
+          stopCamera();
         };
+      } else {
+        console.error("Video ref is null");
+        setError("Unable to access video element. Please refresh the page.");
+        setCameraLoading(false);
+        // Clean up stream if ref is null
+        stream.getTracks().forEach((track) => track.stop());
       }
     } catch (err) {
       console.error("Camera error:", err);
       setCameraLoading(false);
-      setError("Camera access denied. Please use manual entry.");
+      let errorMessage = "Camera access denied. Please use manual entry.";
+      if (err instanceof DOMException && err.name === "NotAllowedError") {
+        errorMessage = "Camera permission denied. Please grant access in browser settings and refresh.";
+      }
+      setError(errorMessage);
     }
   };
 
@@ -109,11 +144,11 @@ export default function ScanPage() {
       cancelAnimationFrame(scanningIntervalRef.current);
       scanningIntervalRef.current = null;
     }
-    
+
     // Stop video stream
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
       setCameraActive(false);
     }
@@ -121,7 +156,7 @@ export default function ScanPage() {
 
   const startScanning = () => {
     console.log("Starting continuous QR scan...");
-    
+
     const scanFrame = () => {
       if (!videoRef.current || !canvasRef.current || !cameraActive) {
         return;
@@ -129,63 +164,49 @@ export default function ScanPage() {
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      const context = canvas.getContext("2d");
-      
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+
       // Check if video is ready
-      if (context && video.readyState === video.HAVE_ENOUGH_DATA && 
-          video.videoWidth > 0 && video.videoHeight > 0) {
-        
+      if (context && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
+
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // Simple QR code detection simulation (replace with jsQR if available)
-        // const code = jsQR(imageData.data, imageData.width, imageData.height);
-        
-        // For demo purposes, we'll detect based on pixel patterns
-        // In production, use: const code = jsQR(imageData.data, imageData.width, imageData.height);
-        // if (code) {
-        //   console.log("QR Code detected:", code.data);
-        //   submitToken(code.data);
-        //   return; // Stop scanning after detection
-        // }
-
-
         const code = jsQR(imageData.data, imageData.width, imageData.height);
-if (code) {
-  console.log("QR Code detected:", code.data);
-  submitToken(code.data);
-  return;
-}
+
+        if (code) {
+          console.log("QR Code detected:", code.data);
+          submitToken(code.data);
+          return; // Stop scanning after detection
+        }
       }
-      
-      // Continue scanning
+
+      // Continue scanning if not processing submission
       if (cameraActive && !scanning) {
         scanningIntervalRef.current = requestAnimationFrame(scanFrame);
       }
     };
-    
+
     scanFrame();
   };
 
-  const captureFrame = () => {
+  const captureFrame = (): string | null => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      const context = canvas.getContext("2d");
-      
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+
       if (context && video.videoWidth > 0 && video.videoHeight > 0) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         context.drawImage(video, 0, 0);
-        
+
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-        
-        // In production: const code = jsQR(imageData.data, imageData.width, imageData.height);
-        // For now, return null as jsQR is not in the demo
-        // if (code) return code.data;
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code) {
+          return code.data;
+        }
       }
     }
     return null;
@@ -199,26 +220,22 @@ if (code) {
 
     setScanning(true);
     setError(null);
-    
+    setSuccessMessage(null);
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // In production:
-      // const formData = new FormData();
-      // formData.set("token", token);
-      // formData.set("latitude", location?.latitude?.toString() || "0");
-      // formData.set("longitude", location?.longitude?.toString() || "0");
-      // const res = await submitAttendanceAction(formData);
-      
+      const formData = new FormData();
+      formData.set("token", token);
+      formData.set("latitude", location?.latitude?.toString() ?? "0");
+      formData.set("longitude", location?.longitude?.toString() ?? "0");
+      const res = await submitAttendanceAction(formData);
+
       setSuccessMessage("Your attendance has been recorded successfully");
       setManualToken("");
-      
+
       // Stop camera after successful scan
       setTimeout(() => {
         stopCamera();
       }, 1500);
-      
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -235,7 +252,7 @@ if (code) {
       setError("Please start the camera first");
       return;
     }
-    
+
     const captured = captureFrame();
     if (captured) {
       submitToken(captured);
@@ -251,7 +268,7 @@ if (code) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Scan Attendance</h1>
@@ -269,7 +286,7 @@ if (code) {
               <p className="text-sm text-gray-600">Use your camera to scan the QR code</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {!cameraActive ? (
+              {!cameraActive && (
                 <div className="text-center py-8">
                   {cameraLoading ? (
                     <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -282,32 +299,46 @@ if (code) {
                   <p className="text-gray-600 mb-4">
                     {cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for QR scanning"}
                   </p>
-                  
+
                   {/* Location Status */}
                   <div className="mb-4 p-3 bg-gray-100 rounded-lg">
                     <div className="flex items-center justify-center gap-2 text-sm">
                       <MapPin className="w-4 h-4" />
                       <span>
-                        {location ? 
-                          `Location: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 
-                          "Location: Not available"
-                        }
+                        {location
+                          ? `Location: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
+                          : "Location: Not available"}
                       </span>
                     </div>
                     {locationError && (
                       <p className="text-xs text-red-600 mt-1">{locationError}</p>
                     )}
+                    {locationPermissionState === "denied" && (
+                      <p className="text-xs text-red-600 mt-1">
+                        Location permission denied. Enable in browser settings and refresh.
+                      </p>
+                    )}
+                    {(locationError || !location) && (
+                      <Button
+                        onClick={retryLocation}
+                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg text-sm"
+                        disabled={scanning || cameraLoading}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2 inline" />
+                        Retry Location
+                      </Button>
+                    )}
                   </div>
-                  
-                  <Button 
-                    onClick={startCamera} 
+
+                  <Button
+                    onClick={startCamera}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
                     disabled={scanning || cameraLoading}
                   >
                     <Camera className="w-4 h-4 mr-2 inline" />
                     {cameraLoading ? "Starting..." : "Start Camera"}
                   </Button>
-                  
+
                   {cameraLoading && (
                     <div className="text-xs text-gray-500 mt-4 space-y-1">
                       <p>• Check if camera permission was granted</p>
@@ -316,59 +347,58 @@ if (code) {
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
-                      style={{ backgroundColor: '#000' }}
-                    />
-                    <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none">
-                      <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-blue-500"></div>
-                      <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-blue-500"></div>
-                      <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-blue-500"></div>
-                      <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
-                    </div>
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
-                      Position QR code within frame
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleScanClick}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
-                      disabled={scanning}
-                    >
-                      <QrCode className="w-4 h-4 mr-2" />
-                      {scanning ? "Scanning..." : "Capture & Scan"}
-                    </button>
-                    <button
-                      onClick={stopCamera}
-                      className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
-                      disabled={scanning}
-                    >
-                      Stop
-                    </button>
-                  </div>
-                  
-                  {scanning && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-center justify-center gap-2 text-blue-800">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span className="text-sm font-medium">Processing attendance...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <canvas ref={canvasRef} className="hidden" />
-                </div>
               )}
-              
+              <div className={`space-y-4 ${cameraActive ? '' : 'hidden'}`}>
+                <div className="relative">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
+                    style={{ backgroundColor: '#000' }}
+                  />
+                  <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none">
+                    <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-blue-500"></div>
+                    <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-blue-500"></div>
+                    <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-blue-500"></div>
+                    <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
+                  </div>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
+                    Position QR code within frame
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleScanClick}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
+                    disabled={scanning}
+                  >
+                    <QrCode className="w-4 h-4 mr-2" />
+                    {scanning ? "Scanning..." : "Capture & Scan"}
+                  </Button>
+                  <Button
+                    onClick={stopCamera}
+                    className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
+                    disabled={scanning}
+                  >
+                    Stop
+                  </Button>
+                </div>
+
+                {scanning && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-center gap-2 text-blue-800">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="text-sm font-medium">Processing attendance...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <canvas ref={canvasRef} className="hidden" />
+
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex items-center gap-2">
@@ -377,7 +407,7 @@ if (code) {
                   </div>
                 </div>
               )}
-              
+
               {successMessage && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-center gap-2">
@@ -411,16 +441,16 @@ if (code) {
                   Ask the admin to read out the token if scanning fails
                 </p>
               </div>
-              
-              <button
+
+              <Button
                 onClick={handleManualSubmit}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!manualToken.trim() || scanning}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
                 {scanning ? "Processing..." : "Mark Attendance"}
-              </button>
-              
+              </Button>
+
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
