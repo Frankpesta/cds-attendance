@@ -13,7 +13,7 @@ import { Chart, BarChart, PieChart } from "@/components/ui/chart";
 import { Users, UserCheck, Building2, Activity, TrendingUp, Calendar, Clock, Target } from "lucide-react";
 
 export default function Dashboard() {
-  const [session, setSession] = useState<any | null | undefined>(undefined);
+  const [session, setSession] = useState<{ session: { session_token: string }; user: { role: string; name: string } } | null | undefined>(undefined);
   const [sessionToken, setSessionToken] = useState("");
   useEffect(() => {
     (async () => {
@@ -267,8 +267,8 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
                   const res = await startQrAction();
                   if (!res.ok) throw new Error(res.error);
                   window.location.href = "/qr";
-                } catch (e: any) {
-                  setError(e?.message || "Failed to start QR");
+                } catch (e: unknown) {
+                  setError(e instanceof Error ? e.message : "Failed to start QR");
                 }
               }}
             >

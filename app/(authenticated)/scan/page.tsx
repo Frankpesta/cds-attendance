@@ -155,8 +155,8 @@ export default function ScanPage() {
       
       // Stop camera after successful scan
       stopCamera();
-    } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+    } catch (e: unknown) {
+      push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
     } finally {
       setScanning(false);
     }

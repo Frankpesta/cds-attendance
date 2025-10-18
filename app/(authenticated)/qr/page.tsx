@@ -183,8 +183,8 @@ export default function QrDisplay() {
                   try {
                     await stopQrAction();
                     push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
-                  } catch (e: any) {
-                    push({ variant: "error", title: "Failed", description: e?.message });
+                  } catch (e: unknown) {
+                    push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
                   }
                 }}>
                   Stop Session

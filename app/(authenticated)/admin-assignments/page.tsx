@@ -52,8 +52,8 @@ export default function AdminAssignmentsPage() {
       push({ variant: "success", title: "Assignment Created", description: "Admin has been assigned to the group" });
       setSelectedAdmin("");
       setSelectedGroup("");
-    } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+    } catch (e: unknown) {
+      push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
     } finally {
       setLoading(false);
     }
@@ -71,8 +71,8 @@ export default function AdminAssignmentsPage() {
       }
       
       push({ variant: "success", title: "Assignment Removed", description: "Admin assignment has been removed" });
-    } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+    } catch (e: unknown) {
+      push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
     } finally {
       setLoading(false);
     }

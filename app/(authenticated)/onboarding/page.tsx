@@ -9,6 +9,11 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { onboardCorpsMemberAction } from "@/app/actions/onboarding";
 
+interface CDSGroup {
+  _id: string;
+  name: string;
+}
+
 export default function OnboardingPage() {
   const { push } = useToast();
   const [loading, setLoading] = useState(false);
@@ -45,8 +50,8 @@ export default function OnboardingPage() {
       
       push({ variant: "success", title: "User onboarded", description: "Credentials emailed" });
       setForm({ name: "", email: "", address: "", ppa: "", cds_group_id: "", stateCode: "" });
-    } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+    } catch (e: unknown) {
+      push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
     } finally {
       setLoading(false);
     }
@@ -82,7 +87,7 @@ export default function OnboardingPage() {
               <Select
                 value={form.cds_group_id}
                 onChange={(e) => setForm({ ...form, cds_group_id: e.target.value })}
-                options={cdsGroups?.map((group: any) => ({ value: group._id, label: group.name })) || []}
+                options={cdsGroups?.map((group: CDSGroup) => ({ value: group._id, label: group.name })) || []}
               />
             </div>
             <div>
