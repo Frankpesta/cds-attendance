@@ -131,7 +131,7 @@ export default function AdminAssignmentsPage() {
         data={assignments || []}
         columns={[
           { 
-            key: "admin_name", 
+            key: "admin_id", 
             label: "Admin",
             render: (value: any, item: { admin_id: string }) => {
               const admin = admins?.find((a: { _id: string; name: string; email: string }) => a._id === item.admin_id);
@@ -139,7 +139,7 @@ export default function AdminAssignmentsPage() {
             }
           },
           { 
-            key: "group_name", 
+            key: "cds_group_id", 
             label: "CDS Group",
             render: (value: any, item: { cds_group_id: string }) => {
               const group = groups?.find((g: { _id: string; name: string }) => g._id === item.cds_group_id);
