@@ -17,6 +17,7 @@ export default function ScanPage() {
   const [scanning, setScanning] = useState(false);
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const { push } = useToast();
 
   // Get user location
@@ -43,6 +44,9 @@ export default function ScanPage() {
 
   const startCamera = async () => {
     try {
+      setCameraLoading(true);
+      setError(null);
+      
       // Get location first
       getLocation();
       
@@ -57,12 +61,15 @@ export default function ScanPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setCameraActive(true);
-        setError(null);
         
-        // Start continuous scanning
-        startScanning();
+        // Wait for video to be ready before starting scanning
+        videoRef.current.onloadedmetadata = () => {
+          setCameraLoading(false);
+          startScanning();
+        };
       }
     } catch (err) {
+      setCameraLoading(false);
       setError("Camera access denied. Please use manual entry.");
       push({ variant: "error", title: "Camera Error", description: "Unable to access camera" });
     }
@@ -79,12 +86,13 @@ export default function ScanPage() {
 
   const startScanning = () => {
     const scanFrame = () => {
-      if (videoRef.current && canvasRef.current && !scanning) {
+      if (videoRef.current && canvasRef.current && !scanning && cameraActive) {
         const canvas = canvasRef.current;
         const video = videoRef.current;
         const context = canvas.getContext("2d");
         
-        if (context && video.videoWidth > 0 && video.videoHeight > 0) {
+        // Ensure video is ready and has dimensions
+        if (context && video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           context.drawImage(video, 0, 0);
@@ -99,14 +107,15 @@ export default function ScanPage() {
           }
         }
         
-        // Continue scanning
+        // Continue scanning if camera is still active
         if (cameraActive) {
           requestAnimationFrame(scanFrame);
         }
       }
     };
     
-    scanFrame();
+    // Start scanning after a small delay to ensure video is ready
+    setTimeout(scanFrame, 500);
   };
 
   const captureFrame = () => {
@@ -167,11 +176,16 @@ export default function ScanPage() {
   };
 
   const handleScanClick = () => {
+    if (!cameraActive) {
+      push({ variant: "error", title: "Camera Not Active", description: "Please start the camera first" });
+      return;
+    }
+    
     const captured = captureFrame();
     if (captured) {
-      // In a real implementation, you would process the captured image
-      // to extract QR code data using a library like jsQR
-      push({ variant: "error", title: "QR Scanning", description: "QR scanning requires additional library integration" });
+      submitToken(captured);
+    } else {
+      push({ variant: "error", title: "No QR Code Found", description: "No QR code detected in the current frame. Try again or use manual entry." });
     }
   };
 
@@ -201,9 +215,13 @@ export default function ScanPage() {
           <CardContent className="space-y-4">
             {!cameraActive ? (
               <div className="text-center py-8">
-                <Camera className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Start Camera</h3>
-                <p className="text-muted-foreground mb-4">Click to activate your camera for QR scanning</p>
+                {cameraLoading ? (
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+                ) : (
+                  <Camera className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                )}
+                <h3 className="text-lg font-semibold mb-2">{cameraLoading ? "Starting Camera..." : "Start Camera"}</h3>
+                <p className="text-muted-foreground mb-4">{cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for QR scanning"}</p>
                 
                 {/* Location Status */}
                 <div className="mb-4 p-3 bg-muted rounded-lg">
@@ -221,9 +239,9 @@ export default function ScanPage() {
                   )}
                 </div>
                 
-                <Button onClick={startCamera} variant="primary" disabled={scanning}>
+                <Button onClick={startCamera} variant="primary" disabled={scanning || cameraLoading}>
                   <Camera className="w-4 h-4 mr-2" />
-                  {scanning ? "Scanning..." : "Start Camera"}
+                  {cameraLoading ? "Starting Camera..." : scanning ? "Scanning..." : "Start Camera"}
                 </Button>
               </div>
             ) : (
@@ -233,6 +251,7 @@ export default function ScanPage() {
                     ref={videoRef}
                     autoPlay
                     playsInline
+                    muted
                     className="w-full h-64 object-cover rounded-lg border"
                   />
                   <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none">
