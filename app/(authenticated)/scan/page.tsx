@@ -50,25 +50,68 @@ export default function ScanPage() {
       // Get location first
       getLocation();
       
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: "environment", // Use back camera
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
-      });
+      // Try with back camera first, fallback to any camera
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: "environment", // Use back camera
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          } 
+        });
+      } catch (backCameraError) {
+        console.log("Back camera failed, trying any camera:", backCameraError);
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+      }
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        setCameraActive(true);
         
-        // Wait for video to be ready before starting scanning
+        // Set up event listeners
         videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded");
+          setCameraActive(true);
           setCameraLoading(false);
           startScanning();
         };
+        
+        videoRef.current.oncanplay = () => {
+          console.log("Video can play");
+          if (!cameraActive) {
+            setCameraActive(true);
+            setCameraLoading(false);
+            startScanning();
+          }
+        };
+        
+        videoRef.current.onerror = (e) => {
+          console.error("Video error:", e);
+          setCameraLoading(false);
+          setError("Video stream error. Please try again.");
+        };
+        
+        // Fallback timeout in case events don't fire
+        setTimeout(() => {
+          if (cameraLoading && videoRef.current && videoRef.current.videoWidth > 0) {
+            console.log("Fallback: Video ready detected");
+            setCameraActive(true);
+            setCameraLoading(false);
+            startScanning();
+          } else if (cameraLoading) {
+            console.log("Camera still loading after 3 seconds, video state:", {
+              videoWidth: videoRef.current?.videoWidth,
+              videoHeight: videoRef.current?.videoHeight,
+              readyState: videoRef.current?.readyState,
+              srcObject: !!videoRef.current?.srcObject
+            });
+          }
+        }, 3000);
       }
     } catch (err) {
+      console.error("Camera error:", err);
       setCameraLoading(false);
       setError("Camera access denied. Please use manual entry.");
       push({ variant: "error", title: "Camera Error", description: "Unable to access camera" });
@@ -239,10 +282,21 @@ export default function ScanPage() {
                   )}
                 </div>
                 
-                <Button onClick={startCamera} variant="primary" disabled={scanning || cameraLoading}>
-                  <Camera className="w-4 h-4 mr-2" />
-                  {cameraLoading ? "Starting Camera..." : scanning ? "Scanning..." : "Start Camera"}
-                </Button>
+                <div className="space-y-2">
+                  <Button onClick={startCamera} variant="primary" disabled={scanning || cameraLoading}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    {cameraLoading ? "Starting Camera..." : scanning ? "Scanning..." : "Start Camera"}
+                  </Button>
+                  
+                  {/* Debug info */}
+                  {cameraLoading && (
+                    <div className="text-xs text-muted-foreground text-center">
+                      <p>• Check if camera permission was granted</p>
+                      <p>• Ensure camera is not being used by another app</p>
+                      <p>• Try refreshing the page if stuck</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -252,7 +306,9 @@ export default function ScanPage() {
                     autoPlay
                     playsInline
                     muted
+                    controls={false}
                     className="w-full h-64 object-cover rounded-lg border"
+                    style={{ backgroundColor: '#000' }}
                   />
                   <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none">
                     <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-primary rounded-tl-lg"></div>
