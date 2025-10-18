@@ -221,7 +221,7 @@ export default function EditUserPage() {
                   <Select
                     value={form.cds_group_id}
                     onChange={(e) => setForm({ ...form, cds_group_id: e.target.value })}
-                    options={cdsGroups?.map(group => ({ value: group._id, label: group.name })) || []}
+                    options={cdsGroups?.map((group: { _id: string; name: string }) => ({ value: group._id, label: group.name })) || []}
                   />
                 </div>
               )}
