@@ -22,7 +22,6 @@ export const get = query({
       meeting_time: group.meeting_time,
       meeting_duration: group.meeting_duration,
       venue_name: group.venue_name,
-      venue_coordinates: group.venue_coordinates,
       created_at: group.created_at,
       updated_at: group.updated_at,
     };
@@ -36,7 +35,6 @@ export const create = mutation({
     meeting_time: v.string(),
     meeting_duration: v.number(),
     venue_name: v.string(),
-    venue_coordinates: v.object({ latitude: v.number(), longitude: v.number() }),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -46,7 +44,6 @@ export const create = mutation({
       meeting_time: args.meeting_time,
       meeting_duration: args.meeting_duration,
       venue_name: args.venue_name,
-      venue_coordinates: args.venue_coordinates,
       admin_ids: [],
       created_at: now,
       updated_at: now,
@@ -63,10 +60,6 @@ export const update = mutation({
     meeting_time: v.optional(v.string()),
     meeting_duration: v.optional(v.number()),
     venue_name: v.optional(v.string()),
-    venue_coordinates: v.optional(v.object({
-      latitude: v.number(),
-      longitude: v.number(),
-    })),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

@@ -1,16 +1,13 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { haversineDistanceMeters, isWithinMeetingWindow, nowMs, toNigeriaYYYYMMDD } from "./utils";
-
-const ATTENDANCE_RADIUS_METERS = Number(process.env.ATTENDANCE_RADIUS_METERS || 100);
+import { isWithinMeetingWindow, nowMs, toNigeriaYYYYMMDD } from "./utils";
 
 export const submitScan = mutation({
   args: {
     sessionToken: v.string(),
     token: v.string(),
-    coords: v.optional(v.object({ latitude: v.number(), longitude: v.number(), accuracy: v.optional(v.number()) })),
   },
-  handler: async (ctx, { sessionToken, token, coords }) => {
+  handler: async (ctx, { sessionToken, token }) => {
     const session = await ctx.db
       .query("sessions")
       .filter((q) => q.eq(q.field("session_token"), sessionToken))
@@ -50,26 +47,12 @@ export const submitScan = mutation({
     const now = nowMs();
     if (qr.expires_at < now) throw new Error("QR code expired. Please scan the current code.");
 
-    // Geolocation verification (best effort)
-    let locationVerified = false;
-    let scannedLocation: { latitude: number; longitude: number } | undefined = undefined;
-    if (coords && typeof coords.latitude === "number" && typeof coords.longitude === "number") {
-      scannedLocation = { latitude: coords.latitude, longitude: coords.longitude };
-      const dist = haversineDistanceMeters(coords.latitude, coords.longitude, group.venue_coordinates.latitude, group.venue_coordinates.longitude);
-      locationVerified = dist <= ATTENDANCE_RADIUS_METERS && (!coords.accuracy || coords.accuracy <= 100);
-      if (!locationVerified) {
-        throw new Error("You must be within 100m of the meeting venue to mark attendance.");
-      }
-    }
-
     const attendanceId = await ctx.db.insert("attendance", {
       user_id: user._id,
       cds_group_id: group._id,
       meeting_date: today,
       scanned_at: now,
       qr_token_id: qr._id,
-      location_verified: locationVerified,
-      scanned_location: scannedLocation,
       status: "present",
     });
 
@@ -90,11 +73,8 @@ export const getUserHistory = query({
       cds_group_id: record.cds_group_id,
       qr_token_id: record.qr_token_id,
       status: record.status,
-      latitude: record.scanned_location?.latitude,
-      longitude: record.scanned_location?.longitude,
       timestamp: record.scanned_at,
       meeting_date: record.meeting_date,
-      location_verified: record.location_verified,
     }));
   },
 });
@@ -116,8 +96,6 @@ export const getTodayAttendance = query({
       status: record.status,
       scanned_at: record.scanned_at,
       meeting_date: record.meeting_date,
-      location_verified: record.location_verified,
-      scanned_location: record.scanned_location,
     }));
   },
 });

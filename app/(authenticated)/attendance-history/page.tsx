@@ -211,10 +211,7 @@ export default function AttendanceHistoryPage() {
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MapPin className="w-3 h-3" />
                 <span>
-                  {item.latitude && item.longitude ? 
-                    `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}` : 
-                    "Not available"
-                  }
+                  Location tracking disabled
                 </span>
               </div>
             )

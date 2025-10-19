@@ -9,11 +9,12 @@ const client = new ConvexHttpClient(convexUrl);
 export async function loginAction(formData: FormData) {
   const stateCode = String(formData.get("stateCode") || "").trim();
   const password = String(formData.get("password") || "");
+  const clientIp = String(formData.get("clientIp") || "");
   if (!stateCode || !password) {
     return { ok: false, error: "Missing credentials" } as const;
   }
   try {
-    const res = await client.mutation(api.auth.login, { stateCode, password });
+    const res = await client.mutation(api.auth.login, { stateCode, password, clientIp });
     const c = await cookies();
     c.set("session_token", res.sessionToken, {
       httpOnly: true,
@@ -34,27 +35,32 @@ export async function logoutAction() {
   if (token) {
     try {
       await client.mutation(api.auth.logout, { sessionToken: token });
-    } catch {}
+    } catch (e) {
+      // Ignore errors on logout
+    }
   }
   c.delete("session_token");
-  return { ok: true } as const;
 }
 
 export async function changePasswordAction(formData: FormData) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false, error: "Unauthorized" } as const;
+  }
+  
   const currentPassword = String(formData.get("currentPassword") || "");
   const newPassword = String(formData.get("newPassword") || "");
-  const confirm = String(formData.get("confirm") || "");
-  if (newPassword !== confirm) {
-    return { ok: false, error: "Passwords do not match" } as const;
+  
+  if (!currentPassword || !newPassword) {
+    return { ok: false, error: "Missing password fields" } as const;
   }
-  const c = await cookies();
-  const token = c.get("session_token")?.value || "";
-  if (!token) return { ok: false, error: "Unauthorized" } as const;
+  
   try {
-    await client.mutation(api.auth.changePassword, {
-      sessionToken: token,
-      currentPassword,
-      newPassword,
+    await client.mutation(api.auth.changePassword, { 
+      sessionToken, 
+      currentPassword, 
+      newPassword 
     });
     return { ok: true } as const;
   } catch (e: any) {
@@ -62,4 +68,17 @@ export async function changePasswordAction(formData: FormData) {
   }
 }
 
-
+export async function unbanUserAction(userId: string) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false, error: "Unauthorized" } as const;
+  }
+  
+  try {
+    await client.mutation(api.auth.unbanUser, { sessionToken, userId: userId as any });
+    return { ok: true } as const;
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Failed to unban user" } as const;
+  }
+}

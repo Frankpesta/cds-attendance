@@ -19,8 +19,8 @@ export const getUserByStateCode = query({
 });
 
 export const login = mutation({
-  args: { stateCode: v.string(), password: v.string() },
-  handler: async (ctx, { stateCode, password }) => {
+  args: { stateCode: v.string(), password: v.string(), clientIp: v.optional(v.string()) },
+  handler: async (ctx, { stateCode, password, clientIp }) => {
     const user = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("state_code"), stateCode))
@@ -32,6 +32,30 @@ export const login = mutation({
     const ok = bcrypt.compareSync(password, user.password);
     if (!ok) {
       throw new Error("Invalid state code or password");
+    }
+
+    // IP-based security check
+    if (clientIp) {
+      // If user has a registered IP and it doesn't match, check if they're banned
+      if (user.registered_ip && user.registered_ip !== clientIp) {
+        if (user.is_ip_banned) {
+          throw new Error("Your account has been temporarily locked due to IP address mismatch. Please contact a Super Admin to unlock your account.");
+        }
+        // First time login from different IP - ban the user
+        await ctx.db.patch(user._id, {
+          is_ip_banned: true,
+          updated_at: nowMs(),
+        });
+        throw new Error("Your account has been temporarily locked due to IP address mismatch. Please contact a Super Admin to unlock your account.");
+      }
+      
+      // If this is the first login or IP matches, register the IP
+      if (!user.registered_ip) {
+        await ctx.db.patch(user._id, {
+          registered_ip: clientIp,
+          updated_at: nowMs(),
+        });
+      }
     }
 
     const now = nowMs();
@@ -152,6 +176,55 @@ export const changePassword = mutation({
       updated_at: nowMs(),
     });
     return true;
+  },
+});
+
+export const unbanUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { sessionToken, userId }) => {
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .unique();
+    if (!session) throw new Error("Unauthorized");
+
+    const admin = await ctx.db.get(session.user_id);
+    if (!admin || admin.role !== "super_admin") {
+      throw new Error("Only Super Admins can unban users");
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(userId, {
+      is_ip_banned: false,
+      updated_at: nowMs(),
+    });
+
+    return true;
+  },
+});
+
+export const getBannedUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const bannedUsers = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("is_ip_banned"), true))
+      .collect();
+
+    return bannedUsers.map(user => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      state_code: user.state_code,
+      registered_ip: user.registered_ip,
+      role: user.role,
+      created_at: user.created_at,
+    }));
   },
 });
 

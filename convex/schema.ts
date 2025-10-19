@@ -13,6 +13,8 @@ export default defineSchema({
     cds_group_id: v.optional(v.id("cds_groups")),
     cds_meeting_days: v.array(v.string()),
     must_change_password: v.boolean(),
+    registered_ip: v.optional(v.string()), // IP address from first login
+    is_ip_banned: v.boolean(), // IP ban status
     created_at: v.number(), // ms epoch UTC
     updated_at: v.number(), // ms epoch UTC
   })
@@ -27,7 +29,6 @@ export default defineSchema({
     meeting_time: v.string(), // HH:mm 24h
     meeting_duration: v.number(), // minutes
     venue_name: v.string(),
-    venue_coordinates: v.object({ latitude: v.number(), longitude: v.number() }),
     admin_ids: v.array(v.id("users")),
     created_at: v.number(),
     updated_at: v.number(),
@@ -72,8 +73,6 @@ export default defineSchema({
     meeting_date: v.string(),
     scanned_at: v.number(),
     qr_token_id: v.id("qr_tokens"),
-    location_verified: v.boolean(),
-    scanned_location: v.optional(v.object({ latitude: v.number(), longitude: v.number() })),
     status: v.union(v.literal("present"), v.literal("absent")),
   })
     .index("by_user_date", ["user_id", "meeting_date"]) // prevent duplicate same day
