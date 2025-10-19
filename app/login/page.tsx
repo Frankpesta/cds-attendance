@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loginAction } from "../actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [clientIp, setClientIp] = useState<string>("");
   const { push } = useToast();
+
+  // Get client IP address
+  useEffect(() => {
+    const getClientIp = async () => {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        setClientIp(data.ip);
+      } catch (error) {
+        console.error('Failed to get client IP:', error);
+        // Fallback to empty string if IP detection fails
+        setClientIp("");
+      }
+    };
+    getClientIp();
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +37,7 @@ export default function LoginPage() {
       const fd = new FormData();
       fd.set("stateCode", stateCode);
       fd.set("password", password);
+      fd.set("clientIp", clientIp);
       const res = await loginAction(fd);
       if (!res.ok) {
         setError(res.error || "Login failed");

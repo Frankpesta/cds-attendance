@@ -81,6 +81,7 @@ export const onboardCorpsMember = mutation({
       cds_group_id: args.cds_group_id,
       cds_meeting_days: [], // can be synced from group client-side
       must_change_password: true,
+      is_ip_banned: false,
       created_at: now,
       updated_at: now,
     });

@@ -23,8 +23,6 @@ export default function CreateGroupPage() {
     meeting_time: "14:00",
     meeting_duration: 60,
     venue_name: "",
-    venue_lat: "7.2508",
-    venue_lng: "5.2103",
   });
 
   const dayOptions = [
@@ -61,8 +59,7 @@ export default function CreateGroupPage() {
         meeting_time: form.meeting_time,
         meeting_duration: Number(form.meeting_duration),
         venue_name: form.venue_name,
-        venue_coordinates: { latitude: Number(form.venue_lat), longitude: Number(form.venue_lng) },
-      } as any);
+      });
       
       push({ variant: "success", title: "Group created", description: "CDS group has been created successfully" });
       window.location.href = "/groups";
@@ -146,28 +143,6 @@ export default function CreateGroupPage() {
               />
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Venue Latitude</label>
-                <Input 
-                  type="number" 
-                  step="0.000001"
-                  placeholder="7.250800" 
-                  value={form.venue_lat} 
-                  onChange={(e) => setForm({ ...form, venue_lat: e.target.value })} 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Venue Longitude</label>
-                <Input 
-                  type="number" 
-                  step="0.000001"
-                  placeholder="5.210300" 
-                  value={form.venue_lng} 
-                  onChange={(e) => setForm({ ...form, venue_lng: e.target.value })} 
-                />
-              </div>
-            </div>
 
             <div className="flex gap-3 pt-4">
               <Button type="submit" loading={loading}>

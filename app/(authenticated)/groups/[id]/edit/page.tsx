@@ -30,8 +30,6 @@ export default function EditGroupPage() {
     meeting_time: "14:00",
     meeting_duration: 60,
     venue_name: "",
-    venue_lat: "7.2508",
-    venue_lng: "5.2103",
   });
 
   useEffect(() => {
@@ -42,8 +40,6 @@ export default function EditGroupPage() {
         meeting_time: group.meeting_time || "14:00",
         meeting_duration: group.meeting_duration || 60,
         venue_name: group.venue_name || "",
-        venue_lat: group.venue_coordinates?.latitude?.toString() || "7.2508",
-        venue_lng: group.venue_coordinates?.longitude?.toString() || "5.2103",
       });
     }
   }, [group]);
@@ -83,8 +79,7 @@ export default function EditGroupPage() {
         meeting_time: form.meeting_time,
         meeting_duration: Number(form.meeting_duration),
         venue_name: form.venue_name,
-        venue_coordinates: { latitude: Number(form.venue_lat), longitude: Number(form.venue_lng) },
-      } as any);
+      });
       
       push({ variant: "success", title: "Group updated", description: "CDS group has been updated successfully" });
       window.location.href = "/groups";
@@ -176,28 +171,6 @@ export default function EditGroupPage() {
               />
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Venue Latitude</label>
-                <Input 
-                  type="number" 
-                  step="0.000001"
-                  placeholder="7.250800" 
-                  value={form.venue_lat} 
-                  onChange={(e) => setForm({ ...form, venue_lat: e.target.value })} 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Venue Longitude</label>
-                <Input 
-                  type="number" 
-                  step="0.000001"
-                  placeholder="5.210300" 
-                  value={form.venue_lng} 
-                  onChange={(e) => setForm({ ...form, venue_lng: e.target.value })} 
-                />
-              </div>
-            </div>
 
             <div className="flex gap-3 pt-4">
               <Button type="submit" loading={loading}>

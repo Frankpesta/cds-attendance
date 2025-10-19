@@ -85,6 +85,7 @@ export const create = mutation({
       cds_group_id: args.cds_group_id,
       cds_meeting_days: [],
       must_change_password: false,
+      is_ip_banned: false,
       created_at: now,
       updated_at: now,
     });

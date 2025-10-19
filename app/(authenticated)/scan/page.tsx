@@ -3,7 +3,7 @@ import { useRef, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, QrCode, Smartphone, AlertCircle, CheckCircle, MapPin, RefreshCw } from "lucide-react";
+import { Camera, QrCode, Smartphone, AlertCircle, CheckCircle } from "lucide-react";
 import jsQR from "jsqr";
 import { submitAttendanceAction } from "@/app/actions/attendance";
 
@@ -15,62 +15,14 @@ export default function ScanPage() {
   const [manualToken, setManualToken] = useState("");
   const [cameraActive, setCameraActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [locationPermissionState, setLocationPermissionState] = useState<PermissionState | null>(null);
 
-  // Check location permission state
-  useEffect(() => {
-    if ("permissions" in navigator) {
-      navigator.permissions.query({ name: "geolocation" }).then((result) => {
-        setLocationPermissionState(result.state);
-        result.onchange = () => setLocationPermissionState(result.state);
-      });
-    }
-  }, []);
-
-  // Get user location
-  const getLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-          setLocationError(null);
-        },
-        (error) => {
-          let errorMessage = "Location access denied. Attendance may not be recorded.";
-          if (error.code === error.TIMEOUT) {
-            errorMessage = "Location request timed out. Please try again.";
-          } else if (error.code === error.POSITION_UNAVAILABLE) {
-            errorMessage = "Location information is unavailable.";
-          }
-          setLocationError(errorMessage);
-          console.error("Geolocation error:", error);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-      );
-    } else {
-      setLocationError("Geolocation not supported by this browser.");
-    }
-  };
-
-  const retryLocation = () => {
-    setLocationError(null);
-    getLocation();
-  };
 
   const startCamera = async () => {
     try {
       setCameraLoading(true);
       setError(null);
-
-      // Get location
-      getLocation();
 
       // Try with back camera first, fallback to any camera
       let stream: MediaStream;
@@ -230,12 +182,10 @@ export default function ScanPage() {
     setError(null);
     setSuccessMessage(null);
 
-    try {
-      const formData = new FormData();
-      formData.set("token", token);
-      formData.set("latitude", location?.latitude?.toString() ?? "0");
-      formData.set("longitude", location?.longitude?.toString() ?? "0");
-      const res = await submitAttendanceAction(formData);
+        try {
+          const formData = new FormData();
+          formData.set("token", token);
+          const res = await submitAttendanceAction(formData);
 
       setSuccessMessage("Your attendance has been recorded successfully");
       setManualToken("");
@@ -311,35 +261,6 @@ export default function ScanPage() {
                     {cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for QR scanning"}
                   </p>
 
-                  {/* Location Status */}
-                  <div className="mb-4 p-3 bg-gray-100 rounded-lg">
-                    <div className="flex items-center justify-center gap-2 text-sm">
-                      <MapPin className="w-4 h-4" />
-                      <span>
-                        {location
-                          ? `Location: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`
-                          : "Location: Not available"}
-                      </span>
-                    </div>
-                    {locationError && (
-                      <p className="text-xs text-red-600 mt-1">{locationError}</p>
-                    )}
-                    {locationPermissionState === "denied" && (
-                      <p className="text-xs text-red-600 mt-1">
-                        Location permission denied. Enable in browser settings and refresh.
-                      </p>
-                    )}
-                    {(locationError || !location) && (
-                      <Button
-                        onClick={retryLocation}
-                        className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg text-sm"
-                        disabled={isSubmitting || cameraLoading}
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2 inline" />
-                        Retry Location
-                      </Button>
-                    )}
-                  </div>
 
                   <Button
                     onClick={startCamera}
@@ -475,12 +396,11 @@ export default function ScanPage() {
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
                   <div className="text-sm text-blue-800">
                     <p className="font-medium">Tips for successful attendance:</p>
-                    <ul className="mt-1 space-y-1 text-xs">
-                      <li>• Ensure you're within 100m of the venue</li>
-                      <li>• Scan during the meeting time window</li>
-                      <li>• Use manual entry if camera doesn't work</li>
-                      <li>• Contact admin if you encounter issues</li>
-                    </ul>
+                        <ul className="mt-1 space-y-1 text-xs">
+                          <li>• Scan during the meeting time window</li>
+                          <li>• Use manual entry if camera doesn't work</li>
+                          <li>• Contact admin if you encounter issues</li>
+                        </ul>
                   </div>
                 </div>
               </div>

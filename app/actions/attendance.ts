@@ -13,18 +13,12 @@ export async function submitAttendanceAction(formData: FormData) {
   
   try {
     const token = formData.get("token") as string;
-    const latitude = parseFloat(formData.get("latitude") as string);
-    const longitude = parseFloat(formData.get("longitude") as string);
     
     if (!token) {
       return { ok: false, error: "Token is required" } as const;
     }
     
-    const coords = !isNaN(latitude) && !isNaN(longitude) 
-      ? { latitude, longitude, accuracy: 10 } 
-      : undefined;
-    
-    const res = await client.mutation(api.attendance.submitScan, { sessionToken, token, coords });
+    const res = await client.mutation(api.attendance.submitScan, { sessionToken, token });
     return { ok: true, data: res } as const;
   } catch (e: any) {
     return { ok: false, error: e?.message || "Failed to submit attendance" } as const;

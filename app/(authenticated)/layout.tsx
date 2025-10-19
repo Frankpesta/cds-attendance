@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSessionAction } from "../actions/session";
-import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity } from "lucide-react";
+import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield } from "lucide-react";
 
 export default function AuthenticatedLayout({
   children,
@@ -39,6 +39,7 @@ export default function AuthenticatedLayout({
           { label: "Users", href: "/users", icon: Users },
           { label: "Groups", href: "/groups", icon: Building2 },
           { label: "Admin Assignments", href: "/admin-assignments", icon: UserCheck },
+          { label: "Banned Users", href: "/banned-users", icon: Shield },
           { label: "Onboarding", href: "/onboarding", icon: UserPlus },
           { label: "Reports", href: "/reports", icon: BarChart3 },
         ]
