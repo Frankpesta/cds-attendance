@@ -17,7 +17,8 @@ export default function ScanPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
+  const lastScannedTokenRef = useRef<string | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
 
   const startCamera = async () => {
     try {
@@ -30,15 +31,21 @@ export default function ScanPage() {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            advanced: [{ frameRate: { ideal: 30 } }],
           },
         });
         console.log("Using environment-facing camera");
       } catch (backCameraError) {
         console.warn("Back camera failed, trying any camera:", backCameraError);
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        console.log("Using default camera");
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+        });
+       
       }
 
       if (videoRef.current) {
@@ -120,23 +127,41 @@ export default function ScanPage() {
 
       // Check if video is ready
       if (context && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Downscale for faster processing
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        const maxDim = 640;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.floor(width * scale);
+          height = Math.floor(height * scale);
+        }
+        canvas.width = width;
+        canvas.height = height;
+        context.drawImage(video, 0, 0, width, height);
 
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const imageData = context.getImageData(0, 0, width, height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: "attemptBoth",
         });
 
         if (code) {
+          const now = Date.now();
+          if (code.data === lastScannedTokenRef.current && now - lastScanTimeRef.current < 2000) {
+            // Skip duplicate scan within 2 seconds
+            scanningIntervalRef.current = requestAnimationFrame(scanFrame);
+            return;
+          }
+
           console.log("QR Code detected:", code.data);
+          lastScannedTokenRef.current = code.data;
+          lastScanTimeRef.current = now;
           submitToken(code.data).then((success) => {
             if (!success && cameraActive) {
               scanningIntervalRef.current = requestAnimationFrame(scanFrame);
             }
           });
-          return; // Pause scanning until submission completes
+          return; // Pause during submission
         }
       }
 
@@ -156,11 +181,20 @@ export default function ScanPage() {
       const context = canvas.getContext("2d", { willReadFrequently: true });
 
       if (context && video.videoWidth > 0 && video.videoHeight > 0) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
+        // Downscale for faster processing
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+        const maxDim = 640;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.floor(width * scale);
+          height = Math.floor(height * scale);
+        }
+        canvas.width = width;
+        canvas.height = height;
+        context.drawImage(video, 0, 0, width, height);
 
-        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const imageData = context.getImageData(0, 0, width, height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: "attemptBoth",
         });
@@ -182,18 +216,18 @@ export default function ScanPage() {
     setError(null);
     setSuccessMessage(null);
 
-        try {
-          const formData = new FormData();
-          formData.set("token", token);
-          const res = await submitAttendanceAction(formData);
+    try {
+      const formData = new FormData();
+      formData.set("token", token);
+      const res = await submitAttendanceAction(formData);
 
-      setSuccessMessage("Your attendance has been recorded successfully");
+      setSuccessMessage(`Attendance recorded for ${token}`);
       setManualToken("");
 
-      // Stop camera after successful scan
+      // Clear success message after 3 seconds
       setTimeout(() => {
-        stopCamera();
-      }, 1500);
+        setSuccessMessage(null);
+      }, 3000);
 
       return true;
     } catch (e) {
@@ -219,6 +253,10 @@ export default function ScanPage() {
       submitToken(captured);
     } else {
       setError("No QR code detected. Try again or use manual entry.");
+      // Clear error after 3 seconds
+      setTimeout(() => {
+        setError(null);
+      }, 3000);
     }
   };
 
@@ -233,7 +271,7 @@ export default function ScanPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Scan Attendance</h1>
-          <p className="text-gray-600 mt-1">Mark your attendance using QR code scanning or manual entry</p>
+          <p className="text-gray-600 mt-1">Mark attendance by scanning QR codes or manual entry</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -244,7 +282,7 @@ export default function ScanPage() {
                 <Camera className="w-5 h-5" />
                 <h2 className="text-xl font-semibold">QR Code Scanner</h2>
               </div>
-              <p className="text-sm text-gray-600">Use your camera to scan the QR code</p>
+              <p className="text-sm text-gray-600">Use your camera to scan QR codes quickly</p>
             </CardHeader>
             <CardContent className="space-y-4">
               {!cameraActive && (
@@ -260,7 +298,6 @@ export default function ScanPage() {
                   <p className="text-gray-600 mb-4">
                     {cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for QR scanning"}
                   </p>
-
 
                   <Button
                     onClick={startCamera}
@@ -396,11 +433,11 @@ export default function ScanPage() {
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
                   <div className="text-sm text-blue-800">
                     <p className="font-medium">Tips for successful attendance:</p>
-                        <ul className="mt-1 space-y-1 text-xs">
-                          <li>• Scan during the meeting time window</li>
-                          <li>• Use manual entry if camera doesn't work</li>
-                          <li>• Contact admin if you encounter issues</li>
-                        </ul>
+                    <ul className="mt-1 space-y-1 text-xs">
+                      <li>• Scan during the meeting time window</li>
+                      <li>• Use manual entry if camera doesn't work</li>
+                      <li>• Contact admin if you encounter issues</li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -419,22 +456,22 @@ export default function ScanPage() {
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 font-bold">1</span>
                 </div>
-                <h4 className="font-medium mb-1">Find the QR Code</h4>
-                <p className="text-sm text-gray-600">Look for the QR code displayed by the admin</p>
+                <h4 className="font-medium mb-1">Prepare QR Codes</h4>
+                <p className="text-sm text-gray-600">Each person presents their QR code</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 font-bold">2</span>
                 </div>
                 <h4 className="font-medium mb-1">Scan or Enter Token</h4>
-                <p className="text-sm text-gray-600">Use the camera scanner or enter the token manually</p>
+                <p className="text-sm text-gray-600">Scan multiple QRs quickly or enter manually</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 font-bold">3</span>
                 </div>
                 <h4 className="font-medium mb-1">Confirm Attendance</h4>
-                <p className="text-sm text-gray-600">Your attendance will be recorded automatically</p>
+                <p className="text-sm text-gray-600">Attendance recorded automatically for each scan</p>
               </div>
             </div>
           </CardContent>
