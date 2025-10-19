@@ -1,3 +1,4 @@
+
 "use client";
 import { useRef, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -25,7 +26,6 @@ export default function ScanPage() {
       setCameraLoading(true);
       setError(null);
 
-      // Try with back camera first, fallback to any camera
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -45,13 +45,12 @@ export default function ScanPage() {
             height: { ideal: 480 },
           },
         });
-       
+        console.log("Using default camera");
       }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
 
-        // Wait for video to be ready
         const playPromise = videoRef.current.play();
         if (playPromise !== undefined) {
           playPromise
@@ -60,7 +59,6 @@ export default function ScanPage() {
               setCameraActive(true);
               setCameraLoading(false);
 
-              // Start scanning after a short delay to ensure video is rendering
               setTimeout(() => {
                 startScanning();
               }, 500);
@@ -69,7 +67,7 @@ export default function ScanPage() {
               console.error("Error playing video:", playError);
               setError("Could not start video playback. Please ensure camera permissions are granted.");
               setCameraLoading(false);
-              stopCamera(); // Clean up stream on error
+              stopCamera();
             });
         }
 
@@ -83,7 +81,6 @@ export default function ScanPage() {
         console.error("Video ref is null");
         setError("Unable to access video element. Please refresh the page.");
         setCameraLoading(false);
-        // Clean up stream if ref is null
         stream.getTracks().forEach((track) => track.stop());
       }
     } catch (err) {
@@ -98,13 +95,11 @@ export default function ScanPage() {
   };
 
   const stopCamera = () => {
-    // Stop scanning loop
     if (scanningIntervalRef.current) {
       cancelAnimationFrame(scanningIntervalRef.current);
       scanningIntervalRef.current = null;
     }
 
-    // Stop video stream
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track) => track.stop());
@@ -125,9 +120,7 @@ export default function ScanPage() {
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d", { willReadFrequently: true });
 
-      // Check if video is ready
       if (context && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-        // Downscale for faster processing
         let width = video.videoWidth;
         let height = video.videoHeight;
         const maxDim = 640;
@@ -148,7 +141,6 @@ export default function ScanPage() {
         if (code) {
           const now = Date.now();
           if (code.data === lastScannedTokenRef.current && now - lastScanTimeRef.current < 2000) {
-            // Skip duplicate scan within 2 seconds
             scanningIntervalRef.current = requestAnimationFrame(scanFrame);
             return;
           }
@@ -161,11 +153,10 @@ export default function ScanPage() {
               scanningIntervalRef.current = requestAnimationFrame(scanFrame);
             }
           });
-          return; // Pause during submission
+          return;
         }
       }
 
-      // Continue scanning
       if (cameraActive) {
         scanningIntervalRef.current = requestAnimationFrame(scanFrame);
       }
@@ -181,7 +172,6 @@ export default function ScanPage() {
       const context = canvas.getContext("2d", { willReadFrequently: true });
 
       if (context && video.videoWidth > 0 && video.videoHeight > 0) {
-        // Downscale for faster processing
         let width = video.videoWidth;
         let height = video.videoHeight;
         const maxDim = 640;
@@ -223,15 +213,21 @@ export default function ScanPage() {
 
       setSuccessMessage(`Attendance recorded for ${token}`);
       setManualToken("");
-
-      // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage(null);
       }, 3000);
 
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+      if (errorMessage.includes("You already marked attendance today")) {
+        setError("You've already marked attendance today!");
+      } else {
+        setError(errorMessage);
+        setTimeout(() => {
+          setError(null);
+        }, 3000);
+      }
       return false;
     } finally {
       setIsSubmitting(false);
@@ -253,7 +249,6 @@ export default function ScanPage() {
       submitToken(captured);
     } else {
       setError("No QR code detected. Try again or use manual entry.");
-      // Clear error after 3 seconds
       setTimeout(() => {
         setError(null);
       }, 3000);
@@ -435,7 +430,7 @@ export default function ScanPage() {
                     <p className="font-medium">Tips for successful attendance:</p>
                     <ul className="mt-1 space-y-1 text-xs">
                       <li>• Scan during the meeting time window</li>
-                      <li>• Use manual entry if camera doesn't work</li>
+                      <li>• Use manual entry if camera fails</li>
                       <li>• Contact admin if you encounter issues</li>
                     </ul>
                   </div>
@@ -464,14 +459,14 @@ export default function ScanPage() {
                   <span className="text-blue-600 font-bold">2</span>
                 </div>
                 <h4 className="font-medium mb-1">Scan or Enter Token</h4>
-                <p className="text-sm text-gray-600">Scan multiple QRs quickly or enter manually</p>
+                <p className="text-sm text-gray-600">Scan QR or enter token manually; one entry per day</p>
               </div>
               <div className="text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                   <span className="text-blue-600 font-bold">3</span>
                 </div>
                 <h4 className="font-medium mb-1">Confirm Attendance</h4>
-                <p className="text-sm text-gray-600">Attendance recorded automatically for each scan</p>
+                <p className="text-sm text-gray-600">Attendance recorded once daily</p>
               </div>
             </div>
           </CardContent>
