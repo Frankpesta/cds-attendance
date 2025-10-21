@@ -13,7 +13,7 @@ import { Chart, BarChart, PieChart } from "@/components/ui/chart";
 import { Users, UserCheck, Building2, Activity, TrendingUp, Calendar, Clock, Target } from "lucide-react";
 
 export default function Dashboard() {
-  const [session, setSession] = useState<{ session: { session_token: string }; user: { role: string; name: string } } | null | undefined>(undefined);
+  const [session, setSession] = useState<{ session: { session_token: string }; user: { id: string; role: string; name: string } } | null | undefined>(undefined);
   const [sessionToken, setSessionToken] = useState("");
   useEffect(() => {
     (async () => {
