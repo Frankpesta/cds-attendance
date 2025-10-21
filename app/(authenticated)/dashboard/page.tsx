@@ -327,7 +327,7 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
   );
 }
 
-function MemberHome({ userId }: { userId: string }) {
+function MemberHome({ userId }: { userId: any }) {
   const stats = useQuery(api.dashboard.getUserStats, { userId });
   const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 10, userId });
 
