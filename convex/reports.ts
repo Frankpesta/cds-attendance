@@ -7,8 +7,9 @@ export const monthlyReport = query({
 		year: v.number(),
 		month: v.number(), // 1-12
 		cdsGroupId: v.optional(v.id("cds_groups")),
+		userId: v.optional(v.id("users")),
 	},
-	handler: async (ctx, { year, month, cdsGroupId }) => {
+	handler: async (ctx, { year, month, cdsGroupId, userId }) => {
 		const monthStr = String(month).padStart(2, "0");
 		const start = `${year}-${monthStr}-01`;
 		const end = `${year}-${monthStr}-31`;
@@ -19,10 +20,24 @@ export const monthlyReport = query({
 
 		const groupIds = new Set(groups.map((g) => g!._id));
 
-		const attendance = await ctx.db
-			.query("attendance")
-			.filter((q) => q.and(q.gte(q.field("meeting_date"), start), q.lte(q.field("meeting_date"), end)))
-			.collect();
+		let attendance;
+		if (userId) {
+			// Get user-specific attendance
+			attendance = await ctx.db
+				.query("attendance")
+				.filter((q) => q.and(
+					q.eq(q.field("user_id"), userId),
+					q.gte(q.field("meeting_date"), start), 
+					q.lte(q.field("meeting_date"), end)
+				))
+				.collect();
+		} else {
+			// Get all attendance for the groups
+			attendance = await ctx.db
+				.query("attendance")
+				.filter((q) => q.and(q.gte(q.field("meeting_date"), start), q.lte(q.field("meeting_date"), end)))
+				.collect();
+		}
 
 		// Map user -> count and dates
 		const byUser = new Map<string, { count: number; dates: string[]; groupId: string }>();
@@ -39,6 +54,7 @@ export const monthlyReport = query({
 		const result = [] as any[];
 		for (const u of users) {
 			if (!groupIds.has(u.cds_group_id as any)) continue;
+			if (userId && u._id !== userId) continue; // Filter to specific user if userId provided
 			const rec = byUser.get(u._id as unknown as string) || { count: 0, dates: [], groupId: u.cds_group_id };
 			result.push({
 				state_code: u.state_code,

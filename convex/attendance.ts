@@ -61,11 +61,12 @@ export const submitScan = mutation({
 });
 
 export const getUserHistory = query({
-  args: {},
-  handler: async (ctx) => {
-    // This would need to be called with user context
-    // For now, return all attendance records
-    const attendance = await ctx.db.query("attendance").collect();
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const attendance = await ctx.db.query("attendance")
+      .filter(q => q.eq(q.field("user_id"), userId))
+      .order("desc")
+      .collect();
     
     return attendance.map(record => ({
       _id: record._id,
@@ -74,6 +75,30 @@ export const getUserHistory = query({
       qr_token_id: record.qr_token_id,
       status: record.status,
       timestamp: record.scanned_at,
+      meeting_date: record.meeting_date,
+    }));
+  },
+});
+
+export const getUserTodayAttendance = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const today = toNigeriaYYYYMMDD(new Date());
+    const attendance = await ctx.db
+      .query("attendance")
+      .filter((q) => q.and(
+        q.eq(q.field("user_id"), userId),
+        q.eq(q.field("meeting_date"), today)
+      ))
+      .collect();
+    
+    return attendance.map(record => ({
+      _id: record._id,
+      user_id: record.user_id,
+      cds_group_id: record.cds_group_id,
+      qr_token_id: record.qr_token_id,
+      status: record.status,
+      scanned_at: record.scanned_at,
       meeting_date: record.meeting_date,
     }));
   },

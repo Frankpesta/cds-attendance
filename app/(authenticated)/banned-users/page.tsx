@@ -21,7 +21,7 @@ interface BannedUser {
 
 export default function BannedUsersPage() {
   const { push } = useToast();
-  const [session, setSession] = useState<{ session: { session_token: string }; user: { role: string } } | null | undefined>(undefined);
+  const [session, setSession] = useState<any | null | undefined>(undefined);
   const [isUnbanning, setIsUnbanning] = useState<string | null>(null);
 
   useEffect(() => {
