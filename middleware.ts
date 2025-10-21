@@ -36,6 +36,10 @@ export async function middleware(req: NextRequest) {
     if (pathname.startsWith("/qr") && !(sess.user.role === "admin" || sess.user.role === "super_admin")) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
+    // Restrict attendance monitor to admin/super_admin only
+    if (pathname.startsWith("/attendance-monitor") && !(sess.user.role === "admin" || sess.user.role === "super_admin")) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
     // Restrict super admin areas
     if (pathname.startsWith("/groups") || pathname.startsWith("/reports")) {
       if (sess.user.role !== "super_admin") {

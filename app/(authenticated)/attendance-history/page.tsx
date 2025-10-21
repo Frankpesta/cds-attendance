@@ -8,14 +8,26 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { Calendar, Clock, MapPin, CheckCircle, XCircle, Filter } from "lucide-react";
+import { getSessionAction } from "@/app/actions/session";
 
 export default function AttendanceHistoryPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [session, setSession] = useState<any | null | undefined>(undefined);
   const { push } = useToast();
 
+  useEffect(() => {
+    (async () => {
+      const s = await getSessionAction();
+      setSession(s);
+    })();
+  }, []);
+
   // Get current user's attendance history
-  const attendanceHistory = useQuery(api.attendance.getUserHistory, {});
+  const attendanceHistory = useQuery(
+    api.attendance.getUserHistory, 
+    session?.user?.id ? { userId: session.user.id } : "skip"
+  );
   const cdsGroups = useQuery(api.cds_groups.list, {});
 
   // Generate month options for current year

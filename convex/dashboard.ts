@@ -2,8 +2,8 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const getStats = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, { userId }) => {
     const now = Date.now();
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
     const startOfWeek = now - (7 * 24 * 60 * 60 * 1000);
@@ -79,12 +79,66 @@ export const getStats = query({
   },
 });
 
+export const getUserStats = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const now = Date.now();
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    const startOfWeek = now - (7 * 24 * 60 * 60 * 1000);
+    const startOfDay = new Date().setHours(0, 0, 0, 0);
+
+    // Get user's attendance records
+    const userAttendance = await ctx.db.query("attendance")
+      .filter(q => q.eq(q.field("user_id"), userId))
+      .collect();
+    
+    const totalAttendance = userAttendance.length;
+    const attendanceThisMonth = userAttendance.filter(a => a.scanned_at >= startOfMonth).length;
+    const attendanceToday = userAttendance.filter(a => a.scanned_at >= startOfDay).length;
+
+    // Get recent attendance (last 7 days) for this user
+    const recentAttendance = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const startOfDay = date.setHours(0, 0, 0, 0);
+      const endOfDay = date.setHours(23, 59, 59, 999);
+      
+      const dayAttendance = userAttendance.filter(a => 
+        a.scanned_at >= startOfDay && a.scanned_at <= endOfDay
+      ).length;
+      
+      recentAttendance.push({
+        date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        value: dayAttendance
+      });
+    }
+
+    return {
+      totalAttendance,
+      attendanceThisMonth,
+      attendanceToday,
+      recentAttendance
+    };
+  },
+});
+
 export const getRecentActivity = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit = 10 }) => {
-    const attendance = await ctx.db.query("attendance")
-      .order("desc")
-      .take(limit);
+  args: { limit: v.optional(v.number()), userId: v.optional(v.id("users")) },
+  handler: async (ctx, { limit = 10, userId }) => {
+    let attendance;
+    if (userId) {
+      // Get user-specific activity
+      attendance = await ctx.db.query("attendance")
+        .filter(q => q.eq(q.field("user_id"), userId))
+        .order("desc")
+        .take(limit);
+    } else {
+      // Get all activity (for admin/super_admin)
+      attendance = await ctx.db.query("attendance")
+        .order("desc")
+        .take(limit);
+    }
     
     const activities = await Promise.all(
       attendance.map(async (record) => {
