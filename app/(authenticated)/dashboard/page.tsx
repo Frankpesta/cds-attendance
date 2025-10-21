@@ -13,7 +13,7 @@ import { Chart, BarChart, PieChart } from "@/components/ui/chart";
 import { Users, UserCheck, Building2, Activity, TrendingUp, Calendar, Clock, Target } from "lucide-react";
 
 export default function Dashboard() {
-  const [session, setSession] = useState<{ session: { session_token: string }; user: { id: string; role: string; name: string } } | null | undefined>(undefined);
+  const [session, setSession] = useState<any | null | undefined>(undefined);
   const [sessionToken, setSessionToken] = useState("");
   useEffect(() => {
     (async () => {
@@ -50,7 +50,7 @@ export default function Dashboard() {
 
       {role === "super_admin" && <SuperAdminHome />}
       {role === "admin" && <AdminHome sessionToken={sessionToken} />}
-      {role === "corps_member" && <MemberHome userId={session.user.id} />}
+      {role === "corps_member" && <MemberHome userId={session.user._id} />}
     </div>
   );
 }

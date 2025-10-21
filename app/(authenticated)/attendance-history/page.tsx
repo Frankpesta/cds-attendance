@@ -26,7 +26,7 @@ export default function AttendanceHistoryPage() {
   // Get current user's attendance history
   const attendanceHistory = useQuery(
     api.attendance.getUserHistory, 
-    session?.user?.id ? { userId: session.user.id } : "skip"
+    session?.user?._id ? { userId: session.user._id } : "skip"
   );
   const cdsGroups = useQuery(api.cds_groups.list, {});
 
