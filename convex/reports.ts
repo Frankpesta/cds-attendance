@@ -76,7 +76,7 @@ export const exportCsv = action({
 		minAttendance: v.optional(v.number()),
 		maxAttendance: v.optional(v.number())
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<{ csv: string }> => {
 		const rep = await ctx.runQuery(api.reports.monthlyReport, {
 			year: args.year,
 			month: args.month,
@@ -119,7 +119,7 @@ export const exportPdf = action({
 		minAttendance: v.optional(v.number()),
 		maxAttendance: v.optional(v.number())
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<{ html: string }> => {
 		const rep = await ctx.runQuery(api.reports.monthlyReport, {
 			year: args.year,
 			month: args.month,
