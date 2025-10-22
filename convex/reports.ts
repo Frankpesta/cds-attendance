@@ -86,7 +86,9 @@ export const exportCsv = action({
 		// Create a map of group IDs to names
 		const groupMap = new Map();
 		for (const group of rep.groups) {
-			groupMap.set(group._id, group.name);
+			if (group) {
+				groupMap.set(group._id, group.name);
+			}
 		}
 		
 		// Filter data based on attendance count if specified
@@ -129,7 +131,9 @@ export const exportPdf = action({
 		// Create a map of group IDs to names
 		const groupMap = new Map();
 		for (const group of rep.groups) {
-			groupMap.set(group._id, group.name);
+			if (group) {
+				groupMap.set(group._id, group.name);
+			}
 		}
 		
 		// Filter data based on attendance count if specified
