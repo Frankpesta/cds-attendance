@@ -71,8 +71,8 @@ export default function BannedUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Banned Users</h1>
-        <p className="text-muted-foreground">Manage users who have been temporarily locked due to IP address mismatches</p>
+        <h1 className="text-3xl font-bold tracking-tight">Banned Corps Members</h1>
+        <p className="text-muted-foreground">Manage corps members who have been temporarily locked due to IP address mismatches</p>
       </div>
 
       {bannedUsers && bannedUsers.length > 0 ? (
@@ -155,10 +155,11 @@ export default function BannedUsersPage() {
               <strong>How IP Security Works:</strong>
             </p>
             <ul className="list-disc list-inside space-y-1 text-gray-600">
-              <li>When a user logs in for the first time, their IP address is registered</li>
+              <li>When a corps member logs in for the first time, their IP address is registered</li>
               <li>If they try to log in from a different IP address, they are automatically banned</li>
-              <li>Only Super Admins can unban users who have been locked due to IP mismatches</li>
-              <li>This helps prevent unauthorized access to user accounts</li>
+              <li>Admins and Super Admins can log in from any device without restrictions</li>
+              <li>Only Super Admins can unban corps members who have been locked due to IP mismatches</li>
+              <li>This helps prevent unauthorized access to corps member accounts</li>
             </ul>
           </div>
         </CardContent>
