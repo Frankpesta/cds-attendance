@@ -69,15 +69,155 @@ export const monthlyReport = query({
 });
 
 export const exportCsv = action({
-	args: { year: v.number(), month: v.number(), cdsGroupId: v.optional(v.id("cds_groups")) },
+	args: { 
+		year: v.number(), 
+		month: v.number(), 
+		cdsGroupId: v.optional(v.id("cds_groups")),
+		minAttendance: v.optional(v.number()),
+		maxAttendance: v.optional(v.number())
+	},
 	handler: async (ctx, args) => {
-		const rep = await ctx.runQuery(api.reports.monthlyReport, args as any);
-		const lines = ["State Code,Name,Group,Attendance Count,Dates"];
-		for (const row of rep.data as any[]) {
+		const rep = await ctx.runQuery(api.reports.monthlyReport, {
+			year: args.year,
+			month: args.month,
+			cdsGroupId: args.cdsGroupId
+		});
+		
+		// Create a map of group IDs to names
+		const groupMap = new Map();
+		for (const group of rep.groups) {
+			groupMap.set(group._id, group.name);
+		}
+		
+		// Filter data based on attendance count if specified
+		let filteredData = rep.data;
+		if (args.minAttendance !== undefined || args.maxAttendance !== undefined) {
+			filteredData = rep.data.filter((row: any) => {
+				const count = row.count;
+				const minCheck = args.minAttendance === undefined || count >= args.minAttendance;
+				const maxCheck = args.maxAttendance === undefined || count <= args.maxAttendance;
+				return minCheck && maxCheck;
+			});
+		}
+		
+		const lines = ["State Code,Name,CDS Group,Attendance Count,Dates"];
+		for (const row of filteredData as any[]) {
+			const groupName = groupMap.get(row.cds_group_id) || "Unknown Group";
 			lines.push(
-				`${row.state_code},${row.name},${row.cds_group_id},${row.count},"${row.dates.join(" ")}"`,
+				`${row.state_code},${row.name},"${groupName}",${row.count},"${row.dates.join(" ")}"`,
 			);
 		}
 		return { csv: lines.join("\n") };
+	},
+});
+
+export const exportPdf = action({
+	args: { 
+		year: v.number(), 
+		month: v.number(), 
+		cdsGroupId: v.optional(v.id("cds_groups")),
+		minAttendance: v.optional(v.number()),
+		maxAttendance: v.optional(v.number())
+	},
+	handler: async (ctx, args) => {
+		const rep = await ctx.runQuery(api.reports.monthlyReport, {
+			year: args.year,
+			month: args.month,
+			cdsGroupId: args.cdsGroupId
+		});
+		
+		// Create a map of group IDs to names
+		const groupMap = new Map();
+		for (const group of rep.groups) {
+			groupMap.set(group._id, group.name);
+		}
+		
+		// Filter data based on attendance count if specified
+		let filteredData = rep.data;
+		if (args.minAttendance !== undefined || args.maxAttendance !== undefined) {
+			filteredData = rep.data.filter((row: any) => {
+				const count = row.count;
+				const minCheck = args.minAttendance === undefined || count >= args.minAttendance;
+				const maxCheck = args.maxAttendance === undefined || count <= args.maxAttendance;
+				return minCheck && maxCheck;
+			});
+		}
+		
+		// Generate HTML for PDF
+		const monthNames = ["January", "February", "March", "April", "May", "June",
+			"July", "August", "September", "October", "November", "December"];
+		
+		const monthName = monthNames[args.month - 1];
+		const totalRecords = filteredData.length;
+		const totalAttendance = filteredData.reduce((sum, row) => sum + row.count, 0);
+		
+		let html = `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<meta charset="utf-8">
+				<title>Attendance Report - ${monthName} ${args.year}</title>
+				<style>
+					body { font-family: Arial, sans-serif; margin: 20px; }
+					.header { text-align: center; margin-bottom: 30px; }
+					.summary { margin-bottom: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px; }
+					table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+					th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+					th { background-color: #f2f2f2; }
+					tr:nth-child(even) { background-color: #f9f9f9; }
+					.footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+				</style>
+			</head>
+			<body>
+				<div class="header">
+					<h1>CDS Attendance Report</h1>
+					<h2>${monthName} ${args.year}</h2>
+				</div>
+				
+				<div class="summary">
+					<h3>Summary</h3>
+					<p><strong>Total Records:</strong> ${totalRecords}</p>
+					<p><strong>Total Attendance Count:</strong> ${totalAttendance}</p>
+					<p><strong>Average Attendance per Member:</strong> ${totalRecords > 0 ? (totalAttendance / totalRecords).toFixed(2) : 0}</p>
+				</div>
+				
+				<table>
+					<thead>
+						<tr>
+							<th>State Code</th>
+							<th>Name</th>
+							<th>CDS Group</th>
+							<th>Attendance Count</th>
+							<th>Attendance Dates</th>
+						</tr>
+					</thead>
+					<tbody>
+		`;
+		
+		for (const row of filteredData as any[]) {
+			const groupName = groupMap.get(row.cds_group_id) || "Unknown Group";
+			html += `
+				<tr>
+					<td>${row.state_code}</td>
+					<td>${row.name}</td>
+					<td>${groupName}</td>
+					<td>${row.count}</td>
+					<td>${row.dates.join(", ")}</td>
+				</tr>
+			`;
+		}
+		
+		html += `
+					</tbody>
+				</table>
+				
+				<div class="footer">
+					<p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+				</div>
+			</body>
+			</html>
+		`;
+		
+		return { html };
 	},
 });

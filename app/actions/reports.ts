@@ -24,9 +24,38 @@ export async function fetchUserMonthlyReport(year: number, month: number, userId
   return res;
 }
 
-export async function exportMonthlyCsv(year: number, month: number, cdsGroupId?: string) {
-  const res = await client.action(api.reports.exportCsv, { year, month, cdsGroupId: cdsGroupId as any });
+export async function exportMonthlyCsv(
+  year: number, 
+  month: number, 
+  cdsGroupId?: string, 
+  minAttendance?: number, 
+  maxAttendance?: number
+) {
+  const res = await client.action(api.reports.exportCsv, { 
+    year, 
+    month, 
+    cdsGroupId: cdsGroupId as any,
+    minAttendance,
+    maxAttendance
+  });
   return res.csv as string;
+}
+
+export async function exportMonthlyPdf(
+  year: number, 
+  month: number, 
+  cdsGroupId?: string, 
+  minAttendance?: number, 
+  maxAttendance?: number
+) {
+  const res = await client.action(api.reports.exportPdf, { 
+    year, 
+    month, 
+    cdsGroupId: cdsGroupId as any,
+    minAttendance,
+    maxAttendance
+  });
+  return res.html as string;
 }
 
 
