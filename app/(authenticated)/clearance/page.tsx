@@ -21,7 +21,7 @@ export default function ClearancePage() {
 
   useEffect(() => {
     (async () => {
-      const { getSessionAction } = await import("@/app/actions/auth");
+      const { getSessionAction } = await import("@/app/actions/session");
       const s = await getSessionAction();
       setSession(s);
     })();
