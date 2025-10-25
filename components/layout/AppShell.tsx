@@ -95,10 +95,10 @@ export function AppShell({ nav, children, user }: { nav: NavItem[]; children: Re
           </Button>
           <div className="flex-1">
             <h1 className="text-lg font-semibold font-sans">
-              NYSC CDS Attendance • {user?.role === "super_admin" && "Super Admin"}
+              {/* NYSC CDS Attendance • {user?.role === "super_admin" && "Super Admin"}
               {user?.role === "admin" && "Admin"}
               {user?.role === "corps_member" && "Member"}
-              {!user && "System"}
+              {!user && "System"} */}
             </h1>
           </div>
           <div className="flex items-center gap-2">
