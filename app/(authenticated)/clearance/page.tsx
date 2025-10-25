@@ -33,9 +33,9 @@ export default function ClearancePage() {
     setLoading(true);
     try {
       const res = await fetchUserMonthlyReport(
-        session.user._id,
         year, 
-        month
+        month,
+        session.user._id
       );
       setData(res.data);
     } catch (e: any) {
