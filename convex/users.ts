@@ -212,3 +212,46 @@ export const changePassword = mutation({
   },
 });
 
+// Debug function to check users without CDS groups
+export const getUsersWithoutCdsGroup = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "corps_member"))
+      .collect();
+    
+    return users.filter(user => !user.cds_group_id);
+  },
+});
+
+// Function to assign CDS group to a user
+export const assignCdsGroup = mutation({
+  args: {
+    userId: v.id("users"),
+    cdsGroupId: v.id("cds_groups"),
+  },
+  handler: async (ctx, { userId, cdsGroupId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    if (user.role !== "corps_member") {
+      throw new Error("Only corps members can be assigned to CDS groups");
+    }
+    
+    const cdsGroup = await ctx.db.get(cdsGroupId);
+    if (!cdsGroup) {
+      throw new Error("CDS group not found");
+    }
+    
+    await ctx.db.patch(userId, {
+      cds_group_id: cdsGroupId,
+      updated_at: Date.now(),
+    });
+    
+    return { success: true };
+  },
+});
+
