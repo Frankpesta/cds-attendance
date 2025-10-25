@@ -345,7 +345,7 @@ export default function ScanPage() {
                     disabled={isSubmitting}
                   >
                     <QrCode className="w-4 h-4 mr-2" />
-                    {isSubmitting ? "Scanning..." : "Manual Capture & Scan"}
+                    {isSubmitting ? "Scanning..." : "Capture & Scan"}
                   </Button>
                   <Button
                     onClick={stopCamera}
@@ -364,14 +364,14 @@ export default function ScanPage() {
                     </div>
                   </div>
                 )}
-                {!isSubmitting && cameraActive && (
+                {/* {!isSubmitting && cameraActive && (
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center justify-center gap-2 text-blue-800">
                       <div className="animate-pulse rounded-full h-4 w-4 bg-blue-600"></div>
                       <span className="text-sm font-medium">Scanning automatically...</span>
                     </div>
                   </div>
-                )}
+                )} */}
               </div>
 
               <canvas ref={canvasRef} className="hidden" />

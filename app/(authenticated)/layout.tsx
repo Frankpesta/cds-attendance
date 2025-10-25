@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSessionAction } from "../actions/session";
-import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield } from "lucide-react";
+import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield, FileText } from "lucide-react";
 
 export default function AuthenticatedLayout({
   children,
@@ -54,6 +54,7 @@ export default function AuthenticatedLayout({
           { label: "Dashboard", href: "/dashboard", icon: Home },
           { label: "Scan", href: "/scan", icon: Scan },
           { label: "Attendance History", href: "/attendance-history", icon: Calendar },
+          { label: "CDS Clearance", href: "/clearance", icon: FileText },
         ];
 
   return <AppShell nav={nav} user={session.user}>{children}</AppShell>;
