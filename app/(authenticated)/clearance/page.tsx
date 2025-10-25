@@ -18,6 +18,12 @@ export default function ClearancePage() {
   const [session, setSession] = useState<any>(null);
   
   const { push } = useToast();
+  
+  // Fetch CDS group data if user has a cds_group_id
+  const cdsGroup = useQuery(
+    api.cds_groups.get, 
+    session?.user?.cds_group_id ? { id: session.user.cds_group_id } : "skip"
+  );
 
   useEffect(() => {
     (async () => {
@@ -63,13 +69,22 @@ export default function ClearancePage() {
       );
       
       // Create a new window and print the HTML
-      const printWindow = window.open('', '_blank');
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
+        
+        // Wait for content to load before printing
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+            // Don't close immediately, let user see the result
+            // printWindow.close();
+          }, 500);
+        };
+      } else {
+        throw new Error("Could not open print window. Please check your popup blocker settings.");
       }
       push({ variant: "success", title: "PDF Generated", description: "Clearance certificate has been generated for printing." });
     } catch (e: any) {
@@ -138,9 +153,14 @@ export default function ClearancePage() {
               </select>
             </div>
           </div>
-          <Button onClick={load} loading={loading} className="w-full md:w-auto">
+          <Button 
+            onClick={load} 
+            loading={loading} 
+            disabled={!session.user.cds_group_id || !cdsGroup}
+            className="w-full md:w-auto"
+          >
             <Calendar className="w-4 h-4 mr-2" />
-            Generate Clearance
+            {!session.user.cds_group_id ? "CDS Group Required" : !cdsGroup ? "Loading CDS Group..." : "Generate Clearance"}
           </Button>
         </CardContent>
       </Card>
@@ -210,7 +230,9 @@ export default function ClearancePage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">CDS Group:</span>
-                  <span>{session.user.cds_group?.name || "Not Assigned"}</span>
+                  <span className={session.user.cds_group_id ? "text-green-600" : "text-red-600"}>
+                    {cdsGroup?.name || "Loading..."}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Total CDS Sessions:</span>
@@ -249,6 +271,19 @@ export default function ClearancePage() {
                 <p>Generated on: {new Date().toLocaleDateString()}</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Warning for users without CDS group */}
+      {session.user.cds_group_id && !cdsGroup && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-yellow-800">⚠️ CDS Group Not Found</h3>
+          </CardHeader>
+          <CardContent className="text-sm text-yellow-700">
+            <p>Your assigned CDS group could not be found. Please contact your administrator to resolve this issue.</p>
+            <p className="mt-2 font-medium">Contact: Your CDS Administrator or Super Admin</p>
           </CardContent>
         </Card>
       )}

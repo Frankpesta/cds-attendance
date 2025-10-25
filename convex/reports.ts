@@ -277,136 +277,168 @@ export const exportUserPdf = action({
 				<meta charset="utf-8">
 				<title>CDS Clearance Certificate - ${user.name}</title>
 				<style>
+					@media print {
+						body { margin: 0; }
+						.page-break { page-break-before: always; }
+					}
+					
 					body { 
 						font-family: Arial, sans-serif; 
 						margin: 20px; 
 						line-height: 1.6;
-						color: #333;
+						color: #000;
+						background: white;
 					}
+					
 					.header { 
 						text-align: center; 
 						margin-bottom: 30px; 
-						border-bottom: 3px solid #2563eb;
+						border-bottom: 3px solid #000;
 						padding-bottom: 20px;
 					}
+					
 					.header h1 { 
-						color: #1e40af; 
+						color: #000; 
 						margin: 0; 
-						font-size: 28px;
+						font-size: 24px;
 						font-weight: bold;
 					}
+					
 					.header p { 
-						color: #6b7280; 
+						color: #000; 
 						margin: 10px 0 0 0; 
 						font-size: 16px;
 					}
+					
 					.certificate { 
-						background: #f8fafc; 
-						border: 2px solid #e5e7eb; 
-						border-radius: 8px; 
-						padding: 30px; 
-						margin: 20px 0;
-					}
-					.user-info { 
-						background: white; 
+						border: 2px solid #000; 
 						padding: 20px; 
-						border-radius: 6px; 
 						margin: 20px 0;
-						border-left: 4px solid #2563eb;
 					}
+					
+					.user-info { 
+						padding: 15px; 
+						margin: 15px 0;
+						border: 1px solid #000;
+					}
+					
 					.user-info h3 { 
-						color: #1e40af; 
+						color: #000; 
 						margin: 0 0 15px 0; 
-						font-size: 18px;
+						font-size: 16px;
+						font-weight: bold;
 					}
+					
 					.info-row { 
-						display: flex; 
-						justify-content: space-between; 
 						margin: 8px 0; 
 						padding: 5px 0;
-						border-bottom: 1px solid #f1f5f9;
+						border-bottom: 1px solid #ccc;
+						overflow: hidden;
 					}
+					
 					.info-label { 
 						font-weight: bold; 
-						color: #374151; 
-						min-width: 150px;
+						color: #000; 
+						width: 150px;
+						float: left;
 					}
+					
 					.info-value { 
-						color: #1f2937; 
-						flex: 1;
+						color: #000; 
+						margin-left: 160px;
 					}
+					
 					.stats { 
-						display: grid; 
-						grid-template-columns: repeat(3, 1fr); 
-						gap: 20px; 
 						margin: 20px 0;
+						overflow: hidden;
 					}
+					
 					.stat-card { 
-						background: white; 
-						padding: 20px; 
-						border-radius: 8px; 
+						padding: 15px; 
 						text-align: center;
-						border: 1px solid #e5e7eb;
+						border: 1px solid #000;
+						width: 30%;
+						float: left;
+						margin-right: 3%;
 					}
+					
+					.stat-card:last-child {
+						margin-right: 0;
+					}
+					
 					.stat-number { 
-						font-size: 24px; 
+						font-size: 20px; 
 						font-weight: bold; 
-						color: #1e40af; 
+						color: #000; 
 						margin-bottom: 5px;
 					}
+					
 					.stat-label { 
-						color: #6b7280; 
-						font-size: 14px;
+						color: #000; 
+						font-size: 12px;
 					}
+					
 					.status { 
 						text-align: center; 
 						margin: 30px 0; 
 						padding: 20px; 
-						border-radius: 8px;
-						background: ${isCleared ? '#dcfce7' : '#fef3c7'};
-						border: 2px solid ${isCleared ? '#16a34a' : '#f59e0b'};
+						border: 2px solid #000;
+						background: ${isCleared ? '#f0f0f0' : '#f5f5f5'};
 					}
+					
 					.status-icon { 
-						font-size: 24px; 
+						font-size: 20px; 
 						margin-bottom: 10px;
 					}
+					
 					.status-text { 
-						font-size: 18px; 
+						font-size: 16px; 
 						font-weight: bold; 
-						color: ${isCleared ? '#16a34a' : '#f59e0b'};
+						color: #000;
 					}
+					
 					.footer { 
 						text-align: center; 
 						margin-top: 40px; 
 						padding-top: 20px; 
-						border-top: 1px solid #e5e7eb; 
-						color: #6b7280; 
+						border-top: 1px solid #000; 
+						color: #000; 
 						font-size: 12px;
 					}
+					
 					.attendance-dates {
-						background: white;
 						padding: 15px;
-						border-radius: 6px;
 						margin: 15px 0;
-						border: 1px solid #e5e7eb;
+						border: 1px solid #000;
 					}
+					
 					.attendance-dates h4 {
-						color: #1e40af;
+						color: #000;
 						margin: 0 0 10px 0;
-						font-size: 16px;
+						font-size: 14px;
+						font-weight: bold;
 					}
+					
 					.date-list {
-						display: flex;
-						flex-wrap: wrap;
-						gap: 8px;
+						line-height: 1.8;
 					}
+					
 					.date-tag {
-						background: #dbeafe;
-						color: #1e40af;
-						padding: 4px 8px;
-						border-radius: 4px;
-						font-size: 12px;
-						font-weight: 500;
+						background: #f0f0f0;
+						color: #000;
+						padding: 2px 6px;
+						border: 1px solid #000;
+						font-size: 10px;
+						font-weight: normal;
+						margin-right: 5px;
+						display: inline-block;
+						margin-bottom: 3px;
+					}
+					
+					.clearfix::after {
+						content: "";
+						display: table;
+						clear: both;
 					}
 				</style>
 			</head>
@@ -441,7 +473,7 @@ export const exportUserPdf = action({
 						</div>
 					</div>
 					
-					<div class="stats">
+					<div class="stats clearfix">
 						<div class="stat-card">
 							<div class="stat-number">${totalRecords}</div>
 							<div class="stat-label">Total CDS Sessions</div>
