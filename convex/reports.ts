@@ -243,8 +243,8 @@ export const exportUserPdf = action({
 			userId: args.userId
 		});
 		
-		// Get user details
-		const user = await ctx.db.get(args.userId);
+		// Get user details using a query
+		const user = await ctx.runQuery(api.users.get, { id: args.userId });
 		if (!user) {
 			throw new Error("User not found");
 		}
@@ -252,7 +252,7 @@ export const exportUserPdf = action({
 		// Get CDS group details
 		let cdsGroupName = "Not Assigned";
 		if (user.cds_group_id) {
-			const cdsGroup = await ctx.db.get(user.cds_group_id);
+			const cdsGroup = await ctx.runQuery(api.cds_groups.get, { id: user.cds_group_id });
 			if (cdsGroup) {
 				cdsGroupName = cdsGroup.name;
 			}
