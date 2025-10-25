@@ -33,6 +33,7 @@ export const get = query({
       role: user.role,
       address: user.address,
       ppa: user.ppa,
+      cds_group_id: user.cds_group_id,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };

@@ -59,9 +59,10 @@ export default function ScanPage() {
               setCameraActive(true);
               setCameraLoading(false);
 
-              setTimeout(() => {
-                startScanning();
-              }, 500);
+              // Comment out automatic scanning - only manual capture
+              // setTimeout(() => {
+              //   startScanning();
+              // }, 500);
             })
             .catch((playError) => {
               console.error("Error playing video:", playError);
@@ -213,6 +214,10 @@ export default function ScanPage() {
 
       setSuccessMessage(`Attendance recorded for ${token}`);
       setManualToken("");
+      
+      // Disable camera after successful scan
+      stopCamera();
+      
       setTimeout(() => {
         setSuccessMessage(null);
       }, 3000);
@@ -266,7 +271,7 @@ export default function ScanPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Scan Attendance</h1>
-          <p className="text-gray-600 mt-1">Mark attendance by scanning QR codes or manual entry</p>
+          <p className="text-gray-600 mt-1">Mark attendance by manually capturing QR codes or manual entry</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -277,7 +282,7 @@ export default function ScanPage() {
                 <Camera className="w-5 h-5" />
                 <h2 className="text-xl font-semibold">QR Code Scanner</h2>
               </div>
-              <p className="text-sm text-gray-600">Use your camera to scan QR codes quickly</p>
+              <p className="text-sm text-gray-600">Use your camera to manually capture QR codes</p>
             </CardHeader>
             <CardContent className="space-y-4">
               {!cameraActive && (
@@ -291,7 +296,7 @@ export default function ScanPage() {
                     {cameraLoading ? "Starting Camera..." : "Start Camera"}
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    {cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for QR scanning"}
+                    {cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for manual QR capture"}
                   </p>
 
                   <Button
@@ -329,7 +334,7 @@ export default function ScanPage() {
                     <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
                   </div>
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
-                    Position QR code within frame
+                    Position QR code within frame, then click "Manual Capture & Scan"
                   </div>
                 </div>
 

@@ -78,12 +78,12 @@ export default function QrDisplay() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">QR Code Display</h1>
-        <p className="text-muted-foreground">Live QR code for attendance scanning with security features</p>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">QR Code Display</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Live QR code for attendance scanning with security features</p>
       </div>
 
       {active ? (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           {/* QR Code Display */}
           <Card>
             <CardHeader>
