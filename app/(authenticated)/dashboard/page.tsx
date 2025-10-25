@@ -36,12 +36,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
           {role === "super_admin" && "Super Admin Dashboard"}
           {role === "admin" && "Admin Dashboard"}
           {role === "corps_member" && "My Dashboard"}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm sm:text-base text-muted-foreground">
           {role === "super_admin" && "Welcome back! Manage the entire CDS attendance system and oversee all operations."}
           {role === "admin" && "Welcome back! Manage your assigned CDS groups and track attendance for your members."}
           {role === "corps_member" && `Welcome back, ${session.user.name}! Track your attendance and view your CDS activities.`}

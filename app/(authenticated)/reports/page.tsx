@@ -22,6 +22,7 @@ export default function ReportsPage() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [minAttendance, setMinAttendance] = useState("");
   const [maxAttendance, setMaxAttendance] = useState("");
+  const [stateCode, setStateCode] = useState("");
   
   const { push } = useToast();
   
@@ -56,7 +57,8 @@ export default function ReportsPage() {
         month, 
         selectedGroup || undefined,
         minAttendance ? Number(minAttendance) : undefined,
-        maxAttendance ? Number(maxAttendance) : undefined
+        maxAttendance ? Number(maxAttendance) : undefined,
+        stateCode || undefined
       );
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -83,7 +85,8 @@ export default function ReportsPage() {
         month, 
         selectedGroup || undefined,
         minAttendance ? Number(minAttendance) : undefined,
-        maxAttendance ? Number(maxAttendance) : undefined
+        maxAttendance ? Number(maxAttendance) : undefined,
+        stateCode || undefined
       );
       
       // Create a new window and print the HTML
@@ -182,7 +185,7 @@ export default function ReportsPage() {
           {/* Attendance Count Filters */}
           <div className="border-t pt-4">
             <h4 className="text-sm font-medium mb-3">Attendance Count Filters</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Minimum Attendance</label>
                 <Input 
@@ -201,6 +204,15 @@ export default function ReportsPage() {
                   onChange={(e) => setMaxAttendance(e.target.value)}
                   placeholder="e.g., 20"
                   min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">State Code Filter</label>
+                <Input 
+                  type="text" 
+                  value={stateCode}
+                  onChange={(e) => setStateCode(e.target.value)}
+                  placeholder="e.g., 25A, 25B, OD/25A"
                 />
               </div>
             </div>

@@ -36,47 +36,29 @@ export const login = mutation({
 
     // IP-based security check - ONLY for corps members
     if (clientIp && user.role === "corps_member") {
-      console.log(`IP Check for corps member ${user.state_code}:`, {
-        clientIp,
-        registeredIp: user.registered_ip,
-        isIpBanned: user.is_ip_banned,
-        hasRegisteredIp: !!user.registered_ip,
-        ipsMatch: user.registered_ip === clientIp
-      });
-      
       // If user has a registered IP and it doesn't match, check if they're banned
       if (user.registered_ip && user.registered_ip !== clientIp) {
-        console.log(`IP mismatch detected for ${user.state_code}. Banning user.`);
-        
         if (user.is_ip_banned) {
-          console.log(`User ${user.state_code} is already banned.`);
           throw new Error("Your account has been temporarily locked due to IP address mismatch. Please contact a Super Admin to unlock your account.");
         }
         
         // First time login from different IP - ban the user
-        console.log(`Banning user ${user.state_code} due to IP mismatch.`);
-        const patchResult = await ctx.db.patch(user._id, {
+        await ctx.db.patch(user._id, {
           is_ip_banned: true,
           updated_at: nowMs(),
         });
-        console.log(`Patch result for ${user.state_code}:`, patchResult);
-        
         throw new Error("Your account has been temporarily locked due to IP address mismatch. Please contact a Super Admin to unlock your account.");
       }
       
       // If this is the first login or IP matches, register the IP
       if (!user.registered_ip) {
-        console.log(`Registering IP for first-time login: ${user.state_code}`);
         await ctx.db.patch(user._id, {
           registered_ip: clientIp,
           updated_at: nowMs(),
         });
-      } else {
-        console.log(`IP matches for ${user.state_code}, allowing login.`);
       }
     } else if (clientIp && (user.role === "admin" || user.role === "super_admin")) {
       // For admins and super admins, just update the IP without restrictions
-      console.log(`Admin/Super admin login from IP: ${clientIp}`);
       await ctx.db.patch(user._id, {
         registered_ip: clientIp,
         is_ip_banned: false, // Clear any existing ban
