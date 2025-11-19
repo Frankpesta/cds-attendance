@@ -31,8 +31,6 @@ export const get = query({
       email: user.email,
       state_code: user.state_code,
       role: user.role,
-      address: user.address,
-      ppa: user.ppa,
       cds_group_id: user.cds_group_id,
       created_at: user.created_at,
       updated_at: user.updated_at,
@@ -47,8 +45,6 @@ export const create = mutation({
     state_code: v.string(),
     role: v.union(v.literal("super_admin"), v.literal("admin"), v.literal("corps_member")),
     password: v.string(),
-    address: v.optional(v.string()),
-    ppa: v.optional(v.string()),
     cds_group_id: v.optional(v.id("cds_groups")),
   },
   handler: async (ctx, args) => {
@@ -81,12 +77,7 @@ export const create = mutation({
       state_code: args.state_code,
       role: args.role,
       password: hashedPassword,
-      address: args.address || "",
-      ppa: args.ppa || "",
       cds_group_id: args.cds_group_id,
-      cds_meeting_days: [],
-      must_change_password: false,
-      is_ip_banned: false,
       created_at: now,
       updated_at: now,
     });
@@ -102,8 +93,6 @@ export const update = mutation({
     email: v.optional(v.string()),
     state_code: v.optional(v.string()),
     role: v.optional(v.union(v.literal("super_admin"), v.literal("admin"), v.literal("corps_member"))),
-    address: v.optional(v.string()),
-    ppa: v.optional(v.string()),
     cds_group_id: v.optional(v.id("cds_groups")),
   },
   handler: async (ctx, args) => {
@@ -204,7 +193,6 @@ export const changePassword = mutation({
 
     await ctx.db.patch(id, {
       password: hashedPassword,
-      must_change_password: false,
       updated_at: now,
     });
 

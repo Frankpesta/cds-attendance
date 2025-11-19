@@ -467,10 +467,6 @@ export const exportUserPdf = action({
 							<span class="info-label">CDS Group:</span>
 							<span class="info-value">${cdsGroupName}</span>
 						</div>
-						<div class="info-row">
-							<span class="info-label">PPA:</span>
-							<span class="info-value">${user.ppa}</span>
-						</div>
 					</div>
 					
 					<div class="stats clearfix">

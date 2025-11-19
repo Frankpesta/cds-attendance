@@ -1,33 +1,17 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { loginAction } from "../actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [stateCode, setStateCode] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [clientIp, setClientIp] = useState<string>("");
   const { push } = useToast();
-
-  // Get client IP address
-  useEffect(() => {
-    const getClientIp = async () => {
-      try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        setClientIp(data.ip);
-      } catch (error) {
-        console.error('Failed to get client IP:', error);
-        // Fallback to empty string if IP detection fails
-        setClientIp("");
-      }
-    };
-    getClientIp();
-  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,18 +21,13 @@ export default function LoginPage() {
       const fd = new FormData();
       fd.set("stateCode", stateCode);
       fd.set("password", password);
-      fd.set("clientIp", clientIp);
       const res = await loginAction(fd);
       if (!res.ok) {
         setError(res.error || "Login failed");
         push({ variant: "error", title: "Login failed", description: res.error || "Invalid credentials" });
         return;
       }
-      if (res.mustChange) {
-        window.location.href = "/password-change";
-      } else {
-        window.location.href = "/dashboard";
-      }
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err?.message || "Login failed");
     } finally {
@@ -88,6 +67,14 @@ export default function LoginPage() {
         <Button type="submit" loading={loading}>
           Sign In
         </Button>
+        <div className="text-center mt-4">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link href="/signup" className="text-[#008751] hover:underline font-medium">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </form>
         </div>
       </div>

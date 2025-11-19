@@ -31,13 +31,13 @@ export const validatePassword = (password: string): { isValid: boolean; message?
   return { isValid: true };
 };
 
-// State code validation (NYSC format)
+// State code validation (NYSC format: OD/25A/2412)
 export const validateStateCode = (stateCode: string): { isValid: boolean; message?: string } => {
   const stateCodeRegex = /^[A-Z]{2}\/\d{2}[A-Z]\/\d{4}$/;
   if (!stateCodeRegex.test(stateCode)) {
     return { 
       isValid: false, 
-      message: "State code must be in format: XX/YYZ/1234 (e.g., AK/24A/1234)" 
+      message: "State code must be in format: XX/YYZ/1234 (e.g., OD/25A/2412)" 
     };
   }
   return { isValid: true };
@@ -107,8 +107,6 @@ export const validateUserForm = (formData: {
   role: string;
   password: string;
   confirmPassword: string;
-  address?: string;
-  ppa?: string;
 }): ValidationResult => {
   const errors: ValidationError[] = [];
 
@@ -206,14 +204,12 @@ export const validateGroupForm = (formData: {
   };
 };
 
-// Validate onboarding form
+// Validate onboarding form (deprecated - kept for backwards compatibility)
 export const validateOnboardingForm = (formData: {
   name: string;
   email: string;
   state_code: string;
   cds_group_id: string;
-  address?: string;
-  ppa?: string;
 }): ValidationResult => {
   const errors: ValidationError[] = [];
 

@@ -18,8 +18,6 @@ export async function createUserAction(formData: FormData) {
   const state_code = String(formData.get("state_code") || "").trim();
   const role = String(formData.get("role") || "").trim();
   const password = String(formData.get("password") || "").trim();
-  const address = String(formData.get("address") || "").trim();
-  const ppa = String(formData.get("ppa") || "").trim();
   const cds_group_id = String(formData.get("cds_group_id") || "").trim();
 
   if (!name || !email || !state_code || !role || !password) {
@@ -33,8 +31,6 @@ export async function createUserAction(formData: FormData) {
       state_code,
       role: role as any,
       password,
-      address: address || undefined,
-      ppa: ppa || undefined,
       cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
     });
     return { ok: true, data: res } as const;
@@ -54,8 +50,6 @@ export async function updateUserAction(id: string, formData: FormData) {
   const email = String(formData.get("email") || "").trim();
   const state_code = String(formData.get("state_code") || "").trim();
   const role = String(formData.get("role") || "").trim();
-  const address = String(formData.get("address") || "").trim();
-  const ppa = String(formData.get("ppa") || "").trim();
   const cds_group_id = String(formData.get("cds_group_id") || "").trim();
 
   if (!name || !email || !state_code || !role) {
@@ -69,8 +63,6 @@ export async function updateUserAction(id: string, formData: FormData) {
       email,
       state_code,
       role: role as any,
-      address: address || undefined,
-      ppa: ppa || undefined,
       cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
     });
     return { ok: true, data: res } as const;

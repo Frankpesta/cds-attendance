@@ -9,12 +9,11 @@ const client = new ConvexHttpClient(convexUrl);
 export async function loginAction(formData: FormData) {
   const stateCode = String(formData.get("stateCode") || "").trim();
   const password = String(formData.get("password") || "");
-  const clientIp = String(formData.get("clientIp") || "");
   if (!stateCode || !password) {
     return { ok: false, error: "Missing credentials" } as const;
   }
   try {
-    const res = await client.mutation(api.auth.login, { stateCode, password, clientIp });
+    const res = await client.mutation(api.auth.login, { stateCode, password });
     const c = await cookies();
     c.set("session_token", res.sessionToken, {
       httpOnly: true,
@@ -23,7 +22,7 @@ export async function loginAction(formData: FormData) {
       path: "/",
       maxAge: 60 * 60 * 24, // 1 day
     });
-    return { ok: true, mustChange: res.user.must_change_password } as const;
+    return { ok: true } as const;
   } catch (e: any) {
     return { ok: false, error: e?.message || "Login failed" } as const;
   }
@@ -40,6 +39,46 @@ export async function logoutAction() {
     }
   }
   c.delete("session_token");
+}
+
+export async function signupAction(formData: FormData) {
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim();
+  const state_code = String(formData.get("state_code") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+  const cds_group_id = String(formData.get("cds_group_id") || "").trim();
+
+  if (!name || !email || !state_code || !password || !confirmPassword) {
+    return { ok: false, error: "All fields are required" } as const;
+  }
+
+  if (password !== confirmPassword) {
+    return { ok: false, error: "Passwords do not match" } as const;
+  }
+
+  try {
+    const res = await client.mutation(api.auth.signup, {
+      name,
+      email,
+      state_code,
+      password,
+      cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
+    });
+    
+    const c = await cookies();
+    c.set("session_token", res.sessionToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24, // 1 day
+    });
+    
+    return { ok: true } as const;
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Failed to sign up" } as const;
+  }
 }
 
 export async function changePasswordAction(formData: FormData) {
@@ -65,20 +104,5 @@ export async function changePasswordAction(formData: FormData) {
     return { ok: true } as const;
   } catch (e: any) {
     return { ok: false, error: e?.message || "Failed to change password" } as const;
-  }
-}
-
-export async function unbanUserAction(userId: string) {
-  const c = await cookies();
-  const sessionToken = c.get("session_token")?.value || "";
-  if (!sessionToken) {
-    return { ok: false, error: "Unauthorized" } as const;
-  }
-  
-  try {
-    await client.mutation(api.auth.unbanUser, { sessionToken, userId: userId as any });
-    return { ok: true } as const;
-  } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to unban user" } as const;
   }
 }
