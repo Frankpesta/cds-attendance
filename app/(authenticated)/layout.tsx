@@ -39,8 +39,6 @@ export default function AuthenticatedLayout({
           { label: "Users", href: "/users", icon: Users },
           { label: "Groups", href: "/groups", icon: Building2 },
           { label: "Admin Assignments", href: "/admin-assignments", icon: UserCheck },
-          { label: "Banned Users", href: "/banned-users", icon: Shield },
-          { label: "Onboarding", href: "/onboarding", icon: UserPlus },
           { label: "Reports", href: "/reports", icon: BarChart3 },
         ]
       : role === "admin"
@@ -48,7 +46,6 @@ export default function AuthenticatedLayout({
           { label: "Dashboard", href: "/dashboard", icon: Home },
           { label: "QR", href: "/qr", icon: QrCode },
           { label: "Live Monitor", href: "/attendance-monitor", icon: Activity },
-          { label: "Onboarding", href: "/onboarding", icon: UserPlus },
         ]
       : [
           { label: "Dashboard", href: "/dashboard", icon: Home },

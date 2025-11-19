@@ -19,8 +19,8 @@ export const getUserByStateCode = query({
 });
 
 export const login = mutation({
-  args: { stateCode: v.string(), password: v.string(), clientIp: v.optional(v.string()) },
-  handler: async (ctx, { stateCode, password, clientIp }) => {
+  args: { stateCode: v.string(), password: v.string() },
+  handler: async (ctx, { stateCode, password }) => {
     const user = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("state_code"), stateCode))
@@ -32,38 +32,6 @@ export const login = mutation({
     const ok = bcrypt.compareSync(password, user.password);
     if (!ok) {
       throw new Error("Invalid state code or password");
-    }
-
-    // IP-based security check - ONLY for corps members
-    if (clientIp && user.role === "corps_member") {
-      // If user has a registered IP and it doesn't match, check if they're banned
-      if (user.registered_ip && user.registered_ip !== clientIp) {
-        if (user.is_ip_banned) {
-          throw new Error("Your account has been temporarily locked due to IP address mismatch. Please contact a Super Admin to unlock your account.");
-        }
-        
-        // First time login from different IP - ban the user
-        await ctx.db.patch(user._id, {
-          is_ip_banned: true,
-          updated_at: nowMs(),
-        });
-        throw new Error("Your account has been temporarily locked due to IP address mismatch. Please contact a Super Admin to unlock your account.");
-      }
-      
-      // If this is the first login or IP matches, register the IP
-      if (!user.registered_ip) {
-        await ctx.db.patch(user._id, {
-          registered_ip: clientIp,
-          updated_at: nowMs(),
-        });
-      }
-    } else if (clientIp && (user.role === "admin" || user.role === "super_admin")) {
-      // For admins and super admins, just update the IP without restrictions
-      await ctx.db.patch(user._id, {
-        registered_ip: clientIp,
-        is_ip_banned: false, // Clear any existing ban
-        updated_at: nowMs(),
-      });
     }
 
     const now = nowMs();
@@ -87,7 +55,6 @@ export const login = mutation({
         name: user.name,
         email: user.email,
         role: user.role,
-        must_change_password: user.must_change_password,
       },
     };
   },
@@ -149,6 +116,78 @@ export const logout = mutation({
   },
 });
 
+export const signup = mutation({
+  args: {
+    name: v.string(),
+    email: v.string(),
+    state_code: v.string(),
+    password: v.string(),
+    cds_group_id: v.optional(v.id("cds_groups")),
+  },
+  handler: async (ctx, { name, email, state_code, password, cds_group_id }) => {
+    // Validate password
+    if (!passwordMeetsPolicy(password)) {
+      throw new Error(
+        "Password must be at least 8 characters and include upper, lower, and number",
+      );
+    }
+
+    // Check if email already exists
+    const existingUser = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), email))
+      .first();
+    
+    if (existingUser) {
+      throw new Error("A user with this email already exists");
+    }
+
+    // Check if state code already exists
+    const existingStateCode = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("state_code"), state_code))
+      .first();
+    
+    if (existingStateCode) {
+      throw new Error("A user with this state code already exists");
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const now = nowMs();
+
+    const userId = await ctx.db.insert("users", {
+      name,
+      email,
+      state_code,
+      password: hashedPassword,
+      role: "corps_member",
+      cds_group_id,
+      created_at: now,
+      updated_at: now,
+    });
+
+    // Create session immediately after signup
+    const token = crypto.randomUUID();
+    await ctx.db.insert("sessions", {
+      user_id: userId,
+      session_token: token,
+      created_at: now,
+      last_active_at: now,
+      expires_at: now + SESSION_TTL_MS,
+    });
+
+    return {
+      sessionToken: token,
+      user: {
+        id: userId,
+        name,
+        email,
+        role: "corps_member",
+      },
+    };
+  },
+});
+
 export const changePassword = mutation({
   args: {
     sessionToken: v.string(),
@@ -180,129 +219,9 @@ export const changePassword = mutation({
     const hashed = bcrypt.hashSync(newPassword, 10);
     await ctx.db.patch(user._id, {
       password: hashed,
-      must_change_password: false,
       updated_at: nowMs(),
     });
     return true;
-  },
-});
-
-export const unbanUser = mutation({
-  args: {
-    sessionToken: v.string(),
-    userId: v.id("users"),
-  },
-  handler: async (ctx, { sessionToken, userId }) => {
-    const session = await ctx.db
-      .query("sessions")
-      .filter((q) => q.eq(q.field("session_token"), sessionToken))
-      .unique();
-    if (!session) throw new Error("Unauthorized");
-
-    const admin = await ctx.db.get(session.user_id);
-    if (!admin || admin.role !== "super_admin") {
-      throw new Error("Only Super Admins can unban users");
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user) throw new Error("User not found");
-
-    await ctx.db.patch(userId, {
-      is_ip_banned: false,
-      updated_at: nowMs(),
-    });
-
-    return true;
-  },
-});
-
-export const getBannedUsers = query({
-  args: {},
-  handler: async (ctx) => {
-    const bannedUsers = await ctx.db
-      .query("users")
-      .filter((q) => q.and(
-        q.eq(q.field("is_ip_banned"), true),
-        q.eq(q.field("role"), "corps_member")
-      ))
-      .collect();
-
-    return bannedUsers.map(user => ({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      state_code: user.state_code,
-      registered_ip: user.registered_ip,
-      role: user.role,
-      created_at: user.created_at,
-    }));
-  },
-});
-
-export const getUserIpStatus = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const user = await ctx.db.get(userId);
-    if (!user) return null;
-    
-    return {
-      _id: user._id,
-      name: user.name,
-      state_code: user.state_code,
-      role: user.role,
-      registered_ip: user.registered_ip,
-      is_ip_banned: user.is_ip_banned,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-    };
-  },
-});
-
-export const debugUserIpStatus = query({
-  args: { stateCode: v.string() },
-  handler: async (ctx, { stateCode }) => {
-    const user = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("state_code"), stateCode))
-      .unique();
-    
-    if (!user) return null;
-    
-    return {
-      _id: user._id,
-      name: user.name,
-      state_code: user.state_code,
-      role: user.role,
-      registered_ip: user.registered_ip,
-      is_ip_banned: user.is_ip_banned,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      // Additional debug info
-      hasRegisteredIp: !!user.registered_ip,
-      isCorpsMember: user.role === "corps_member",
-    };
-  },
-});
-
-export const fixUserIpBanField = mutation({
-  args: {},
-  handler: async (ctx) => {
-    // Get all users and ensure they have the is_ip_banned field set
-    const users = await ctx.db.query("users").collect();
-    let fixedCount = 0;
-    
-    for (const user of users) {
-      // Check if the field is undefined or null (shouldn't happen with proper schema, but just in case)
-      if (user.is_ip_banned === undefined || user.is_ip_banned === null) {
-        await ctx.db.patch(user._id, {
-          is_ip_banned: false,
-          updated_at: nowMs(),
-        });
-        fixedCount++;
-      }
-    }
-    
-    return { fixedCount, totalUsers: users.length };
   },
 });
 

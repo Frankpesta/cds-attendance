@@ -28,8 +28,6 @@ export default function CreateUserPage() {
     role: "",
     password: "",
     confirmPassword: "",
-    address: "",
-    ppa: "",
     cds_group_id: "",
   });
 
@@ -58,8 +56,6 @@ export default function CreateUserPage() {
       formData.set("state_code", form.state_code);
       formData.set("role", form.role);
       formData.set("password", form.password);
-      formData.set("address", form.address);
-      formData.set("ppa", form.ppa);
       formData.set("cds_group_id", form.cds_group_id);
 
       const res = await createUserAction(formData);
@@ -221,25 +217,6 @@ export default function CreateUserPage() {
                     <span>{getFieldError("confirmPassword")}</span>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Address</label>
-                <Input
-                  placeholder="Enter residential address"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">PPA (Place of Primary Assignment)</label>
-                <Input
-                  placeholder="Enter PPA"
-                  value={form.ppa}
-                  onChange={(e) => setForm({ ...form, ppa: e.target.value })}
-                />
               </div>
             </div>
 

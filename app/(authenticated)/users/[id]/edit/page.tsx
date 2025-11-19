@@ -28,8 +28,6 @@ export default function EditUserPage() {
     email: "",
     state_code: "",
     role: "",
-    address: "",
-    ppa: "",
     cds_group_id: "",
   });
 
@@ -45,8 +43,6 @@ export default function EditUserPage() {
         email: user.email || "",
         state_code: user.state_code || "",
         role: user.role || "",
-        address: user.address || "",
-        ppa: user.ppa || "",
         cds_group_id: (user as any).cds_group_id || "",
       });
     }
@@ -74,8 +70,6 @@ export default function EditUserPage() {
       formData.set("email", form.email);
       formData.set("state_code", form.state_code);
       formData.set("role", form.role);
-      formData.set("address", form.address);
-      formData.set("ppa", form.ppa);
       formData.set("cds_group_id", form.cds_group_id);
 
       const res = await updateUserAction(userId, formData);
@@ -192,25 +186,6 @@ export default function EditUserPage() {
                     value={form.role}
                     onChange={(e) => setForm({ ...form, role: e.target.value })}
                     options={roleOptions}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Address</label>
-                  <Input
-                    placeholder="Enter residential address"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">PPA</label>
-                  <Input
-                    placeholder="Enter PPA"
-                    value={form.ppa}
-                    onChange={(e) => setForm({ ...form, ppa: e.target.value })}
                   />
                 </div>
               </div>

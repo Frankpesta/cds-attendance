@@ -5,16 +5,10 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     email: v.string(),
-    address: v.string(),
-    ppa: v.string(),
     state_code: v.string(),
     password: v.string(),
     role: v.union(v.literal("super_admin"), v.literal("admin"), v.literal("corps_member")),
     cds_group_id: v.optional(v.id("cds_groups")),
-    cds_meeting_days: v.array(v.string()),
-    must_change_password: v.boolean(),
-    registered_ip: v.optional(v.string()), // IP address from first login
-    is_ip_banned: v.boolean(), // IP ban status
     created_at: v.number(), // ms epoch UTC
     updated_at: v.number(), // ms epoch UTC
   })
