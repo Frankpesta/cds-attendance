@@ -1,40 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getSessionTokenAction } from "@/app/actions/session";
 
 export function useSessionToken() {
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    
-    const getToken = () => {
+    let mounted = true;
+
+    const fetchToken = async () => {
       try {
-        const cookies = document.cookie.split(";").map((s) => s.trim());
-        const sessionCookie = cookies.find((s) => s.startsWith("session_token="));
-        if (sessionCookie) {
-          const token = sessionCookie.split("=").slice(1).join("="); // Handle tokens with = in them
-          return decodeURIComponent(token) || null;
+        const token = await getSessionTokenAction();
+        if (mounted) {
+          setSessionToken(token);
         }
       } catch (error) {
-        console.error("Error reading session token:", error);
+        console.error("Error fetching session token:", error);
+        if (mounted) {
+          setSessionToken(null);
+        }
       }
-      return null;
     };
 
-    // Get token immediately
-    const token = getToken();
-    setSessionToken(token);
+    fetchToken();
 
-    // Also check after a short delay in case cookies aren't ready yet
-    const timeout = setTimeout(() => {
-      const delayedToken = getToken();
-      if (delayedToken && !token) {
-        setSessionToken(delayedToken);
-      }
-    }, 100);
-
-    return () => clearTimeout(timeout);
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return sessionToken;

@@ -18,4 +18,10 @@ export async function getSessionAction() {
   }
 }
 
+export async function getSessionTokenAction() {
+  const c = await cookies();
+  const token = c.get("session_token")?.value || "";
+  return token || null;
+}
+
 

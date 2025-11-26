@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { useToast } from "@/components/ui/toast";
+import { getSessionTokenAction } from "@/app/actions/session";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2 } from "lucide-react";
 
 const employerFields = [
@@ -82,25 +83,15 @@ export default function EmployersDocumentationPage() {
     });
   }, [employers, search, accommodationFilter]);
 
-  const getTokenFromCookies = () => {
-    if (typeof document === "undefined") return null;
-    try {
-      const cookies = document.cookie.split(";").map((s) => s.trim());
-      const sessionCookie = cookies.find((s) => s.startsWith("session_token="));
-      if (sessionCookie) {
-        const token = sessionCookie.split("=").slice(1).join("=");
-        return decodeURIComponent(token) || null;
-      }
-    } catch (error) {
-      console.error("Error reading session token:", error);
-    }
-    return null;
-  };
-
   const handleCreateLink = async () => {
     let token = sessionToken;
+    // Fallback: try to get token from server if hook hasn't loaded yet
     if (!token) {
-      token = getTokenFromCookies();
+      try {
+        token = await getSessionTokenAction();
+      } catch (error) {
+        console.error("Error fetching session token:", error);
+      }
     }
     if (!token) {
       push({ variant: "error", title: "Session Error", description: "Please refresh the page and try again." });
