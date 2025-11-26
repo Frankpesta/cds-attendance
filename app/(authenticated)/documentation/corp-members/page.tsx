@@ -187,7 +187,11 @@ export default function CorpMembersDocumentationPage() {
     if (!sessionToken) return;
     try {
       const signedUrl = await getFileUrl({ sessionToken, fileId: file.storageId });
-      window.open(signedUrl, "_blank");
+      if (signedUrl) {
+        window.open(signedUrl, "_blank");
+      } else {
+        throw new Error("Unable to generate download link.");
+      }
     } catch (error: any) {
       push({ variant: "error", title: "Download failed", description: error?.message });
     }
