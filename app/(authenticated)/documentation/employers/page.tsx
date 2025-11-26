@@ -82,10 +82,32 @@ export default function EmployersDocumentationPage() {
     });
   }, [employers, search, accommodationFilter]);
 
-  const handleCreateLink = async () => {
-    if (!sessionToken) return;
+  const getTokenFromCookies = () => {
+    if (typeof document === "undefined") return null;
     try {
-      const result = await createLink({ sessionToken, type: "employer" });
+      const cookies = document.cookie.split(";").map((s) => s.trim());
+      const sessionCookie = cookies.find((s) => s.startsWith("session_token="));
+      if (sessionCookie) {
+        const token = sessionCookie.split("=").slice(1).join("=");
+        return decodeURIComponent(token) || null;
+      }
+    } catch (error) {
+      console.error("Error reading session token:", error);
+    }
+    return null;
+  };
+
+  const handleCreateLink = async () => {
+    let token = sessionToken;
+    if (!token) {
+      token = getTokenFromCookies();
+    }
+    if (!token) {
+      push({ variant: "error", title: "Session Error", description: "Please refresh the page and try again." });
+      return;
+    }
+    try {
+      const result = await createLink({ sessionToken: token, type: "employer" });
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const url = `${origin}/documentation/employers/${result.token}`;
       await navigator.clipboard.writeText(url);
@@ -206,7 +228,7 @@ export default function EmployersDocumentationPage() {
           <h1 className="text-3xl font-bold tracking-tight">Employers Documentation</h1>
           <p className="text-muted-foreground">Collect employer submissions and keep them organized.</p>
         </div>
-        <Button onClick={handleCreateLink} disabled={!sessionToken}>
+        <Button onClick={handleCreateLink}>
           <Link2 className="mr-2 h-4 w-4" />
           Create Registration Link
         </Button>
