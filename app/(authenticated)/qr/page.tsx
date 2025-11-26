@@ -13,7 +13,7 @@ import { QrCode as QrIcon, Clock, Users, Shield, RotateCcw } from "lucide-react"
 export default function QrDisplay() {
   const [sessionToken, setSessionToken] = useState("");
   const [meetingDate, setMeetingDate] = useState("");
-  const [svg, setSvg] = useState("");
+  const [qrSrc, setQrSrc] = useState("");
   const [rotationCount, setRotationCount] = useState(0);
   const [attendanceCount, setAttendanceCount] = useState(0);
   const { push } = useToast();
@@ -34,25 +34,23 @@ export default function QrDisplay() {
 
   useEffect(() => {
     if (active?.token) {
-      // Generate QR code with security features
       const qrOptions = {
-        type: "svg" as const,
-        width: 400,
+        errorCorrectionLevel: "H" as const,
         margin: 2,
         color: {
           dark: "#000000",
-          light: "#FFFFFF"
+          light: "#FFFFFF",
         },
-        errorCorrectionLevel: "H" as const, // High error correction
+        scale: 8,
       };
 
-      QRCode.toString(active.token, qrOptions, (err: any, svg: any) => {
-        if (err) {
+      QRCode.toDataURL(active.token, qrOptions, (err: Error | null, url?: string) => {
+        if (err || !url) {
           console.error("QR generation error:", err);
           push({ variant: "error", title: "QR Generation Failed", description: "Failed to generate QR code" });
           return;
         }
-        setSvg(svg);
+        setQrSrc(url);
       });
     }
   }, [active?.token, push]);
@@ -94,18 +92,23 @@ export default function QrDisplay() {
               <p className="text-sm text-muted-foreground">Scan this code to mark attendance</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-center">
-                <div className="inline-block p-6 bg-white rounded-xl shadow-2xl border-4 border-primary/20">
-                  <div dangerouslySetInnerHTML={{ __html: svg }} />
+              <div className="flex flex-col items-center text-center">
+                <div className="w-full max-w-xs sm:max-w-sm p-4 bg-white rounded-xl shadow-2xl border-4 border-primary/20">
+                  {qrSrc ? (
+                    <img src={qrSrc} alt="Active QR code" className="w-full h-auto" />
+                  ) : (
+                    <div className="h-64 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" aria-hidden />
+                    </div>
+                  )}
                 </div>
-                
-                {/* Security Watermark */}
-                <div className="mt-4 p-3 bg-muted rounded-lg">
+
+                <div className="mt-4 w-full max-w-xs sm:max-w-sm p-3 bg-muted rounded-lg">
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Shield className="w-4 h-4" />
                     <span>Secure Token • {meetingDate}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
+                  <div className="text-xs text-muted-foreground mt-1 break-all">
                     Token: {active.token.substring(0, 8)}...
                   </div>
                 </div>
