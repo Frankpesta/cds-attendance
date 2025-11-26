@@ -13,6 +13,7 @@ import type * as attendance from "../attendance.js";
 import type * as auth from "../auth.js";
 import type * as cds_groups from "../cds_groups.js";
 import type * as dashboard from "../dashboard.js";
+import type * as documentation from "../documentation.js";
 import type * as qr from "../qr.js";
 import type * as reports from "../reports.js";
 import type * as users from "../users.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cds_groups: typeof cds_groups;
   dashboard: typeof dashboard;
+  documentation: typeof documentation;
   qr: typeof qr;
   reports: typeof reports;
   users: typeof users;

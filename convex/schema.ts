@@ -100,6 +100,76 @@ export default defineSchema({
     details: v.optional(v.string()),
     created_at: v.number(),
   }).index("by_actor", ["actor_user_id"]).index("by_time", ["created_at"]),
+
+  documentation_links: defineTable({
+    token: v.string(),
+    type: v.union(v.literal("corp_member"), v.literal("employer")),
+    status: v.union(v.literal("active"), v.literal("inactive")),
+    created_by_admin_id: v.id("users"),
+    created_at: v.number(),
+    uses_count: v.number(),
+    deactivated_at: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_type", ["type"]),
+
+  corp_member_docs: defineTable({
+    link_id: v.id("documentation_links"),
+    link_token: v.string(),
+    created_at: v.number(),
+    updated_at: v.number(),
+    created_by_admin_id: v.id("users"),
+    is_deleted: v.boolean(),
+    deleted_at: v.optional(v.number()),
+    full_name: v.string(),
+    state_code: v.string(),
+    phone_number: v.string(),
+    residential_address: v.string(),
+    next_of_kin: v.string(),
+    next_of_kin_phone: v.string(),
+    gender: v.string(),
+    ppa: v.string(),
+    course_of_study: v.string(),
+    call_up_number: v.string(),
+    email: v.string(),
+    nysc_account_number: v.string(),
+    bank_name: v.string(),
+    nin: v.string(),
+    cds: v.string(),
+    medical_history: v.boolean(),
+    medical_files: v.array(
+      v.object({
+        storageId: v.id("_storage"),
+        fileName: v.string(),
+        fileSize: v.number(),
+        contentType: v.string(),
+      }),
+    ),
+  })
+    .index("by_link", ["link_token"])
+    .index("by_created_at", ["created_at"]),
+
+  employer_docs: defineTable({
+    link_id: v.id("documentation_links"),
+    link_token: v.string(),
+    created_at: v.number(),
+    updated_at: v.number(),
+    created_by_admin_id: v.id("users"),
+    is_deleted: v.boolean(),
+    deleted_at: v.optional(v.number()),
+    organization_name: v.string(),
+    organization_address: v.string(),
+    organization_phone: v.string(),
+    contact_person_name: v.string(),
+    contact_person_phone: v.string(),
+    cms_required_per_year: v.number(),
+    accommodation: v.boolean(),
+    monthly_stipend: v.number(),
+    email: v.string(),
+    nearest_landmark: v.string(),
+  })
+    .index("by_link", ["link_token"])
+    .index("by_created_at", ["created_at"]),
 });
 
 

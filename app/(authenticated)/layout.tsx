@@ -40,12 +40,14 @@ export default function AuthenticatedLayout({
           { label: "Groups", href: "/groups", icon: Building2 },
           { label: "Admin Assignments", href: "/admin-assignments", icon: UserCheck },
           { label: "Reports", href: "/reports", icon: BarChart3 },
+          { label: "Documentation", href: "/documentation", icon: FileText },
         ]
       : role === "admin"
       ? [
           { label: "Dashboard", href: "/dashboard", icon: Home },
           { label: "QR", href: "/qr", icon: QrCode },
           { label: "Live Monitor", href: "/attendance-monitor", icon: Activity },
+          { label: "Documentation", href: "/documentation", icon: FileText },
         ]
       : [
           { label: "Dashboard", href: "/dashboard", icon: Home },
