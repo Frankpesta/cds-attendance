@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { Shield } from "lucide-react";
 
 interface MedicalFile {
-  storageId: string;
+  storageId: Id<"_storage">;
   fileName: string;
   fileSize: number;
   contentType: string;
@@ -99,7 +100,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
         });
         const { storageId } = await res.json();
         next.push({
-          storageId,
+          storageId: storageId as Id<"_storage">,
           fileName: file.name,
           fileSize: file.size,
           contentType: file.type,

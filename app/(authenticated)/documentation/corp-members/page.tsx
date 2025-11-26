@@ -12,9 +12,10 @@ import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
+import type { Id } from "@/convex/_generated/dataModel";
 
 interface MedicalFile {
-  storageId: string;
+  storageId: Id<"_storage">;
   fileName: string;
   fileSize: number;
   contentType: string;
@@ -186,7 +187,7 @@ export default function CorpMembersDocumentationPage() {
   const handleDownload = async (file: MedicalFile) => {
     if (!sessionToken) return;
     try {
-      const signedUrl = await getFileUrl({ sessionToken, fileId: file.storageId as any });
+      const signedUrl = await getFileUrl({ sessionToken, fileId: file.storageId });
       window.open(signedUrl, "_blank");
     } catch (error: any) {
       push({ variant: "error", title: "Download failed", description: error?.message });
