@@ -5,9 +5,10 @@ import type { DetailedHTMLProps, SelectHTMLAttributes } from "react";
 type SelectProps = DetailedHTMLProps<SelectHTMLAttributes<HTMLSelectElement>, HTMLSelectElement> & {
   error?: string | null;
   options: { value: string; label: string }[];
+  placeholder?: string;
 };
 
-export function Select({ className, error, options, ...props }: SelectProps) {
+export function Select({ className, error, options, placeholder = "Select an option...", ...props }: SelectProps) {
   return (
     <div className="space-y-1">
       <select
@@ -18,7 +19,7 @@ export function Select({ className, error, options, ...props }: SelectProps) {
         )}
         {...props}
       >
-        <option value="">Select a CDS group...</option>
+        <option value="">{placeholder}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

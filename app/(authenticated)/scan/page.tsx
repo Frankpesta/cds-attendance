@@ -1,31 +1,25 @@
-
 "use client";
 import { useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Camera, QrCode, Smartphone, AlertCircle, CheckCircle } from "lucide-react";
+import { Camera, QrCode } from "lucide-react";
 import jsQR from "jsqr";
 import { submitAttendanceAction } from "@/app/actions/attendance";
+import { useToast } from "@/components/ui/toast";
 
 export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const scanningIntervalRef = useRef<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [manualToken, setManualToken] = useState("");
   const [cameraActive, setCameraActive] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cameraLoading, setCameraLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const lastScannedTokenRef = useRef<string | null>(null);
-  const lastScanTimeRef = useRef<number>(0);
+  const router = useRouter();
+  const { push } = useToast();
 
   const startCamera = async () => {
     try {
       setCameraLoading(true);
-      setError(null);
-
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -58,15 +52,14 @@ export default function ScanPage() {
               console.log("Video playing successfully");
               setCameraActive(true);
               setCameraLoading(false);
-
-              // Comment out automatic scanning - only manual capture
-              // setTimeout(() => {
-              //   startScanning();
-              // }, 500);
             })
             .catch((playError) => {
               console.error("Error playing video:", playError);
-              setError("Could not start video playback. Please ensure camera permissions are granted.");
+              push({
+                variant: "error",
+                title: "Camera Error",
+                description: "Could not start video playback. Please check permissions.",
+              });
               setCameraLoading(false);
               stopCamera();
             });
@@ -74,96 +67,34 @@ export default function ScanPage() {
 
         videoRef.current.onerror = (e) => {
           console.error("Video error:", e);
-          setError("Video stream error. Please try again.");
+          push({ variant: "error", title: "Camera Error", description: "Video stream error. Please try again." });
           setCameraLoading(false);
           stopCamera();
         };
       } else {
         console.error("Video ref is null");
-        setError("Unable to access video element. Please refresh the page.");
+        push({ variant: "error", title: "Camera Error", description: "Unable to access video element. Refresh the page." });
         setCameraLoading(false);
         stream.getTracks().forEach((track) => track.stop());
       }
     } catch (err) {
       console.error("Camera error:", err);
       setCameraLoading(false);
-      let errorMessage = "Camera access denied. Please use manual entry.";
+      let errorMessage = "Camera access denied. Please try again.";
       if (err instanceof DOMException && err.name === "NotAllowedError") {
         errorMessage = "Camera permission denied. Please grant access in browser settings and refresh.";
       }
-      setError(errorMessage);
+      push({ variant: "error", title: "Camera Error", description: errorMessage });
     }
   };
 
   const stopCamera = () => {
-    if (scanningIntervalRef.current) {
-      cancelAnimationFrame(scanningIntervalRef.current);
-      scanningIntervalRef.current = null;
-    }
-
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach((track) => track.stop());
       videoRef.current.srcObject = null;
       setCameraActive(false);
     }
-  };
-
-  const startScanning = () => {
-    console.log("Starting continuous QR scan...");
-
-    const scanFrame = () => {
-      if (!videoRef.current || !canvasRef.current || !cameraActive) {
-        return;
-      }
-
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-
-      if (context && video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-        let width = video.videoWidth;
-        let height = video.videoHeight;
-        const maxDim = 640;
-        if (width > maxDim || height > maxDim) {
-          const scale = maxDim / Math.max(width, height);
-          width = Math.floor(width * scale);
-          height = Math.floor(height * scale);
-        }
-        canvas.width = width;
-        canvas.height = height;
-        context.drawImage(video, 0, 0, width, height);
-
-        const imageData = context.getImageData(0, 0, width, height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "attemptBoth",
-        });
-
-        if (code) {
-          const now = Date.now();
-          if (code.data === lastScannedTokenRef.current && now - lastScanTimeRef.current < 2000) {
-            scanningIntervalRef.current = requestAnimationFrame(scanFrame);
-            return;
-          }
-
-          console.log("QR Code detected:", code.data);
-          lastScannedTokenRef.current = code.data;
-          lastScanTimeRef.current = now;
-          submitToken(code.data).then((success) => {
-            if (!success && cameraActive) {
-              scanningIntervalRef.current = requestAnimationFrame(scanFrame);
-            }
-          });
-          return;
-        }
-      }
-
-      if (cameraActive) {
-        scanningIntervalRef.current = requestAnimationFrame(scanFrame);
-      }
-    };
-
-    scanFrame();
   };
 
   const captureFrame = (): string | null => {
@@ -199,53 +130,53 @@ export default function ScanPage() {
 
   const submitToken = async (token: string): Promise<boolean> => {
     if (!token.trim()) {
-      setError("Please enter a valid token");
+      push({ variant: "error", title: "Invalid QR", description: "Please capture a readable QR code." });
       return false;
     }
 
     setIsSubmitting(true);
-    setError(null);
-    setSuccessMessage(null);
 
     try {
       const formData = new FormData();
       formData.set("token", token);
       const res = await submitAttendanceAction(formData);
 
-      setSuccessMessage(`Attendance recorded for ${token}`);
-      setManualToken("");
-      
-      // Disable camera after successful scan
+      if (!res.ok) {
+        throw new Error(res.error || "Failed to record attendance");
+      }
+
       stopCamera();
-      
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
+      push({
+        variant: "success",
+        title: "Attendance Recorded",
+        description: "Redirecting to dashboard...",
+      });
+      router.push("/dashboard");
 
       return true;
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Unknown error";
-      if (errorMessage.includes("You already marked attendance today")) {
-        setError("You've already marked attendance today!");
-      } else {
-        setError(errorMessage);
-        setTimeout(() => {
-          setError(null);
-        }, 3000);
-      }
+      const displayMessage = errorMessage.includes("already marked")
+        ? "You've already marked attendance today."
+        : errorMessage;
+      push({
+        variant: "error",
+        title: "Scan Failed",
+        description: displayMessage,
+      });
       return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleManualSubmit = () => {
-    submitToken(manualToken);
-  };
-
   const handleScanClick = () => {
     if (!cameraActive) {
-      setError("Please start the camera first");
+      push({
+        variant: "error",
+        title: "Camera Inactive",
+        description: "Start the camera before capturing a QR code.",
+      });
       return;
     }
 
@@ -253,10 +184,11 @@ export default function ScanPage() {
     if (captured) {
       submitToken(captured);
     } else {
-      setError("No QR code detected. Try again or use manual entry.");
-      setTimeout(() => {
-        setError(null);
-      }, 3000);
+      push({
+        variant: "error",
+        title: "No QR Detected",
+        description: "Center the QR code in the frame and try again.",
+      });
     }
   };
 
@@ -271,11 +203,10 @@ export default function ScanPage() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Scan Attendance</h1>
-          <p className="text-gray-600 mt-1">Mark attendance by manually capturing QR codes or manual entry</p>
+          <p className="text-gray-600 mt-1">Mark attendance by manually capturing QR codes</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Camera Scanner */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -296,7 +227,7 @@ export default function ScanPage() {
                     {cameraLoading ? "Starting Camera..." : "Start Camera"}
                   </h3>
                   <p className="text-gray-600 mb-4">
-                    {cameraLoading ? "Please allow camera access when prompted" : "Click to activate your camera for manual QR capture"}
+                    {cameraLoading ? "Please allow camera access when prompted" : "Tap to activate your camera for manual QR capture"}
                   </p>
 
                   <Button
@@ -317,165 +248,91 @@ export default function ScanPage() {
                   )}
                 </div>
               )}
-              <div className={`space-y-4 ${cameraActive ? '' : 'hidden'}`}>
-                <div className="relative">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
-                    style={{ backgroundColor: '#000' }}
-                  />
-                  <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none">
-                    <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-blue-500"></div>
-                    <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-blue-500"></div>
-                    <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-blue-500"></div>
-                    <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
-                  </div>
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
-                    Position QR code within frame, then click "Manual Capture & Scan"
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleScanClick}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
-                    disabled={isSubmitting}
-                  >
-                    <QrCode className="w-4 h-4 mr-2" />
-                    {isSubmitting ? "Scanning..." : "Capture & Scan"}
-                  </Button>
-                  <Button
-                    onClick={stopCamera}
-                    className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg"
-                    disabled={isSubmitting}
-                  >
-                    Stop
-                  </Button>
-                </div>
-
-                {isSubmitting && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-center gap-2 text-blue-800">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      <span className="text-sm font-medium">Processing attendance...</span>
+              {cameraActive && (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
+                      style={{ backgroundColor: "#000" }}
+                    />
+                    <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none">
+                      <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-blue-500"></div>
+                      <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-blue-500"></div>
+                      <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-blue-500"></div>
+                      <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
+                    </div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
+                      Position QR code within frame, then tap "Capture & Scan"
                     </div>
                   </div>
-                )}
-                {/* {!isSubmitting && cameraActive && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-center gap-2 text-blue-800">
-                      <div className="animate-pulse rounded-full h-4 w-4 bg-blue-600"></div>
-                      <span className="text-sm font-medium">Scanning automatically...</span>
-                    </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      onClick={handleScanClick}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center"
+                      disabled={isSubmitting}
+                    >
+                      <QrCode className="w-4 h-4 mr-2" />
+                      {isSubmitting ? "Scanning..." : "Capture & Scan"}
+                    </Button>
+                    <Button
+                      onClick={stopCamera}
+                      className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-gray-700"
+                      disabled={isSubmitting}
+                    >
+                      Stop
+                    </Button>
                   </div>
-                )} */}
-              </div>
+
+                  {isSubmitting && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-center gap-2 text-blue-800">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm font-medium">Processing attendance...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <canvas ref={canvasRef} className="hidden" />
-
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-600" />
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              {successMessage && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <p className="text-green-600 text-sm">{successMessage}</p>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
-
-          {/* Manual Entry */}
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-5 h-5" />
-                <h2 className="text-xl font-semibold">Manual Entry</h2>
-              </div>
-              <p className="text-sm text-gray-600">Enter the token manually if camera fails</p>
+              <h3 className="text-lg font-semibold">How to Mark Attendance</h3>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Attendance Token</label>
-                <Input
-                  placeholder="Enter the token from the QR code"
-                  value={manualToken}
-                  onChange={(e) => setManualToken(e.target.value)}
-                  className="text-center font-mono text-lg tracking-wider"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Ask the admin to read out the token if scanning fails
-                </p>
-              </div>
-
-              <Button
-                onClick={handleManualSubmit}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!manualToken.trim() || isSubmitting}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {isSubmitting ? "Processing..." : "Mark Attendance"}
-              </Button>
-
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium">Tips for successful attendance:</p>
-                    <ul className="mt-1 space-y-1 text-xs">
-                      <li>• Scan during the meeting time window</li>
-                      <li>• Use manual entry if camera fails</li>
-                      <li>• Contact admin if you encounter issues</li>
-                    </ul>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-blue-600 font-bold">1</span>
                   </div>
+                  <h4 className="font-medium mb-1">Start Camera</h4>
+                  <p className="text-sm text-gray-600">Allow access and position the QR in view.</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-blue-600 font-bold">2</span>
+                  </div>
+                  <h4 className="font-medium mb-1">Capture & Scan</h4>
+                  <p className="text-sm text-gray-600">Tap "Capture & Scan" to read the QR.</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-blue-600 font-bold">3</span>
+                  </div>
+                  <h4 className="font-medium mb-1">Auto Redirect</h4>
+                  <p className="text-sm text-gray-600">Successful scans toast and head to the dashboard.</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Instructions */}
-        <Card>
-          <CardHeader>
-            <h3 className="text-lg font-semibold">How to Mark Attendance</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-blue-600 font-bold">1</span>
-                </div>
-                <h4 className="font-medium mb-1">Prepare QR Codes</h4>
-                <p className="text-sm text-gray-600">Each person presents their QR code</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-blue-600 font-bold">2</span>
-                </div>
-                <h4 className="font-medium mb-1">Scan or Enter Token</h4>
-                <p className="text-sm text-gray-600">Scan QR or enter token manually; one entry per day</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <span className="text-blue-600 font-bold">3</span>
-                </div>
-                <h4 className="font-medium mb-1">Confirm Attendance</h4>
-                <p className="text-sm text-gray-600">Attendance recorded once daily</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
