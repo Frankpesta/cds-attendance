@@ -44,9 +44,9 @@ export default function QrDisplay() {
         scale: 8,
       };
 
-      QRCode.toDataURL(active.token, qrOptions, (err: Error | null, url?: string) => {
-        if (err || !url) {
-          console.error("QR generation error:", err);
+      QRCode.toDataURL(active.token, qrOptions, (error: Error | null | undefined, url: string) => {
+        if (error || !url) {
+          console.error("QR generation error:", error);
           push({ variant: "error", title: "QR Generation Failed", description: "Failed to generate QR code" });
           return;
         }
