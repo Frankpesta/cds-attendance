@@ -249,6 +249,9 @@ export const exportUserPdf = action({
 			throw new Error("User not found");
 		}
 		
+		// Get required attendance count
+		const requiredCount = await ctx.runQuery(api.settings.getRequiredAttendanceCount, {});
+		
 		// Get CDS group details
 		let cdsGroupName = "Not Assigned";
 		if (user.cds_group_id) {
@@ -262,6 +265,12 @@ export const exportUserPdf = action({
 		const totalRecords = rep.data.length;
 		const totalAttendance = rep.data.reduce((sum, row) => sum + (row.count || 0), 0);
 		const averageAttendance = totalRecords > 0 ? ((totalAttendance / totalRecords) * 100).toFixed(2) : 0;
+		
+		// Check if user meets attendance requirement
+		if (totalAttendance < requiredCount) {
+			throw new Error(`You need at least ${requiredCount} attendance(s) for this month to print the report. You currently have ${totalAttendance}.`);
+		}
+		
 		const isCleared = totalAttendance >= totalRecords;
 		
 		// Generate HTML for PDF

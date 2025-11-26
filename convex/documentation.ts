@@ -139,7 +139,7 @@ export const submitCorpMember = mutation({
       nysc_account_number: v.string(),
       bank_name: v.string(),
       nin: v.string(),
-      cds: v.string(),
+      cds: v.optional(v.string()),
       medical_history: v.boolean(),
     }),
     medical_files: v.optional(v.array(fileDescriptor)),
@@ -152,6 +152,31 @@ export const submitCorpMember = mutation({
     if (!link || link.type !== "corp_member" || link.status !== "active") {
       throw new Error("Invalid or inactive link");
     }
+    
+    // Check for duplicate state_code
+    const existingStateCode = await ctx.db
+      .query("corp_member_docs")
+      .filter((q) => q.and(
+        q.eq(q.field("state_code"), payload.state_code),
+        q.eq(q.field("is_deleted"), false)
+      ))
+      .first();
+    if (existingStateCode) {
+      throw new Error("A record with this state code already exists");
+    }
+    
+    // Check for duplicate call_up_number
+    const existingCallUp = await ctx.db
+      .query("corp_member_docs")
+      .filter((q) => q.and(
+        q.eq(q.field("call_up_number"), payload.call_up_number),
+        q.eq(q.field("is_deleted"), false)
+      ))
+      .first();
+    if (existingCallUp) {
+      throw new Error("A record with this call up number already exists");
+    }
+    
     const files = payload.medical_history ? medical_files || [] : [];
     if (files.length) {
       validateFiles(files);
@@ -283,6 +308,37 @@ export const updateCorpMember = mutation({
     if (!record || record.is_deleted) {
       throw new Error("Record not found");
     }
+    
+    // Check for duplicate state_code if being updated
+    if (updates.state_code && updates.state_code !== record.state_code) {
+      const existingStateCode = await ctx.db
+        .query("corp_member_docs")
+        .filter((q) => q.and(
+          q.eq(q.field("state_code"), updates.state_code),
+          q.eq(q.field("is_deleted"), false),
+          q.neq(q.field("_id"), id)
+        ))
+        .first();
+      if (existingStateCode) {
+        throw new Error("A record with this state code already exists");
+      }
+    }
+    
+    // Check for duplicate call_up_number if being updated
+    if (updates.call_up_number && updates.call_up_number !== record.call_up_number) {
+      const existingCallUp = await ctx.db
+        .query("corp_member_docs")
+        .filter((q) => q.and(
+          q.eq(q.field("call_up_number"), updates.call_up_number),
+          q.eq(q.field("is_deleted"), false),
+          q.neq(q.field("_id"), id)
+        ))
+        .first();
+      if (existingCallUp) {
+        throw new Error("A record with this call up number already exists");
+      }
+    }
+    
     const doMedical = updates.medical_history ?? record.medical_history;
     const files = doMedical ? medical_files ?? record.medical_files : [];
     if (files.length) {

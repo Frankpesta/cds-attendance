@@ -135,7 +135,7 @@ export default defineSchema({
     nysc_account_number: v.string(),
     bank_name: v.string(),
     nin: v.string(),
-    cds: v.string(),
+    cds: v.optional(v.string()),
     medical_history: v.boolean(),
     medical_files: v.array(
       v.object({
@@ -170,6 +170,14 @@ export default defineSchema({
   })
     .index("by_link", ["link_token"])
     .index("by_created_at", ["created_at"]),
+
+  settings: defineTable({
+    key: v.string(),
+    value: v.string(),
+    updated_by: v.id("users"),
+    updated_at: v.number(),
+  })
+    .index("by_key", ["key"]), // unique in logic
 });
 
 

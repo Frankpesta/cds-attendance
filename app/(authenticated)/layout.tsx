@@ -41,6 +41,7 @@ export default function AuthenticatedLayout({
           { label: "Admin Assignments", href: "/admin-assignments", icon: UserCheck },
           { label: "Reports", href: "/reports", icon: BarChart3 },
           { label: "Documentation", href: "/documentation", icon: FileText },
+          { label: "Settings", href: "/settings", icon: Shield },
         ]
       : role === "admin"
       ? [

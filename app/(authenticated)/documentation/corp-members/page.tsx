@@ -67,6 +67,9 @@ export default function CorpMembersDocumentationPage() {
     api.documentation.listCorpMembers,
     sessionToken ? { sessionToken } : "skip",
   );
+  
+  // Fetch CDS groups for dropdown
+  const cdsGroups = useQuery(api.cds_groups.list, {});
 
   const createLink = useMutation(api.documentation.createLink);
   const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
@@ -181,7 +184,7 @@ export default function CorpMembersDocumentationPage() {
           nysc_account_number: String(editDraft.nysc_account_number || ""),
           bank_name: String(editDraft.bank_name || ""),
           nin: String(editDraft.nin || ""),
-          cds: String(editDraft.cds || ""),
+          cds: editDraft.cds ? String(editDraft.cds) : undefined,
           medical_history: Boolean(editDraft.medical_history),
         },
         medical_files:
@@ -378,16 +381,18 @@ export default function CorpMembersDocumentationPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <DataTable
-          title="Submitted Records"
-          description={`${filteredMembers.length} corps members`}
-          data={filteredMembers}
-          columns={columns as any}
-        />
+        <div className="min-w-0">
+          <DataTable
+            title="Submitted Records"
+            description={`${filteredMembers.length} corps members`}
+            data={filteredMembers}
+            columns={columns as any}
+          />
+        </div>
 
-        <Card className="h-fit">
+        <Card className="h-fit sticky top-4">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <h3 className="text-lg font-semibold">Record Details</h3>
                 <p className="text-sm text-muted-foreground">
@@ -395,13 +400,13 @@ export default function CorpMembersDocumentationPage() {
                 </p>
               </div>
               {selectedRecord && (
-                <Button size="sm" variant="secondary" onClick={() => setEditMode((prev) => !prev)}>
+                <Button size="sm" variant="secondary" onClick={() => setEditMode((prev) => !prev)} className="w-full sm:w-auto">
                   {editMode ? "Cancel" : "Edit"}
                 </Button>
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm">
+          <CardContent className="space-y-4 text-sm max-h-[calc(100vh-300px)] overflow-y-auto">
             {!selectedRecord && <p className="text-muted-foreground">Nothing selected.</p>}
             {selectedRecord && (
               <>
@@ -418,12 +423,37 @@ export default function CorpMembersDocumentationPage() {
                               [field.key]: event.target.value,
                             }))
                           }
+                          className="w-full"
                         />
                       ) : (
-                        <p className="font-medium">{selectedRecord[field.key] || "-"}</p>
+                        <p className="font-medium break-words">{selectedRecord[field.key] || "-"}</p>
                       )}
                     </div>
                   ))}
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs uppercase text-muted-foreground">CDS Group</span>
+                    {editMode ? (
+                      <Select
+                        value={String(editDraft.cds ?? selectedRecord.cds ?? "")}
+                        onChange={(event) =>
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            cds: event.target.value,
+                          }))
+                        }
+                        options={[
+                          { value: "", label: "Select CDS Group..." },
+                          ...(cdsGroups?.map((group) => ({
+                            value: group.name,
+                            label: group.name,
+                          })) || []),
+                        ]}
+                      />
+                    ) : (
+                      <p className="font-medium">{selectedRecord.cds || "-"}</p>
+                    )}
+                  </div>
 
                   <div className="flex flex-col gap-1">
                     <span className="text-xs uppercase text-muted-foreground">Medical History</span>
@@ -474,9 +504,14 @@ export default function CorpMembersDocumentationPage() {
                 )}
 
                 {editMode && (
-                  <Button className="w-full" onClick={handleSave}>
-                    Save Changes
-                  </Button>
+                  <div className="flex gap-2 pt-2">
+                    <Button className="flex-1" onClick={handleSave}>
+                      Save Changes
+                    </Button>
+                    <Button variant="secondary" className="flex-1" onClick={() => setEditMode(false)}>
+                      Cancel
+                    </Button>
+                  </div>
                 )}
               </>
             )}

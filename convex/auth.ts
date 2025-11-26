@@ -166,6 +166,29 @@ export const signup = mutation({
       updated_at: now,
     });
 
+    // If user selected a CDS group, update their documentation record
+    if (cds_group_id) {
+      const cdsGroup = await ctx.db.get(cds_group_id);
+      if (cdsGroup) {
+        // Find documentation record with matching state_code
+        const docRecord = await ctx.db
+          .query("corp_member_docs")
+          .filter((q) => q.and(
+            q.eq(q.field("state_code"), state_code),
+            q.eq(q.field("is_deleted"), false)
+          ))
+          .first();
+        
+        if (docRecord) {
+          // Update the documentation record with the CDS group name
+          await ctx.db.patch(docRecord._id, {
+            cds: cdsGroup.name,
+            updated_at: now,
+          });
+        }
+      }
+    }
+
     // Create session immediately after signup
     const token = crypto.randomUUID();
     await ctx.db.insert("sessions", {

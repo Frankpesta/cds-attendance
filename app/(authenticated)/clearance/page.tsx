@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,9 @@ export default function ClearancePage() {
     api.cds_groups.get, 
     session?.user?.cds_group_id ? { id: session.user.cds_group_id } : "skip"
   );
+  
+  // Fetch required attendance count
+  const requiredAttendanceCount = useQuery(api.settings.getRequiredAttendanceCount, {});
 
   useEffect(() => {
     (async () => {
@@ -59,6 +62,17 @@ export default function ClearancePage() {
 
   const exportPdf = async () => {
     if (!session?.user?._id) return;
+    
+    // Check attendance requirement before allowing export
+    const requiredCount = requiredAttendanceCount ?? 3;
+    if (data && totalAttendance < requiredCount) {
+      push({ 
+        variant: "error", 
+        title: "Insufficient Attendance", 
+        description: `You need at least ${requiredCount} attendance(s) for this month to print the report. You currently have ${totalAttendance}.` 
+      });
+      return;
+    }
     
     setExporting(true);
     try {
@@ -202,10 +216,20 @@ export default function ClearancePage() {
                 <FileText className="w-5 h-5" />
                 <h3 className="text-lg font-semibold">Clearance Certificate Preview</h3>
               </div>
-              <Button onClick={exportPdf} loading={exporting} className="bg-green-600 hover:bg-green-700">
+              <Button 
+                onClick={exportPdf} 
+                loading={exporting} 
+                disabled={data && totalAttendance < (requiredAttendanceCount ?? 3)}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
+              {data && totalAttendance < (requiredAttendanceCount ?? 3) && (
+                <p className="text-sm text-red-600 mt-2">
+                  You need at least {requiredAttendanceCount ?? 3} attendance(s) to print. You have {totalAttendance}.
+                </p>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -296,6 +320,7 @@ export default function ClearancePage() {
         <CardContent className="space-y-2 text-sm text-gray-600">
           <p>• Select the month and year for which you want to generate your clearance certificate</p>
           <p>• The certificate will show your attendance statistics for the selected month</p>
+          <p>• You need at least <strong>{requiredAttendanceCount ?? 3} attendance(s)</strong> to print the report for this month</p>
           <p>• You need 100% attendance to be cleared for the month</p>
           <p>• Download the PDF certificate for your records or submission</p>
           <p>• This certificate is automatically generated and can be verified by administrators</p>

@@ -68,7 +68,6 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
       !form.nysc_account_number ||
       !form.bank_name ||
       !form.nin ||
-      !form.cds ||
       (form.medical_history === "yes" && medicalFiles.length === 0),
     [form, medicalFiles],
   );
@@ -165,9 +164,6 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
               Your documentation details have been submitted successfully. You will be contacted if any additional information is required.
             </p>
           </CardHeader>
-          <CardContent>
-            <Button onClick={() => setSubmitted(false)}>Submit another response</Button>
-          </CardContent>
         </Card>
       </div>
     );
@@ -184,11 +180,11 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
               {Object.entries(form).map(([key, value]) => {
                 if (key === "medical_history") {
                   return (
-                    <div key={key}>
+                    <div key={key} className="sm:col-span-1 md:col-span-2">
                       <label className="mb-2 block text-sm font-medium">Medical History</label>
                       <Select
                         value={value}
@@ -223,6 +219,21 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                           { value: "Male", label: "Male" },
                           { value: "Female", label: "Female" },
                         ]}
+                      />
+                    </div>
+                  );
+                }
+                if (key === "cds") {
+                  return (
+                    <div key={key} className="sm:col-span-1 md:col-span-2">
+                      <label className="mb-2 block text-sm font-medium">
+                        CDS Group <span className="text-xs text-muted-foreground font-normal">(Auto-populated when you sign up)</span>
+                      </label>
+                      <Input
+                        value=""
+                        disabled
+                        placeholder="Will be automatically populated when you sign up on the CDS attendance platform"
+                        className="bg-muted cursor-not-allowed"
                       />
                     </div>
                   );

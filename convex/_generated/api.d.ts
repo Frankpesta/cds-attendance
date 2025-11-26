@@ -16,6 +16,7 @@ import type * as dashboard from "../dashboard.js";
 import type * as documentation from "../documentation.js";
 import type * as qr from "../qr.js";
 import type * as reports from "../reports.js";
+import type * as settings from "../settings.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   documentation: typeof documentation;
   qr: typeof qr;
   reports: typeof reports;
+  settings: typeof settings;
   users: typeof users;
   utils: typeof utils;
 }>;

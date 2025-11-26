@@ -105,9 +105,6 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
             <h1 className="text-3xl font-bold">Thank you!</h1>
             <p className="text-muted-foreground">Your organization details have been submitted successfully.</p>
           </CardHeader>
-          <CardContent>
-            <Button onClick={() => setSubmitted(false)}>Submit another response</Button>
-          </CardContent>
         </Card>
       </div>
     );

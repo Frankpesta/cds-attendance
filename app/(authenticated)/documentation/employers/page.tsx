@@ -332,16 +332,18 @@ export default function EmployersDocumentationPage() {
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <DataTable
-          title="Employer Records"
-          description={`${filteredEmployers.length} submissions`}
-          data={filteredEmployers}
-          columns={columns as any}
-        />
+        <div className="min-w-0">
+          <DataTable
+            title="Employer Records"
+            description={`${filteredEmployers.length} submissions`}
+            data={filteredEmployers}
+            columns={columns as any}
+          />
+        </div>
 
-        <Card className="h-fit">
+        <Card className="h-fit sticky top-4">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <h3 className="text-lg font-semibold">Record Details</h3>
                 <p className="text-sm text-muted-foreground">
@@ -349,13 +351,13 @@ export default function EmployersDocumentationPage() {
                 </p>
               </div>
               {selectedRecord && (
-                <Button size="sm" variant="secondary" onClick={() => setEditMode((prev) => !prev)}>
+                <Button size="sm" variant="secondary" onClick={() => setEditMode((prev) => !prev)} className="w-full sm:w-auto">
                   {editMode ? "Cancel" : "Edit"}
                 </Button>
               )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-3 text-sm max-h-[calc(100vh-300px)] overflow-y-auto">
             {!selectedRecord && <p className="text-muted-foreground">Nothing selected.</p>}
             {selectedRecord && (
               <>
@@ -401,9 +403,14 @@ export default function EmployersDocumentationPage() {
                 ))}
 
                 {editMode && (
-                  <Button className="w-full" onClick={handleSave}>
-                    Save Changes
-                  </Button>
+                  <div className="flex gap-2 pt-2">
+                    <Button className="flex-1" onClick={handleSave}>
+                      Save Changes
+                    </Button>
+                    <Button variant="secondary" className="flex-1" onClick={() => setEditMode(false)}>
+                      Cancel
+                    </Button>
+                  </div>
                 )}
               </>
             )}
