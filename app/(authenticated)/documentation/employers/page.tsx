@@ -39,7 +39,7 @@ export default function EmployersDocumentationPage() {
   const [accommodationFilter, setAccommodationFilter] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [editMode, setEditMode] = useState(false);
-  const [editDraft, setEditDraft] = useState<Record<string, string | number | boolean>>({});
+  const [editDraft, setEditDraft] = useState<Record<string, string | number | boolean | undefined>>({});
 
   const links = useQuery(
     api.documentation.listLinks,
@@ -150,7 +150,9 @@ export default function EmployersDocumentationPage() {
           contact_person_phone: String(editDraft.contact_person_phone || ""),
           cms_required_per_year: Number(editDraft.cms_required_per_year || 0),
           accommodation: Boolean(editDraft.accommodation),
-          accommodation_type: editDraft.accommodation ? String(editDraft.accommodation_type || "") : undefined,
+          accommodation_type: editDraft.accommodation 
+            ? (editDraft.accommodation_type ? String(editDraft.accommodation_type) : undefined)
+            : undefined,
           monthly_stipend: Number(editDraft.monthly_stipend || 0),
           email: String(editDraft.email || ""),
           nearest_landmark: String(editDraft.nearest_landmark || ""),
@@ -369,14 +371,19 @@ export default function EmployersDocumentationPage() {
                       editMode ? (
                         <Select
                           value={editDraft.accommodation ? "true" : "false"}
-                          onChange={(event) =>
-                            setEditDraft((prev) => ({
-                              ...prev,
-                              accommodation: event.target.value === "true",
-                              // Reset accommodation_type if accommodation is set to false
-                              accommodation_type: event.target.value === "false" ? undefined : prev.accommodation_type,
-                            }))
-                          }
+                          onChange={(event) => {
+                            const newAccommodation = event.target.value === "true";
+                            setEditDraft((prev) => {
+                              const updated: Record<string, string | number | boolean | undefined> = {
+                                ...prev,
+                                accommodation: newAccommodation,
+                              };
+                              if (!newAccommodation) {
+                                updated.accommodation_type = undefined;
+                              }
+                              return updated;
+                            });
+                          }}
                           options={[
                             { value: "true", label: "Yes" },
                             { value: "false", label: "No" },
@@ -412,12 +419,13 @@ export default function EmployersDocumentationPage() {
                     {editMode ? (
                       <Select
                         value={String(editDraft.accommodation_type ?? selectedRecord.accommodation_type ?? "")}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const value = event.target.value;
                           setEditDraft((prev) => ({
                             ...prev,
-                            accommodation_type: event.target.value || undefined,
-                          }))
-                        }
+                            accommodation_type: value === "" ? undefined : value,
+                          }));
+                        }}
                         options={[
                           { value: "", label: "Not specified" },
                           { value: "A single room", label: "A single room" },
