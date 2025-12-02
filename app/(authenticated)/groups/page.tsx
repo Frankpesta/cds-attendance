@@ -186,10 +186,15 @@ export default function GroupsPage() {
                       variant="ghost" 
                       size="sm"
                       className="text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to delete ${g.name}?`)) {
-                          // TODO: Implement delete
-                          push({ variant: "error", title: "Not implemented", description: "Delete functionality coming soon" });
+                      onClick={async () => {
+                        if (confirm(`Are you sure you want to delete ${g.name}? This will also delete all associated attendance records and admin assignments.`)) {
+                          try {
+                            await client.mutation(api.cds_groups.deleteGroup, { id: g._id });
+                            push({ variant: "success", title: "Group deleted", description: `${g.name} has been deleted successfully` });
+                            load();
+                          } catch (e: any) {
+                            push({ variant: "error", title: "Delete failed", description: e?.message || "Could not delete group" });
+                          }
                         }
                       }}
                     >

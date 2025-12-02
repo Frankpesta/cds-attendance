@@ -42,7 +42,6 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
   const [form, setForm] = useState(initialForm);
   const [medicalFiles, setMedicalFiles] = useState<MedicalFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
 
   const link = useQuery(api.documentation.validateLink, {
     token: params.token,
@@ -116,7 +115,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
     if (!link || !link.token) return;
     setSubmitting(true);
     try {
-      await submitCorpMember({
+      const result = await submitCorpMember({
         token: link.token,
         payload: {
           ...form,
@@ -124,8 +123,11 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
         },
         medical_files: form.medical_history === "yes" ? medicalFiles : [],
       });
-      setSubmitted(true);
-      push({ variant: "success", title: "Submission received" });
+      push({ variant: "success", title: "Documentation submitted", description: "Redirecting to SAED selection..." });
+      // Redirect to SAED page using the link token
+      setTimeout(() => {
+        window.location.href = `/documentation/corp-members/${link.token}/saed`;
+      }, 1000);
     } catch (error: any) {
       push({ variant: "error", title: "Submission failed", description: error?.message });
     } finally {
@@ -154,20 +156,6 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
     );
   }
 
-  if (submitted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <Card className="max-w-xl text-center">
-          <CardHeader>
-            <h1 className="text-3xl font-bold">Thank you!</h1>
-            <p className="text-muted-foreground">
-              Your documentation details have been submitted successfully. You will be contacted if any additional information is required.
-            </p>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-muted/40 py-10">
@@ -238,6 +226,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                     </div>
                   );
                 }
+                const isUppercaseField = key === "ppa" || key === "nin";
                 return (
                   <div key={key}>
                     <label className="mb-2 block text-sm font-medium">
@@ -247,12 +236,16 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                     </label>
                     <Input
                       value={value}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const inputValue = isUppercaseField 
+                          ? event.target.value.toUpperCase() 
+                          : event.target.value;
                         setForm((prev) => ({
                           ...prev,
-                          [key]: event.target.value,
+                          [key]: inputValue,
                         }))
-                      }
+                      }}
+                      style={isUppercaseField ? { textTransform: 'uppercase' } : {}}
                     />
                   </div>
                 );

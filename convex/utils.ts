@@ -143,4 +143,12 @@ export function formatStateCode(prefix: string, batch: string, sequenceNumber: n
   return `${prefix}/${batch}/${seq}`;
 }
 
+// Extract batch letter (A, B, or C) from state code e.g., "OD/25A/2412" -> "A"
+export function extractBatchFromStateCode(stateCode: string): string | null {
+  // State code format: OD/25A/2412
+  // Extract the batch letter from the middle part (after year)
+  const match = stateCode.match(/\/\d{2}([A-C])\//);
+  return match ? match[1] : null;
+}
+
 

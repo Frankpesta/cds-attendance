@@ -145,6 +145,13 @@ export default defineSchema({
         contentType: v.string(),
       }),
     ),
+    personal_skill: v.optional(v.string()),
+    saed_camp_skill: v.optional(v.string()),
+    proposed_post_camp_saed_skill: v.optional(v.string()),
+    selected_trainer_name: v.optional(v.string()),
+    selected_trainer_business: v.optional(v.string()),
+    selected_trainer_phone: v.optional(v.string()),
+    selected_trainer_email: v.optional(v.string()),
   })
     .index("by_link", ["link_token"])
     .index("by_created_at", ["created_at"]),
@@ -164,6 +171,7 @@ export default defineSchema({
     contact_person_phone: v.string(),
     cms_required_per_year: v.number(),
     accommodation: v.boolean(),
+    accommodation_type: v.optional(v.string()),
     monthly_stipend: v.number(),
     email: v.string(),
     nearest_landmark: v.string(),

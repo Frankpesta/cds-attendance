@@ -12,29 +12,55 @@ import { Settings, Save, Info } from "lucide-react";
 export default function SettingsPage() {
   const sessionToken = useSessionToken();
   const { push } = useToast();
-  const [count, setCount] = useState<number | null>(null);
+  const [defaultCount, setDefaultCount] = useState<number | null>(null);
+  const [batchA, setBatchA] = useState<number | null>(null);
+  const [batchB, setBatchB] = useState<number | null>(null);
+  const [batchC, setBatchC] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   
-  const currentCount = useQuery(api.settings.getRequiredAttendanceCount, {});
-  const setRequiredCount = useMutation(api.settings.setRequiredAttendanceCount);
+  const batchSettings = useQuery(api.settings.getBatchAttendanceSettings, {});
+  const setBatchRequirements = useMutation(api.settings.setBatchAttendanceRequirements);
   
-  // Initialize count when currentCount is loaded
+  // Initialize values when settings are loaded
   useEffect(() => {
-    if (currentCount !== undefined && count === null) {
-      setCount(currentCount);
+    if (batchSettings && defaultCount === null) {
+      setDefaultCount(batchSettings.default);
+      setBatchA(batchSettings.batchA ?? null);
+      setBatchB(batchSettings.batchB ?? null);
+      setBatchC(batchSettings.batchC ?? null);
     }
-  }, [currentCount, count]);
+  }, [batchSettings, defaultCount]);
 
   const handleSave = async () => {
-    if (!sessionToken || count === null || count < 1) {
-      push({ variant: "error", title: "Invalid Input", description: "Please enter a valid number (at least 1)" });
+    if (!sessionToken || defaultCount === null || defaultCount < 1) {
+      push({ variant: "error", title: "Invalid Input", description: "Please enter a valid default number (at least 1)" });
+      return;
+    }
+    
+    // Validate batch values if provided
+    if (batchA !== null && batchA < 1) {
+      push({ variant: "error", title: "Invalid Input", description: "Batch A must be at least 1" });
+      return;
+    }
+    if (batchB !== null && batchB < 1) {
+      push({ variant: "error", title: "Invalid Input", description: "Batch B must be at least 1" });
+      return;
+    }
+    if (batchC !== null && batchC < 1) {
+      push({ variant: "error", title: "Invalid Input", description: "Batch C must be at least 1" });
       return;
     }
     
     setSaving(true);
     try {
-      await setRequiredCount({ sessionToken, count });
-      push({ variant: "success", title: "Settings Updated", description: `Required attendance count set to ${count}` });
+      await setBatchRequirements({ 
+        sessionToken, 
+        default: defaultCount,
+        batchA: batchA ?? undefined,
+        batchB: batchB ?? undefined,
+        batchC: batchC ?? undefined,
+      });
+      push({ variant: "success", title: "Settings Updated", description: "Batch attendance requirements updated successfully" });
     } catch (error: any) {
       push({ variant: "error", title: "Failed to Update", description: error?.message || "Could not update settings" });
     } finally {
@@ -56,32 +82,92 @@ export default function SettingsPage() {
             <h2 className="text-xl font-semibold">Attendance Requirements</h2>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div>
             <label className="block text-sm font-medium mb-2">
-              Required Attendance per Month
+              Default Required Attendance per Month *
             </label>
             <Input
               type="number"
               min="1"
-              value={count ?? currentCount ?? 3}
-              onChange={(e) => setCount(parseInt(e.target.value, 10) || 1)}
+              value={defaultCount ?? batchSettings?.default ?? 3}
+              onChange={(e) => setDefaultCount(parseInt(e.target.value, 10) || 1)}
               className="max-w-xs"
             />
             <p className="text-sm text-muted-foreground mt-2">
-              This is the minimum number of attendances required for corps members to print their monthly clearance certificate.
+              This is the minimum number of attendances required for all corps members to print their monthly clearance certificate, unless overridden by batch-specific settings below.
             </p>
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-4">Batch-Specific Overrides (Optional)</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Set different requirements for specific batches. Leave blank to use the default value. Batch is extracted from state code (e.g., OD/25A/2412 → Batch A).
+            </p>
+            
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Batch A
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Use default"
+                  value={batchA ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchA(val === "" ? null : parseInt(val, 10) || null);
+                  }}
+                  className="max-w-xs"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Batch B
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Use default"
+                  value={batchB ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchB(val === "" ? null : parseInt(val, 10) || null);
+                  }}
+                  className="max-w-xs"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Batch C
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Use default"
+                  value={batchC ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setBatchC(val === "" ? null : parseInt(val, 10) || null);
+                  }}
+                  className="max-w-xs"
+                />
+              </div>
+            </div>
           </div>
           
           <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <Info className="w-5 h-5 text-blue-600 mt-0.5" />
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">Note:</p>
-              <p>This setting affects all corps members. Use this to handle edge cases where only 2 CDS sessions or 1 session holds in a month. The default is 3 attendances per month.</p>
+              <p>Batch-specific settings override the default. If a batch doesn't have a specific setting, it will use the default value. Use this to handle edge cases where different batches have different CDS session schedules.</p>
             </div>
           </div>
 
-          <Button onClick={handleSave} loading={saving} disabled={count === null || count < 1}>
+          <Button onClick={handleSave} loading={saving} disabled={defaultCount === null || defaultCount < 1}>
             <Save className="w-4 h-4 mr-2" />
             Save Settings
           </Button>

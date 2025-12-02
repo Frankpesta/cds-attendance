@@ -194,7 +194,7 @@ export const submitCorpMember = mutation({
       medical_files: files,
     });
     await ctx.db.patch(link._id, { uses_count: link.uses_count + 1 });
-    return docId;
+    return { docId, linkToken: link.token };
   },
 });
 
@@ -209,6 +209,7 @@ export const submitEmployer = mutation({
       contact_person_phone: v.string(),
       cms_required_per_year: v.number(),
       accommodation: v.boolean(),
+      accommodation_type: v.optional(v.string()),
       monthly_stipend: v.number(),
       email: v.string(),
       nearest_landmark: v.string(),
@@ -365,6 +366,7 @@ export const updateEmployer = mutation({
       contact_person_phone: v.optional(v.string()),
       cms_required_per_year: v.optional(v.number()),
       accommodation: v.optional(v.boolean()),
+      accommodation_type: v.optional(v.string()),
       monthly_stipend: v.optional(v.number()),
       email: v.optional(v.string()),
       nearest_landmark: v.optional(v.string()),
@@ -407,5 +409,70 @@ export const getFileUrl = mutation({
   handler: async (ctx, { sessionToken, fileId }) => {
     await requireAdminSession(ctx, sessionToken);
     return await ctx.storage.getUrl(fileId);
+  },
+});
+
+// Get corp member doc by link token (for SAED page)
+export const getCorpMemberByLinkToken = query({
+  args: { linkToken: v.string() },
+  handler: async (ctx, { linkToken }) => {
+    const record = await ctx.db
+      .query("corp_member_docs")
+      .filter((q) => q.eq(q.field("link_token"), linkToken))
+      .filter((q) => q.eq(q.field("is_deleted"), false))
+      .first();
+    if (!record) {
+      return null;
+    }
+    return {
+      _id: record._id,
+      full_name: record.full_name,
+      state_code: record.state_code,
+      personal_skill: record.personal_skill,
+      saed_camp_skill: record.saed_camp_skill,
+      proposed_post_camp_saed_skill: record.proposed_post_camp_saed_skill,
+      selected_trainer_name: record.selected_trainer_name,
+      selected_trainer_business: record.selected_trainer_business,
+      selected_trainer_phone: record.selected_trainer_phone,
+      selected_trainer_email: record.selected_trainer_email,
+    };
+  },
+});
+
+// Save SAED data
+export const saveSAEDData = mutation({
+  args: {
+    linkToken: v.string(),
+    personalSkill: v.string(),
+    saedCampSkill: v.string(),
+    proposedPostCampSAEDSkill: v.string(),
+    selectedTrainerName: v.optional(v.string()),
+    selectedTrainerBusiness: v.optional(v.string()),
+    selectedTrainerPhone: v.optional(v.string()),
+    selectedTrainerEmail: v.optional(v.string()),
+  },
+  handler: async (ctx, { linkToken, personalSkill, saedCampSkill, proposedPostCampSAEDSkill, selectedTrainerName, selectedTrainerBusiness, selectedTrainerPhone, selectedTrainerEmail }) => {
+    const record = await ctx.db
+      .query("corp_member_docs")
+      .filter((q) => q.eq(q.field("link_token"), linkToken))
+      .filter((q) => q.eq(q.field("is_deleted"), false))
+      .first();
+    
+    if (!record) {
+      throw new Error("Record not found");
+    }
+    
+    await ctx.db.patch(record._id, {
+      personal_skill: personalSkill,
+      saed_camp_skill: saedCampSkill,
+      proposed_post_camp_saed_skill: proposedPostCampSAEDSkill,
+      selected_trainer_name: selectedTrainerName,
+      selected_trainer_business: selectedTrainerBusiness,
+      selected_trainer_phone: selectedTrainerPhone,
+      selected_trainer_email: selectedTrainerEmail,
+      updated_at: nowMs(),
+    });
+    
+    return true;
   },
 });

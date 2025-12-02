@@ -17,6 +17,7 @@ const initialForm = {
   contact_person_phone: "",
   cms_required_per_year: "",
   accommodation: "",
+  accommodation_type: "",
   monthly_stipend: "",
   email: "",
   nearest_landmark: "",
@@ -42,6 +43,7 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
     !form.contact_person_phone ||
     !form.cms_required_per_year ||
     !form.accommodation ||
+    (form.accommodation === "yes" && !form.accommodation_type) ||
     !form.monthly_stipend ||
     !form.email ||
     !form.nearest_landmark;
@@ -60,6 +62,7 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
           contact_person_phone: form.contact_person_phone,
           cms_required_per_year: Number(form.cms_required_per_year),
           accommodation: form.accommodation === "yes",
+          accommodation_type: form.accommodation === "yes" ? form.accommodation_type : undefined,
           monthly_stipend: Number(form.monthly_stipend),
           email: form.email,
           nearest_landmark: form.nearest_landmark,
@@ -133,6 +136,8 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
                           setForm((prev) => ({
                             ...prev,
                             accommodation: event.target.value,
+                            // Reset accommodation_type if accommodation is set to "no"
+                            accommodation_type: event.target.value === "no" ? "" : prev.accommodation_type,
                           }))
                         }
                         options={[
@@ -141,6 +146,35 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
                           { value: "no", label: "No" },
                         ]}
                       />
+                    </div>
+                  );
+                }
+                if (key === "accommodation_type") {
+                  // Only show if accommodation is "yes"
+                  if (form.accommodation !== "yes") {
+                    return null;
+                  }
+                  return (
+                    <div key={key} className="md:col-span-2">
+                      <label className="mb-2 block text-sm font-medium">Type of Accommodation Provided *</label>
+                      <Select
+                        value={value}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            accommodation_type: event.target.value,
+                          }))
+                        }
+                        options={[
+                          { value: "", label: "Select accommodation type" },
+                          { value: "A single room", label: "A single room" },
+                          { value: "A self-contain room", label: "A self-contain room" },
+                          { value: "2 or 3 bedroom flat", label: "2 or 3 bedroom flat" },
+                        ]}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Please specify the type of accommodation you provide for corps members.
+                      </p>
                     </div>
                   );
                 }

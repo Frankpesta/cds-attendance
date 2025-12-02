@@ -25,8 +25,11 @@ export default function ClearancePage() {
     session?.user?.cds_group_id ? { id: session.user.cds_group_id } : "skip"
   );
   
-  // Fetch required attendance count
-  const requiredAttendanceCount = useQuery(api.settings.getRequiredAttendanceCount, {});
+  // Fetch required attendance count based on user's batch
+  const requiredAttendanceCount = useQuery(
+    api.settings.getRequiredAttendanceCount, 
+    session?.user?.state_code ? { stateCode: session.user.state_code } : "skip"
+  );
 
   useEffect(() => {
     (async () => {

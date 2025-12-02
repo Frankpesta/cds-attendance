@@ -477,6 +477,58 @@ export default function CorpMembersDocumentationPage() {
                   </div>
                 </div>
 
+                {/* SAED Information Section */}
+                {(selectedRecord.personal_skill || selectedRecord.saed_camp_skill || selectedRecord.proposed_post_camp_saed_skill) && (
+                  <div className="border-t pt-4 mt-4 space-y-3">
+                    <h4 className="text-sm font-semibold text-primary">SAED Information</h4>
+                    
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs uppercase text-muted-foreground">Personal Skill</span>
+                      <p className="font-medium">{selectedRecord.personal_skill || "-"}</p>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs uppercase text-muted-foreground">SAED Camp Skill</span>
+                      <p className="font-medium">{selectedRecord.saed_camp_skill || "-"}</p>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs uppercase text-muted-foreground">Proposed Post Camp SAED Skill</span>
+                      <p className="font-medium">{selectedRecord.proposed_post_camp_saed_skill || "-"}</p>
+                    </div>
+
+                    {selectedRecord.selected_trainer_name && (
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                        <h5 className="text-xs font-semibold text-primary">Selected Trainer</h5>
+                        <div className="space-y-1.5 text-xs">
+                          <div>
+                            <span className="text-muted-foreground">Name:</span>{" "}
+                            <span className="font-medium">{selectedRecord.selected_trainer_name}</span>
+                          </div>
+                          {selectedRecord.selected_trainer_business && (
+                            <div>
+                              <span className="text-muted-foreground">Business:</span>{" "}
+                              <span className="font-medium">{selectedRecord.selected_trainer_business}</span>
+                            </div>
+                          )}
+                          {selectedRecord.selected_trainer_phone && (
+                            <div>
+                              <span className="text-muted-foreground">Phone:</span>{" "}
+                              <span className="font-medium">{selectedRecord.selected_trainer_phone}</span>
+                            </div>
+                          )}
+                          {selectedRecord.selected_trainer_email && (
+                            <div>
+                              <span className="text-muted-foreground">Email:</span>{" "}
+                              <span className="font-medium break-all">{selectedRecord.selected_trainer_email}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {selectedRecord.medical_history && (
                   <div className="rounded-lg border border-dashed p-3">
                     <div className="mb-2 flex items-center gap-2 text-sm font-semibold">

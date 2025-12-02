@@ -249,8 +249,10 @@ export const exportUserPdf = action({
 			throw new Error("User not found");
 		}
 		
-		// Get required attendance count
-		const requiredCount = await ctx.runQuery(api.settings.getRequiredAttendanceCount, {});
+		// Get required attendance count based on user's batch
+		const requiredCount = await ctx.runQuery(api.settings.getRequiredAttendanceCount, {
+			stateCode: user.state_code,
+		});
 		
 		// Get CDS group details
 		let cdsGroupName = "Not Assigned";

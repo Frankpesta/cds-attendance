@@ -150,6 +150,7 @@ export default function EmployersDocumentationPage() {
           contact_person_phone: String(editDraft.contact_person_phone || ""),
           cms_required_per_year: Number(editDraft.cms_required_per_year || 0),
           accommodation: Boolean(editDraft.accommodation),
+          accommodation_type: editDraft.accommodation ? String(editDraft.accommodation_type || "") : undefined,
           monthly_stipend: Number(editDraft.monthly_stipend || 0),
           email: String(editDraft.email || ""),
           nearest_landmark: String(editDraft.nearest_landmark || ""),
@@ -372,6 +373,8 @@ export default function EmployersDocumentationPage() {
                             setEditDraft((prev) => ({
                               ...prev,
                               accommodation: event.target.value === "true",
+                              // Reset accommodation_type if accommodation is set to false
+                              accommodation_type: event.target.value === "false" ? undefined : prev.accommodation_type,
                             }))
                           }
                           options={[
@@ -401,6 +404,32 @@ export default function EmployersDocumentationPage() {
                     )}
                   </div>
                 ))}
+
+                {/* Accommodation Type Field */}
+                {(selectedRecord.accommodation || (editMode && editDraft.accommodation)) && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs uppercase text-muted-foreground">Type of Accommodation Provided</span>
+                    {editMode ? (
+                      <Select
+                        value={String(editDraft.accommodation_type ?? selectedRecord.accommodation_type ?? "")}
+                        onChange={(event) =>
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            accommodation_type: event.target.value || undefined,
+                          }))
+                        }
+                        options={[
+                          { value: "", label: "Not specified" },
+                          { value: "A single room", label: "A single room" },
+                          { value: "A self-contain room", label: "A self-contain room" },
+                          { value: "2 or 3 bedroom flat", label: "2 or 3 bedroom flat" },
+                        ]}
+                      />
+                    ) : (
+                      <p className="font-medium">{selectedRecord.accommodation_type || "-"}</p>
+                    )}
+                  </div>
+                )}
 
                 {editMode && (
                   <div className="flex gap-2 pt-2">
