@@ -21,7 +21,7 @@ async function requireSuperAdmin(ctx: any, sessionToken: string) {
 async function getSettingValue(ctx: any, key: string): Promise<number | null> {
   const setting = await ctx.db
     .query("settings")
-    .filter((q) => q.eq(q.field("key"), key))
+    .filter((q: any) => q.eq(q.field("key"), key))
     .first();
   return setting ? parseInt(setting.value, 10) : null;
 }
@@ -86,7 +86,7 @@ async function setSettingValue(
   const now = nowMs();
   const existing = await ctx.db
     .query("settings")
-    .filter((q) => q.eq(q.field("key"), key))
+    .filter((q: any) => q.eq(q.field("key"), key))
     .first();
   
   if (existing) {
@@ -160,7 +160,7 @@ export const setBatchAttendanceRequirements = mutation({
       // Remove batch A override if not provided
       const existing = await ctx.db
         .query("settings")
-        .filter((q) => q.eq(q.field("key"), "required_attendance_per_month_batch_A"))
+        .filter((q: any) => q.eq(q.field("key"), "required_attendance_per_month_batch_A"))
         .first();
       if (existing) {
         await ctx.db.delete(existing._id);
@@ -172,7 +172,7 @@ export const setBatchAttendanceRequirements = mutation({
     } else {
       const existing = await ctx.db
         .query("settings")
-        .filter((q) => q.eq(q.field("key"), "required_attendance_per_month_batch_B"))
+        .filter((q: any) => q.eq(q.field("key"), "required_attendance_per_month_batch_B"))
         .first();
       if (existing) {
         await ctx.db.delete(existing._id);
@@ -184,7 +184,7 @@ export const setBatchAttendanceRequirements = mutation({
     } else {
       const existing = await ctx.db
         .query("settings")
-        .filter((q) => q.eq(q.field("key"), "required_attendance_per_month_batch_C"))
+        .filter((q: any) => q.eq(q.field("key"), "required_attendance_per_month_batch_C"))
         .first();
       if (existing) {
         await ctx.db.delete(existing._id);
