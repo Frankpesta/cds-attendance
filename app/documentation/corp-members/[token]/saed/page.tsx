@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -36,34 +36,45 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
     return getTrainersForSkill(form.proposed_post_camp_saed_skill);
   }, [form.proposed_post_camp_saed_skill]);
 
-  // Load existing data if available
+  // Track if user has manually interacted with the form
+  const userHasInteracted = useRef(false);
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
+
+  // Load existing data ONLY ONCE when corpMemberDoc first becomes available (before user interaction)
   useEffect(() => {
-    if (corpMemberDoc) {
-      setForm((prev) => ({
-        ...prev,
+    if (corpMemberDoc && !hasLoadedInitialData && !userHasInteracted.current) {
+      setForm({
         personal_skill: corpMemberDoc.personal_skill || "",
         saed_camp_skill: corpMemberDoc.saed_camp_skill || "",
         proposed_post_camp_saed_skill: corpMemberDoc.proposed_post_camp_saed_skill || "",
-      }));
+        selected_trainer: null,
+      });
+      setHasLoadedInitialData(true);
+    }
+  }, [corpMemberDoc, hasLoadedInitialData]);
 
-      // Restore selected trainer if exists
-      if (corpMemberDoc.selected_trainer_name) {
-        const trainer = availableTrainers.find(
-          (t) => t.name === corpMemberDoc.selected_trainer_name
-        );
-        if (trainer) {
-          setForm((prev) => ({ ...prev, selected_trainer: trainer }));
-        }
+  // Restore trainer only once when trainers become available for saved skill
+  const trainerRestoredRef = useRef(false);
+  useEffect(() => {
+    if (
+      corpMemberDoc && 
+      hasLoadedInitialData && 
+      !trainerRestoredRef.current &&
+      corpMemberDoc.selected_trainer_name &&
+      availableTrainers.length > 0 &&
+      form.proposed_post_camp_saed_skill === corpMemberDoc.proposed_post_camp_saed_skill &&
+      !form.selected_trainer
+    ) {
+      const trainer = availableTrainers.find(
+        (t) => t.name === corpMemberDoc.selected_trainer_name && 
+               t.phone === corpMemberDoc.selected_trainer_phone
+      );
+      if (trainer) {
+        setForm((prev) => ({ ...prev, selected_trainer: trainer }));
+        trainerRestoredRef.current = true;
       }
     }
-  }, [corpMemberDoc, availableTrainers]);
-
-  // Reset trainer selection when skill changes
-  useEffect(() => {
-    if (form.proposed_post_camp_saed_skill) {
-      setForm((prev) => ({ ...prev, selected_trainer: null }));
-    }
-  }, [form.proposed_post_camp_saed_skill]);
+  }, [availableTrainers, corpMemberDoc, hasLoadedInitialData, form.proposed_post_camp_saed_skill, form.selected_trainer]);
 
   const handleSubmit = async () => {
     if (!form.personal_skill.trim()) {
@@ -175,12 +186,13 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
                 <Input
                   placeholder="Enter the skill you already have"
                   value={form.personal_skill}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    userHasInteracted.current = true;
                     setForm((prev) => ({
                       ...prev,
                       personal_skill: e.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Describe any skill or expertise you already possess before joining NYSC.
@@ -194,12 +206,13 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
                 <Input
                   placeholder="Enter the skill you learned in camp"
                   value={form.saed_camp_skill}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    userHasInteracted.current = true;
                     setForm((prev) => ({
                       ...prev,
                       saed_camp_skill: e.target.value,
-                    }))
-                  }
+                    }));
+                  }}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
                   The SAED (Skill Acquisition and Entrepreneurship Development) skill you learned during orientation camp.
@@ -212,13 +225,14 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
                 </label>
                 <Select
                   value={form.proposed_post_camp_saed_skill}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    userHasInteracted.current = true;
                     setForm((prev) => ({
                       ...prev,
                       proposed_post_camp_saed_skill: e.target.value,
                       selected_trainer: null, // Reset trainer when skill changes
-                    }))
-                  }
+                    }));
+                  }}
                   options={skillOptions}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">

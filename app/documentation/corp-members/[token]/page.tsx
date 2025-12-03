@@ -227,12 +227,17 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                   );
                 }
                 const isUppercaseField = key === "ppa" || key === "nin";
+                const getLabel = (fieldKey: string) => {
+                  if (fieldKey === "ppa") return "PPA";
+                  if (fieldKey === "nin") return "NIN";
+                  return fieldKey
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase());
+                };
                 return (
                   <div key={key}>
                     <label className="mb-2 block text-sm font-medium">
-                      {key
-                        .replace(/_/g, " ")
-                        .replace(/\b\w/g, (c) => c.toUpperCase())}
+                      {getLabel(key)}
                     </label>
                     <Input
                       value={value}
