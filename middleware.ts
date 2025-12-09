@@ -7,10 +7,28 @@ const client = new ConvexHttpClient(convexUrl);
 
 const PUBLIC_PATHS = new Set(["/login", "/signup", "/favicon.ico", "/_next", "/api", "/assets"]);
 
+// Token-based documentation routes that should be public (no auth required)
+const isPublicDocumentationRoute = (pathname: string): boolean => {
+  // Allow /documentation/corp-members/[token] and all sub-paths
+  if (pathname.startsWith("/documentation/corp-members/") && pathname !== "/documentation/corp-members") {
+    return true;
+  }
+  // Allow /documentation/employers/[token]
+  if (pathname.startsWith("/documentation/employers/") && pathname !== "/documentation/employers") {
+    return true;
+  }
+  return false;
+};
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   // Skip assets and public routes
   if ([...PUBLIC_PATHS].some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    return NextResponse.next();
+  }
+  
+  // Allow public documentation routes (token-based registration forms)
+  if (isPublicDocumentationRoute(pathname)) {
     return NextResponse.next();
   }
 
@@ -39,6 +57,13 @@ export async function middleware(req: NextRequest) {
     // Restrict super admin areas
     if (pathname.startsWith("/groups") || pathname.startsWith("/reports")) {
       if (sess.user.role !== "super_admin") {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+    }
+    // Restrict documentation admin routes to admin/super_admin only
+    // (public token-based routes are already handled above, so this only affects admin routes)
+    if (pathname.startsWith("/documentation") && !isPublicDocumentationRoute(pathname)) {
+      if (!(sess.user.role === "admin" || sess.user.role === "super_admin")) {
         return NextResponse.redirect(new URL("/dashboard", req.url));
       }
     }
