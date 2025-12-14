@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { Pagination } from "@/components/ui/pagination";
 import { exportMonthlyCsv, exportMonthlyPdf, fetchMonthlyReport } from "@/app/actions/reports";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -23,6 +24,8 @@ export default function ReportsPage() {
   const [minAttendance, setMinAttendance] = useState("");
   const [maxAttendance, setMaxAttendance] = useState("");
   const [stateCode, setStateCode] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 80;
   
   const { push } = useToast();
   
@@ -107,12 +110,29 @@ export default function ReportsPage() {
   };
 
   // Filter data based on attendance count
-  const filteredData = data?.filter((row) => {
-    const count = row.count;
-    const minCheck = !minAttendance || count >= Number(minAttendance);
-    const maxCheck = !maxAttendance || count <= Number(maxAttendance);
-    return minCheck && maxCheck;
-  }) || [];
+  const filteredData = useMemo(() => {
+    return data?.filter((row) => {
+      const count = row.count;
+      const minCheck = !minAttendance || count >= Number(minAttendance);
+      const maxCheck = !maxAttendance || count <= Number(maxAttendance);
+      const stateCodeCheck = !stateCode || row.state_code.toLowerCase().includes(stateCode.toLowerCase());
+      return minCheck && maxCheck && stateCodeCheck;
+    }) || [];
+  }, [data, minAttendance, maxAttendance, stateCode]);
+
+  // Paginate filtered data
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredData.slice(startIndex, endIndex);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [minAttendance, maxAttendance, stateCode, data]);
 
   // Calculate statistics
   const totalRecords = filteredData.length;
@@ -319,7 +339,7 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((row, idx) => {
+                  {paginatedData.map((row, idx) => {
                     // Get group name from the groups data
                     const groupName = cdsGroups?.find((g: any) => g._id === row.cds_group_id)?.name || "Unknown Group";
                     
@@ -346,6 +366,15 @@ export default function ReportsPage() {
                 </tbody>
               </table>
             </div>
+          )}
+          {filteredData.length > itemsPerPage && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredData.length}
+            />
           )}
         </CardContent>
       </Card>

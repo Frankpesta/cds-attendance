@@ -186,6 +186,16 @@ export default defineSchema({
     updated_at: v.number(),
   })
     .index("by_key", ["key"]), // unique in logic
+
+  password_reset_tokens: defineTable({
+    user_id: v.id("users"),
+    token: v.string(),
+    created_at: v.number(),
+    expires_at: v.number(),
+    used_at: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_user", ["user_id"]),
 });
 
 

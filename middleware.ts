@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
 
-const PUBLIC_PATHS = new Set(["/login", "/signup", "/favicon.ico", "/_next", "/api", "/assets"]);
+const PUBLIC_PATHS = new Set(["/login", "/signup", "/forgot-password", "/reset-password", "/favicon.ico", "/_next", "/api", "/assets"]);
 
 // Token-based documentation routes that should be public (no auth required)
 const isPublicDocumentationRoute = (pathname: string): boolean => {

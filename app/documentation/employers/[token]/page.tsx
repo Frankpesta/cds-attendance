@@ -28,6 +28,7 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const link = useQuery(api.documentation.validateLink, {
     token: params.token,
@@ -46,7 +47,8 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
     (form.accommodation === "yes" && !form.accommodation_type) ||
     !form.monthly_stipend ||
     !form.email ||
-    !form.nearest_landmark;
+    !form.nearest_landmark ||
+    !acceptedTerms;
 
   const handleSubmit = async () => {
     if (!link || !link.token) return;
@@ -216,6 +218,20 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
                   </div>
                 );
               })}
+            </div>
+
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <div className="flex-1 text-sm">
+                  <span className="font-medium">I acknowledge and accept</span> that I am submitting sensitive organizational information including contact details, financial information, and accommodation details. I understand that this information will be managed in accordance with the Information Management and Security Policy, and I consent to the collection, storage, and processing of this data for the purposes of NYSC CDS documentation and administration.
+                </div>
+              </label>
             </div>
 
             <Button className="w-full" disabled={disabled || submitting} onClick={handleSubmit}>

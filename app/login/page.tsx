@@ -67,11 +67,16 @@ export default function LoginPage() {
         <Button type="submit" loading={loading}>
           Sign In
         </Button>
-        <div className="text-center mt-4">
+        <div className="text-center mt-4 space-y-2">
           <p className="text-sm text-gray-600">
             Don't have an account?{" "}
             <Link href="/signup" className="text-[#008751] hover:underline font-medium">
               Sign up
+            </Link>
+          </p>
+          <p className="text-sm">
+            <Link href="/forgot-password" className="text-[#008751] hover:underline font-medium">
+              Forgot your password?
             </Link>
           </p>
         </div>

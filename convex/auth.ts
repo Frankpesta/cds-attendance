@@ -18,6 +18,17 @@ export const getUserByStateCode = query({
   },
 });
 
+export const getUserByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), args.email))
+      .unique();
+    return user ?? null;
+  },
+});
+
 export const login = mutation({
   args: { stateCode: v.string(), password: v.string() },
   handler: async (ctx, { stateCode, password }) => {
@@ -245,6 +256,117 @@ export const changePassword = mutation({
       updated_at: nowMs(),
     });
     return true;
+  },
+});
+
+export const requestPasswordReset = mutation({
+  args: { stateCode: v.string(), email: v.string() },
+  handler: async (ctx, { stateCode, email }) => {
+    // Verify state code and email match
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("state_code"), stateCode))
+      .unique();
+    
+    // Don't reveal if user exists for security - return generic message
+    if (!user || user.email !== email) {
+      return { success: false, error: "Invalid state code or email combination" };
+    }
+
+    const now = nowMs();
+    const token = crypto.randomUUID();
+    const expiresAt = now + 60 * 60 * 1000; // 1 hour
+
+    // Invalidate any existing reset tokens for this user
+    const existingTokens = await ctx.db
+      .query("password_reset_tokens")
+      .filter((q) => q.eq(q.field("user_id"), user._id))
+      .collect();
+    
+    for (const existingToken of existingTokens) {
+      if (!existingToken.used_at && existingToken.expires_at > now) {
+        await ctx.db.patch(existingToken._id, { used_at: now });
+      }
+    }
+
+    // Create new reset token
+    await ctx.db.insert("password_reset_tokens", {
+      user_id: user._id,
+      token,
+      created_at: now,
+      expires_at: expiresAt,
+    });
+
+    // Return token for immediate use (no email needed)
+    return { success: true, token };
+  },
+});
+
+export const validateResetToken = query({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    const resetToken = await ctx.db
+      .query("password_reset_tokens")
+      .filter((q) => q.eq(q.field("token"), token))
+      .unique();
+    
+    if (!resetToken) {
+      return { valid: false };
+    }
+
+    const now = nowMs();
+    if (resetToken.used_at || resetToken.expires_at <= now) {
+      return { valid: false };
+    }
+
+    return { valid: true, userId: resetToken.user_id };
+  },
+});
+
+export const resetPassword = mutation({
+  args: {
+    token: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, { token, newPassword }) => {
+    const resetToken = await ctx.db
+      .query("password_reset_tokens")
+      .filter((q) => q.eq(q.field("token"), token))
+      .unique();
+    
+    if (!resetToken) {
+      throw new Error("Invalid or expired reset token");
+    }
+
+    const now = nowMs();
+    if (resetToken.used_at || resetToken.expires_at <= now) {
+      throw new Error("Invalid or expired reset token");
+    }
+
+    if (!passwordMeetsPolicy(newPassword)) {
+      throw new Error(
+        "Password must be at least 8 characters and include upper, lower, and number",
+      );
+    }
+
+    const user = await ctx.db.get(resetToken.user_id);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Update password
+    const hashed = bcrypt.hashSync(newPassword, 10);
+    await ctx.db.patch(user._id, {
+      password: hashed,
+      updated_at: now,
+    });
+
+    // Mark token as used
+    await ctx.db.patch(resetToken._id, {
+      used_at: now,
+    });
+
+    return { success: true };
   },
 });
 

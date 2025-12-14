@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
-import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield } from "lucide-react";
+import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield, Download } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
-import { getSessionTokenAction } from "@/app/actions/session";
+import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
 import type { Id } from "@/convex/_generated/dataModel";
 
 interface MedicalFile {
@@ -53,6 +54,10 @@ export default function CorpMembersDocumentationPage() {
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<Record<string, string | boolean>>({});
+  const [session, setSession] = useState<any | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [linksPage, setLinksPage] = useState(1);
+  const linksItemsPerPage = 80;
 
   const listLinks = useQuery(
     api.documentation.listLinks,
@@ -78,6 +83,13 @@ export default function CorpMembersDocumentationPage() {
   const getFileUrl = useMutation(api.documentation.getFileUrl);
 
   useEffect(() => {
+    (async () => {
+      const s = await getSessionAction();
+      setSession(s);
+    })();
+  }, []);
+
+  useEffect(() => {
     if (selectedRecord) {
       setEditDraft({
         ...selectedRecord,
@@ -87,6 +99,41 @@ export default function CorpMembersDocumentationPage() {
       setEditDraft({});
     }
   }, [selectedRecord]);
+
+  const handleExportExcel = async () => {
+    if (!sessionToken) {
+      push({ variant: "error", title: "Error", description: "Session token not available" });
+      return;
+    }
+    setExporting(true);
+    try {
+      const response = await fetch("/api/export-documentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken, type: "corp_member" }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Export failed");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `corp-members-documentation-${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      push({ variant: "success", title: "Export successful", description: "Excel file downloaded" });
+    } catch (error: any) {
+      push({ variant: "error", title: "Export failed", description: error?.message || "Failed to export" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const filteredMembers = useMemo(() => {
     if (!corpMembers) return [];
@@ -271,74 +318,99 @@ export default function CorpMembersDocumentationPage() {
           <h1 className="text-3xl font-bold tracking-tight">Corps Members Documentation</h1>
           <p className="text-muted-foreground">Create secure registration links and manage submitted records.</p>
         </div>
-        <Button onClick={handleCreateLink}>
-          <Link2 className="mr-2 h-4 w-4" />
-          Create Registration Link
-        </Button>
+        <div className="flex gap-2">
+          {session?.user?.role === "super_admin" && (
+            <Button onClick={handleExportExcel} loading={exporting} variant="secondary">
+              <Download className="mr-2 h-4 w-4" />
+              Export Excel
+            </Button>
+          )}
+          <Button onClick={handleCreateLink}>
+            <Link2 className="mr-2 h-4 w-4" />
+            Create Registration Link
+          </Button>
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold">Registration Links</h2>
+          <p className="text-sm text-muted-foreground">
+            {listLinks?.length || 0} total links
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2">Token</th>
-                  <th>Status</th>
-                  <th>Uses</th>
-                  <th>Created</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(listLinks || []).map((link: any) => {
-                  const origin = typeof window !== "undefined" ? window.location.origin : "";
-                  const url = `${origin}/documentation/corp-members/${link.token}`;
-                  return (
-                    <tr key={link._id} className="border-b">
-                      <td className="py-2 font-mono text-xs">{link.token}</td>
-                      <td>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                            link.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
-                          }`}
-                        >
-                          {link.status}
-                        </span>
-                      </td>
-                      <td>{link.uses_count}</td>
-                      <td>{formatDate(link.created_at)}</td>
-                      <td className="flex gap-2 py-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={async () => {
-                            await navigator.clipboard.writeText(url);
-                            push({ variant: "success", title: "Link copied" });
-                          }}
-                        >
-                          <ClipboardCopy className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleToggleLink(link)}>
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </td>
+          {(!listLinks || listLinks.length === 0) ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No links yet. Create the first one above.
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2">Token</th>
+                      <th>Status</th>
+                      <th>Uses</th>
+                      <th>Created</th>
+                      <th>Actions</th>
                     </tr>
-                  );
-                })}
-                {(!listLinks || listLinks.length === 0) && (
-                  <tr>
-                    <td colSpan={5} className="py-4 text-center text-muted-foreground">
-                      No links yet. Create the first one above.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {useMemo(() => {
+                      const startIndex = (linksPage - 1) * linksItemsPerPage;
+                      const endIndex = startIndex + linksItemsPerPage;
+                      return (listLinks || []).slice(startIndex, endIndex);
+                    }, [listLinks, linksPage, linksItemsPerPage]).map((link: any) => {
+                      const origin = typeof window !== "undefined" ? window.location.origin : "";
+                      const url = `${origin}/documentation/corp-members/${link.token}`;
+                      return (
+                        <tr key={link._id} className="border-b">
+                          <td className="py-2 font-mono text-xs">{link.token}</td>
+                          <td>
+                            <span
+                              className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                                link.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {link.status}
+                            </span>
+                          </td>
+                          <td>{link.uses_count}</td>
+                          <td>{formatDate(link.created_at)}</td>
+                          <td className="flex gap-2 py-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(url);
+                                push({ variant: "success", title: "Link copied" });
+                              }}
+                            >
+                              <ClipboardCopy className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleToggleLink(link)}>
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {Math.ceil((listLinks?.length || 0) / linksItemsPerPage) > 1 && (
+                <Pagination
+                  currentPage={linksPage}
+                  totalPages={Math.ceil((listLinks?.length || 0) / linksItemsPerPage)}
+                  onPageChange={setLinksPage}
+                  itemsPerPage={linksItemsPerPage}
+                  totalItems={listLinks?.length || 0}
+                />
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
