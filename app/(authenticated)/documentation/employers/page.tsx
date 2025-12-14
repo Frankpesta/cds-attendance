@@ -130,6 +130,13 @@ export default function EmployersDocumentationPage() {
     });
   }, [employers, search, accommodationFilter]);
 
+  const paginatedLinks = useMemo(() => {
+    if (!links) return [];
+    const startIndex = (linksPage - 1) * linksItemsPerPage;
+    const endIndex = startIndex + linksItemsPerPage;
+    return links.slice(startIndex, endIndex);
+  }, [links, linksPage, linksItemsPerPage]);
+
   const handleCreateLink = async () => {
     let token = sessionToken;
     // Fallback: try to get token from server if hook hasn't loaded yet
@@ -309,11 +316,7 @@ export default function EmployersDocumentationPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {useMemo(() => {
-                      const startIndex = (linksPage - 1) * linksItemsPerPage;
-                      const endIndex = startIndex + linksItemsPerPage;
-                      return (links || []).slice(startIndex, endIndex);
-                    }, [links, linksPage, linksItemsPerPage]).map((link: any) => {
+                    {paginatedLinks.map((link: any) => {
                       const origin = typeof window !== "undefined" ? window.location.origin : "";
                       const url = `${origin}/documentation/employers/${link.token}`;
                       return (

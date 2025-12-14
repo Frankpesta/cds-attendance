@@ -151,6 +151,13 @@ export default function CorpMembersDocumentationPage() {
     });
   }, [corpMembers, search, genderFilter, medicalFilter]);
 
+  const paginatedLinks = useMemo(() => {
+    if (!listLinks) return [];
+    const startIndex = (linksPage - 1) * linksItemsPerPage;
+    const endIndex = startIndex + linksItemsPerPage;
+    return listLinks.slice(startIndex, endIndex);
+  }, [listLinks, linksPage, linksItemsPerPage]);
+
   const handleCreateLink = async () => {
     let token = sessionToken;
     // Fallback: try to get token from server if hook hasn't loaded yet
@@ -358,11 +365,7 @@ export default function CorpMembersDocumentationPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {useMemo(() => {
-                      const startIndex = (linksPage - 1) * linksItemsPerPage;
-                      const endIndex = startIndex + linksItemsPerPage;
-                      return (listLinks || []).slice(startIndex, endIndex);
-                    }, [listLinks, linksPage, linksItemsPerPage]).map((link: any) => {
+                    {paginatedLinks.map((link: any) => {
                       const origin = typeof window !== "undefined" ? window.location.origin : "";
                       const url = `${origin}/documentation/corp-members/${link.token}`;
                       return (
