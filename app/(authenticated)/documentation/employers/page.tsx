@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
+import { Pagination } from "@/components/ui/pagination";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { useToast } from "@/components/ui/toast";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
