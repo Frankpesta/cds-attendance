@@ -284,10 +284,10 @@ export default function EmployersDocumentationPage() {
               Export Excel
             </Button>
           )}
-          <Button onClick={handleCreateLink}>
-            <Link2 className="mr-2 h-4 w-4" />
-            Create Registration Link
-          </Button>
+        <Button onClick={handleCreateLink}>
+          <Link2 className="mr-2 h-4 w-4" />
+          Create Registration Link
+        </Button>
         </div>
       </div>
 
@@ -305,56 +305,56 @@ export default function EmployersDocumentationPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="py-2">Token</th>
-                      <th>Status</th>
-                      <th>Uses</th>
-                      <th>Created</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="py-2">Token</th>
+                  <th>Status</th>
+                  <th>Uses</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                     {paginatedLinks.map((link: any) => {
-                      const origin = typeof window !== "undefined" ? window.location.origin : "";
-                      const url = `${origin}/documentation/employers/${link.token}`;
-                      return (
-                        <tr key={link._id} className="border-b">
-                          <td className="py-2 font-mono text-xs">{link.token}</td>
-                          <td>
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                link.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
-                              }`}
-                            >
-                              {link.status}
-                            </span>
-                          </td>
-                          <td>{link.uses_count}</td>
-                          <td>{new Date(link.created_at).toLocaleString()}</td>
-                          <td className="flex gap-2 py-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={async () => {
-                                await navigator.clipboard.writeText(url);
-                                push({ variant: "success", title: "Link copied" });
-                              }}
-                            >
-                              <ClipboardCopy className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleToggleLink(link)}>
-                              <RefreshCw className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                  const origin = typeof window !== "undefined" ? window.location.origin : "";
+                  const url = `${origin}/documentation/employers/${link.token}`;
+                  return (
+                    <tr key={link._id} className="border-b">
+                      <td className="py-2 font-mono text-xs">{link.token}</td>
+                      <td>
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                            link.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {link.status}
+                        </span>
+                      </td>
+                      <td>{link.uses_count}</td>
+                      <td>{new Date(link.created_at).toLocaleString()}</td>
+                      <td className="flex gap-2 py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(url);
+                            push({ variant: "success", title: "Link copied" });
+                          }}
+                        >
+                          <ClipboardCopy className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleToggleLink(link)}>
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
               {Math.ceil((links?.length || 0) / linksItemsPerPage) > 1 && (
                 <Pagination
                   currentPage={linksPage}

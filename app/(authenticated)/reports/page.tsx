@@ -113,12 +113,12 @@ export default function ReportsPage() {
   // Filter data based on attendance count
   const filteredData = useMemo(() => {
     return data?.filter((row) => {
-      const count = row.count;
-      const minCheck = !minAttendance || count >= Number(minAttendance);
-      const maxCheck = !maxAttendance || count <= Number(maxAttendance);
+    const count = row.count;
+    const minCheck = !minAttendance || count >= Number(minAttendance);
+    const maxCheck = !maxAttendance || count <= Number(maxAttendance);
       const stateCodeCheck = !stateCode || row.state_code.toLowerCase().includes(stateCode.toLowerCase());
       return minCheck && maxCheck && stateCodeCheck;
-    }) || [];
+  }) || [];
   }, [data, minAttendance, maxAttendance, stateCode]);
 
   // Paginate filtered data

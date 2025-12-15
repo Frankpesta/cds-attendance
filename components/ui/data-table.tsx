@@ -63,44 +63,44 @@ export function DataTable<T>({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  {columns.map((column) => (
+                    <th
+                      key={String(column.key)}
+                      className={cn(
+                        "text-left py-3 px-4 font-medium text-sm text-muted-foreground",
+                        column.className
+                      )}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                  {paginatedData.map((item, index) => (
+                  <tr key={index} className="border-b hover:bg-muted/50">
                     {columns.map((column) => (
-                      <th
+                      <td
                         key={String(column.key)}
                         className={cn(
-                          "text-left py-3 px-4 font-medium text-sm text-muted-foreground",
+                          "py-3 px-4 text-sm",
                           column.className
                         )}
                       >
-                        {column.label}
-                      </th>
+                        {column.render
+                          ? column.render((item as any)[column.key], item)
+                          : String((item as any)[column.key] || "-")}
+                      </td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {paginatedData.map((item, index) => (
-                    <tr key={index} className="border-b hover:bg-muted/50">
-                      {columns.map((column) => (
-                        <td
-                          key={String(column.key)}
-                          className={cn(
-                            "py-3 px-4 text-sm",
-                            column.className
-                          )}
-                        >
-                          {column.render
-                            ? column.render((item as any)[column.key], item)
-                            : String((item as any)[column.key] || "-")}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
             {totalPages > 1 && (
               <Pagination
                 currentPage={currentPage}

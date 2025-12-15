@@ -18,9 +18,10 @@ export const useRealtimeAttendance = () => {
 
   // Fetch real-time attendance data
   const todayAttendance = useQuery(api.attendance.getTodayAttendance, {});
-  const activeQrSession = useQuery(api.qr.getActiveQr, { 
-    meetingDate: new Date().toISOString().split('T')[0] 
-  });
+  const meetingDate = new Date().toISOString().split('T')[0];
+  const allActiveQrSessions = useQuery(api.qr.getAllActiveQr, { meetingDate });
+  // Use first active session for notifications (or any active session)
+  const activeQrSession = allActiveQrSessions && allActiveQrSessions.length > 0 ? allActiveQrSessions[0] : null;
 
   // Generate notifications based on attendance changes
   useEffect(() => {
