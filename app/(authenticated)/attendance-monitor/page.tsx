@@ -27,8 +27,14 @@ export default function AttendanceMonitorPage() {
   // Fetch real-time data
   const todayAttendance = useQuery(api.attendance.getTodayAttendance, {});
   const cdsGroups = useQuery(api.cds_groups.list, {});
-  const activeQrSession = useQuery(api.qr.getActiveQr, { meetingDate: new Date().toISOString().split('T')[0] });
+  const meetingDate = new Date().toISOString().split('T')[0];
+  const allActiveQrSessions = useQuery(api.qr.getAllActiveQr, { meetingDate });
   const attendanceStats = useQuery(api.dashboard.getStats, {});
+  
+  // Get active session for selected group, or first active session if no group selected
+  const activeQrSession = selectedGroup 
+    ? allActiveQrSessions?.find((s: any) => s.cdsGroupId === selectedGroup)
+    : allActiveQrSessions?.[0];
 
   // Filter attendance by selected group
   const filteredAttendance = todayAttendance?.filter((record: any) => 
@@ -162,23 +168,48 @@ export default function AttendanceMonitorPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {activeQrSession ? (
-            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <div>
-                  <p className="font-medium text-green-800">QR Session Active</p>
-                  <p className="text-sm text-green-600">
-                    Token: {activeQrSession.token.substring(0, 8)}... • 
-                    Rotations: {activeQrSession.rotation || 0}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-green-600">
-                  {new Date().toLocaleTimeString()}
-                </p>
-              </div>
+          {allActiveQrSessions && allActiveQrSessions.length > 0 ? (
+            <div className="space-y-3">
+              {allActiveQrSessions.map((session: any) => {
+                const isSelected = selectedGroup ? session.cdsGroupId === selectedGroup : true;
+                return (
+                  <div 
+                    key={session.cdsGroupId}
+                    className={`flex items-center justify-between p-4 rounded-lg border ${
+                      isSelected 
+                        ? "bg-green-50 border-green-200" 
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full animate-pulse ${
+                        isSelected ? "bg-green-500" : "bg-gray-400"
+                      }`}></div>
+                      <div>
+                        <p className={`font-medium ${
+                          isSelected ? "text-green-800" : "text-gray-700"
+                        }`}>
+                          {session.cdsGroupName} - QR Session Active
+                        </p>
+                        <p className={`text-sm ${
+                          isSelected ? "text-green-600" : "text-gray-600"
+                        }`}>
+                          Token: {session.token.substring(0, 8)}... • 
+                          Rotations: {session.rotation || 0} • 
+                          Attendance: {session.attendanceCount || 0}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm ${
+                        isSelected ? "text-green-600" : "text-gray-600"
+                      }`}>
+                        {new Date().toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
