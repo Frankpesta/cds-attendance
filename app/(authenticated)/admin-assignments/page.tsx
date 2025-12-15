@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { createAdminAssignmentAction, removeAdminAssignmentAction } from "@/app/actions/admin_assignments";
+import { extractErrorMessage } from "@/lib/utils";
 import { Users, Building2, Plus, Trash2, UserCheck } from "lucide-react";
 
 export default function AdminAssignmentsPage() {
@@ -53,7 +54,7 @@ export default function AdminAssignmentsPage() {
       setSelectedAdmin("");
       setSelectedGroup("");
     } catch (e: unknown) {
-      push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
+      push({ variant: "error", title: "Failed", description: extractErrorMessage(e, "Failed to perform action") });
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export default function AdminAssignmentsPage() {
       
       push({ variant: "success", title: "Assignment Removed", description: "Admin assignment has been removed" });
     } catch (e: unknown) {
-      push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
+      push({ variant: "error", title: "Failed", description: extractErrorMessage(e, "Failed to perform action") });
     } finally {
       setLoading(false);
     }

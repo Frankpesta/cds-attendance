@@ -2,6 +2,7 @@
 import { cookies } from "next/headers";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
@@ -26,7 +27,7 @@ export async function stopQrAction() {
     await client.mutation(api.qr.stopQrSession, { sessionToken: token });
     return { ok: true } as const;
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to stop QR" } as const;
+    return { ok: false, error: extractErrorMessage(e, "Failed to stop QR") } as const;
   }
 }
 

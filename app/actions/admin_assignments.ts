@@ -1,6 +1,7 @@
 "use server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
@@ -21,7 +22,7 @@ export async function createAdminAssignmentAction(formData: FormData) {
 
     return { ok: true, id: result };
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to create assignment" };
+    return { ok: false, error: extractErrorMessage(e, "Failed to create assignment") };
   }
 }
 
@@ -33,6 +34,6 @@ export async function removeAdminAssignmentAction(assignmentId: string) {
 
     return { ok: true, id: result };
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to remove assignment" };
+    return { ok: false, error: extractErrorMessage(e, "Failed to remove assignment") };
   }
 }

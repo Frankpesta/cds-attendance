@@ -116,7 +116,7 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
         router.push(`/documentation/corp-members/${params.token}/success`);
       }, 2000);
     } catch (error: any) {
-      push({ variant: "error", title: "Submission failed", description: error?.message });
+      push({ variant: "error", title: "Submission failed", description: extractErrorMessage(error, "Failed to save SAED information") });
     } finally {
       setSubmitting(false);
     }

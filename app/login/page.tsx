@@ -4,6 +4,7 @@ import { loginAction } from "../actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -29,7 +30,9 @@ export default function LoginPage() {
       }
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err?.message || "Login failed");
+      const errorMsg = extractErrorMessage(err, "Login failed");
+      setError(errorMsg);
+      push({ variant: "error", title: "Login failed", description: errorMsg });
     } finally {
       setLoading(false);
     }

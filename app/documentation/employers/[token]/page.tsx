@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 
 const initialForm = {
   organization_name: "",
@@ -73,7 +74,7 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
       setSubmitted(true);
       push({ variant: "success", title: "Submission received" });
     } catch (error: any) {
-      push({ variant: "error", title: "Submission failed", description: error?.message });
+      push({ variant: "error", title: "Submission failed", description: extractErrorMessage(error, "Failed to submit documentation") });
     } finally {
       setSubmitting(false);
     }

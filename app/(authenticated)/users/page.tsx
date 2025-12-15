@@ -9,11 +9,14 @@ import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
 import { Users, Plus, Edit, Trash2, Search } from "lucide-react";
+import { deleteUserAction } from "@/app/actions/users";
+import { extractErrorMessage } from "@/lib/utils";
 import Link from "next/link";
 
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
   const { push } = useToast();
 
   // Fetch users data
@@ -133,10 +136,24 @@ export default function UsersPage() {
                   variant="ghost" 
                   size="sm"
                   className="text-red-600 hover:text-red-700"
-                  onClick={() => {
-                    if (confirm(`Are you sure you want to delete ${user.name}?`)) {
-                      // TODO: Implement delete
-                      push({ variant: "error", title: "Not implemented", description: "Delete functionality coming soon" });
+                  disabled={deleting === user._id}
+                  onClick={async () => {
+                    if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+                      return;
+                    }
+                    setDeleting(user._id);
+                    try {
+                      const res = await deleteUserAction(user._id);
+                      if (!res.ok) {
+                        push({ variant: "error", title: "Delete failed", description: res.error || "Failed to delete user" });
+                        return;
+                      }
+                      push({ variant: "success", title: "User deleted", description: `${user.name} has been deleted successfully` });
+                      // The query will automatically refresh
+                    } catch (err: any) {
+                      push({ variant: "error", title: "Delete failed", description: extractErrorMessage(err, "Failed to delete user") });
+                    } finally {
+                      setDeleting(null);
                     }
                   }}
                 >

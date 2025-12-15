@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { validateEmail, validatePassword, validateStateCode, validateName } from "@/lib/validation";
+import { extractErrorMessage } from "@/lib/utils";
 import Link from "next/link";
 
 export default function SignupPage() {
@@ -91,7 +92,7 @@ export default function SignupPage() {
       push({ variant: "success", title: "Account created", description: "Your account has been created successfully" });
       window.location.href = "/dashboard";
     } catch (err: any) {
-      push({ variant: "error", title: "Signup failed", description: err?.message || "Failed to create account" });
+      push({ variant: "error", title: "Signup failed", description: extractErrorMessage(err, "Failed to create account") });
     } finally {
       setLoading(false);
     }

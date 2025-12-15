@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { updateUserAction, changeUserPasswordAction } from "@/app/actions/users";
+import { extractErrorMessage } from "@/lib/utils";
 import { ArrowLeft, Save, Key } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -110,7 +111,7 @@ export default function EditUserPage() {
       push({ variant: "success", title: "Password changed", description: "Password has been changed successfully" });
       setPasswordForm({ newPassword: "", confirmPassword: "" });
     } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+      push({ variant: "error", title: "Failed", description: extractErrorMessage(e, "Failed to change password") });
     } finally {
       setPasswordLoading(false);
     }

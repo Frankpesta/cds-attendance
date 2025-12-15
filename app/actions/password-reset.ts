@@ -1,6 +1,7 @@
 "use server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
@@ -20,7 +21,7 @@ export async function requestPasswordResetAction(stateCode: string, email: strin
 
     return { ok: false, error: "Failed to generate reset token" };
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to request password reset" };
+    return { ok: false, error: extractErrorMessage(e, "Failed to request password reset") };
   }
 }
 
@@ -29,7 +30,7 @@ export async function resetPasswordAction(token: string, newPassword: string) {
     await client.mutation(api.auth.resetPassword, { token, newPassword });
     return { ok: true };
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to reset password" };
+    return { ok: false, error: extractErrorMessage(e, "Failed to reset password") };
   }
 }
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 import { Shield } from "lucide-react";
 
 interface MedicalFile {
@@ -106,7 +107,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
           contentType: file.type,
         });
       } catch (error: any) {
-        push({ variant: "error", title: "Upload failed", description: error?.message });
+        push({ variant: "error", title: "Upload failed", description: extractErrorMessage(error, "Failed to upload file") });
       }
     }
     setMedicalFiles(next);
@@ -131,7 +132,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
         window.location.href = `/documentation/corp-members/${link.token}/saed`;
       }, 1000);
     } catch (error: any) {
-      push({ variant: "error", title: "Submission failed", description: error?.message });
+      push({ variant: "error", title: "Submission failed", description: extractErrorMessage(error, "Failed to submit documentation") });
     } finally {
       setSubmitting(false);
     }

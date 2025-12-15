@@ -7,6 +7,7 @@ import { Camera, QrCode } from "lucide-react";
 import jsQR from "jsqr";
 import { submitAttendanceAction } from "@/app/actions/attendance";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 
 export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -155,7 +156,7 @@ export default function ScanPage() {
 
       return true;
     } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : "Unknown error";
+      const errorMessage = extractErrorMessage(e, "Unknown error");
       const displayMessage = errorMessage.includes("already marked")
         ? "You've already marked attendance today."
         : errorMessage;

@@ -12,6 +12,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Pagination } from "@/components/ui/pagination";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Download } from "lucide-react";
 
@@ -109,7 +110,7 @@ export default function EmployersDocumentationPage() {
       window.URL.revokeObjectURL(url);
       push({ variant: "success", title: "Export successful", description: "Excel file downloaded" });
     } catch (error: any) {
-      push({ variant: "error", title: "Export failed", description: error?.message || "Failed to export" });
+      push({ variant: "error", title: "Export failed", description: extractErrorMessage(error, "Failed to export") });
     } finally {
       setExporting(false);
     }
@@ -158,7 +159,7 @@ export default function EmployersDocumentationPage() {
       await navigator.clipboard.writeText(url);
       push({ variant: "success", title: "Link created", description: "Link copied to clipboard." });
     } catch (error: any) {
-      push({ variant: "error", title: "Failed to create link", description: error?.message });
+      push({ variant: "error", title: "Failed to create link", description: extractErrorMessage(error, "Failed to create link") });
     }
   };
 
@@ -171,7 +172,7 @@ export default function EmployersDocumentationPage() {
         status: link.status === "active" ? "inactive" : "active",
       });
     } catch (error: any) {
-      push({ variant: "error", title: "Unable to update link", description: error?.message });
+      push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
   };
 
@@ -186,7 +187,7 @@ export default function EmployersDocumentationPage() {
       }
       push({ variant: "success", title: "Record deleted" });
     } catch (error: any) {
-      push({ variant: "error", title: "Deletion failed", description: error?.message });
+      push({ variant: "error", title: "Deletion failed", description: extractErrorMessage(error, "Failed to delete record") });
     }
   };
 
@@ -215,7 +216,7 @@ export default function EmployersDocumentationPage() {
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
     } catch (error: any) {
-      push({ variant: "error", title: "Update failed", description: error?.message });
+      push({ variant: "error", title: "Update failed", description: extractErrorMessage(error, "Failed to update record") });
     }
   };
 

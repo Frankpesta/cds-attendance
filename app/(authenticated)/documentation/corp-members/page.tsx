@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield, Download } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
@@ -129,7 +130,7 @@ export default function CorpMembersDocumentationPage() {
       window.URL.revokeObjectURL(url);
       push({ variant: "success", title: "Export successful", description: "Excel file downloaded" });
     } catch (error: any) {
-      push({ variant: "error", title: "Export failed", description: error?.message || "Failed to export" });
+      push({ variant: "error", title: "Export failed", description: extractErrorMessage(error, "Failed to export") });
     } finally {
       setExporting(false);
     }
@@ -196,7 +197,7 @@ export default function CorpMembersDocumentationPage() {
         status: link.status === "active" ? "inactive" : "active",
       });
     } catch (error: any) {
-      push({ variant: "error", title: "Unable to update link", description: error?.message });
+      push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
   };
 
@@ -213,7 +214,7 @@ export default function CorpMembersDocumentationPage() {
       }
       push({ variant: "success", title: "Record deleted" });
     } catch (error: any) {
-      push({ variant: "error", title: "Failed to delete", description: error?.message });
+      push({ variant: "error", title: "Failed to delete", description: extractErrorMessage(error, "Failed to delete record") });
     }
   };
 
@@ -249,7 +250,7 @@ export default function CorpMembersDocumentationPage() {
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
     } catch (error: any) {
-      push({ variant: "error", title: "Failed to update", description: error?.message });
+      push({ variant: "error", title: "Failed to update", description: extractErrorMessage(error, "Failed to update record") });
     }
   };
 
@@ -263,7 +264,7 @@ export default function CorpMembersDocumentationPage() {
         throw new Error("Unable to generate download link.");
       }
     } catch (error: any) {
-      push({ variant: "error", title: "Download failed", description: error?.message });
+      push({ variant: "error", title: "Download failed", description: extractErrorMessage(error, "Failed to download file") });
     }
   };
 

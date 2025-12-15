@@ -135,8 +135,24 @@ export const update = mutation({
 });
 
 export const deleteUser = mutation({
-  args: { id: v.id("users") },
-  handler: async (ctx, { id }) => {
+  args: { 
+    sessionToken: v.string(),
+    id: v.id("users") 
+  },
+  handler: async (ctx, { sessionToken, id }) => {
+    // Require super_admin authorization
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .unique();
+    if (!session) {
+      throw new Error("Unauthorized");
+    }
+    const currentUser = await ctx.db.get(session.user_id);
+    if (!currentUser || currentUser.role !== "super_admin") {
+      throw new Error("Forbidden: Super admin access required");
+    }
+
     // Check if user exists
     const user = await ctx.db.get(id);
     if (!user) {

@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { exportMonthlyCsv, exportMonthlyPdf, fetchMonthlyReport } from "@/app/actions/reports";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 import { Download, FileText, Filter, BarChart3, Users, Calendar } from "lucide-react";
 
 export default function ReportsPage() {
@@ -42,7 +43,7 @@ export default function ReportsPage() {
       );
       setData(res.data);
     } catch (e: any) {
-      push({ variant: "error", title: "Failed to load report", description: e?.message });
+      push({ variant: "error", title: "Failed to load report", description: extractErrorMessage(e, "Failed to load report") });
     } finally {
       setLoading(false);
     }
@@ -74,7 +75,7 @@ export default function ReportsPage() {
       URL.revokeObjectURL(url);
       push({ variant: "success", title: "CSV Exported", description: "Report has been downloaded successfully." });
     } catch (e: any) {
-      push({ variant: "error", title: "Export failed", description: e?.message });
+      push({ variant: "error", title: "Export failed", description: extractErrorMessage(e, "Failed to export") });
     } finally {
       setExporting(false);
     }
@@ -103,7 +104,7 @@ export default function ReportsPage() {
       }
       push({ variant: "success", title: "PDF Generated", description: "Report has been generated for printing." });
     } catch (e: any) {
-      push({ variant: "error", title: "Export failed", description: e?.message });
+      push({ variant: "error", title: "Export failed", description: extractErrorMessage(e, "Failed to export") });
     } finally {
       setExporting(false);
     }

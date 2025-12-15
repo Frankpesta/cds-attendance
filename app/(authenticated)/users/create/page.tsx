@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { createUserAction } from "@/app/actions/users";
 import { useFormValidation } from "@/hooks/useFormValidation";
 import { validateUserForm } from "@/lib/validation";
+import { extractErrorMessage } from "@/lib/utils";
 import { ArrowLeft, Save, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -67,7 +68,7 @@ export default function CreateUserPage() {
       push({ variant: "success", title: "User created", description: "User has been created successfully" });
       window.location.href = "/users";
     } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+      push({ variant: "error", title: "Failed", description: extractErrorMessage(e, "Failed to create user") });
     } finally {
       setLoading(false);
     }

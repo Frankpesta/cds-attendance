@@ -2,6 +2,7 @@
 import { cookies } from "next/headers";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
@@ -35,7 +36,7 @@ export async function createUserAction(formData: FormData) {
     });
     return { ok: true, data: res } as const;
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to create user" } as const;
+    return { ok: false, error: extractErrorMessage(e, "Failed to create user") } as const;
   }
 }
 
@@ -67,7 +68,7 @@ export async function updateUserAction(id: string, formData: FormData) {
     });
     return { ok: true, data: res } as const;
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to update user" } as const;
+    return { ok: false, error: extractErrorMessage(e, "Failed to update user") } as const;
   }
 }
 
@@ -80,11 +81,12 @@ export async function deleteUserAction(id: string) {
 
   try {
     const res = await client.mutation(api.users.deleteUser, {
+      sessionToken,
       id: id as any,
     });
     return { ok: true, data: res } as const;
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to delete user" } as const;
+    return { ok: false, error: extractErrorMessage(e, "Failed to delete user") } as const;
   }
 }
 
@@ -102,7 +104,7 @@ export async function changeUserPasswordAction(id: string, newPassword: string) 
     });
     return { ok: true, data: res } as const;
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to change password" } as const;
+    return { ok: false, error: extractErrorMessage(e, "Failed to change password") } as const;
   }
 }
 
