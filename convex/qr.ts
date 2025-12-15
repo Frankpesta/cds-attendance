@@ -113,9 +113,10 @@ export const startQrSession = mutation({
         .query("meetings")
         .filter((q) => q.eq(q.field("meeting_date"), today))
         .collect();
-      existing = allTodayMeetings.find(
+      const found = allTodayMeetings.find(
         (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
       );
+      existing = found || null;
       
       // Migrate old format to new format if found
       if (existing && existing.cds_group_ids) {
