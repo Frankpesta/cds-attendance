@@ -200,9 +200,10 @@ export const rotate = mutation({
         .query("meetings")
         .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
         .collect();
-      meeting = allMeetings.find(
+      const found = allMeetings.find(
         (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
       );
+      meeting = found || null;
     }
     
     if (!meeting || !meeting.is_active) return false;
@@ -264,9 +265,10 @@ export const stopQrSession = mutation({
         .query("meetings")
         .filter((q) => q.eq(q.field("meeting_date"), today))
         .collect();
-      meeting = allMeetings.find(
+      const found = allMeetings.find(
         (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
       );
+      meeting = found || null;
     }
     
     if (!meeting) return false;
@@ -290,9 +292,10 @@ export const getActiveQr = query({
         .query("meetings")
         .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
         .collect();
-      meeting = allMeetings.find(
+      const found = allMeetings.find(
         (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
       );
+      meeting = found || null;
     }
     
     if (!meeting || !meeting.is_active) return null;
