@@ -16,6 +16,7 @@ export default function QrDisplay() {
   const [qrSrc, setQrSrc] = useState("");
   const [rotationCount, setRotationCount] = useState(0);
   const [attendanceCount, setAttendanceCount] = useState(0);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const { push } = useToast();
 
   useEffect(() => {
@@ -29,8 +30,19 @@ export default function QrDisplay() {
     setMeetingDate(`${y}-${m}-${d}`);
   }, []);
 
-  const active = useQuery(api.qr.getActiveQr, meetingDate ? { meetingDate } : "skip");
+  const allActiveSessions = useQuery(api.qr.getAllActiveQr, meetingDate ? { meetingDate } : "skip");
+  const active = useQuery(
+    api.qr.getActiveQr, 
+    meetingDate && selectedGroupId ? { meetingDate, cdsGroupId: selectedGroupId as any } : "skip"
+  );
   const attendanceStats = useQuery(api.dashboard.getStats, {});
+
+  // Auto-select first active session if available
+  useEffect(() => {
+    if (allActiveSessions && allActiveSessions.length > 0 && !selectedGroupId) {
+      setSelectedGroupId(allActiveSessions[0].cdsGroupId);
+    }
+  }, [allActiveSessions, selectedGroupId]);
 
   useEffect(() => {
     if (active?.token) {
@@ -59,11 +71,9 @@ export default function QrDisplay() {
   useEffect(() => {
     if (active) {
       setRotationCount(active.rotation || 0);
+      setAttendanceCount(active.attendanceCount || 0);
     }
-    if (attendanceStats) {
-      setAttendanceCount(attendanceStats.attendanceToday || 0);
-    }
-  }, [active, attendanceStats]);
+  }, [active]);
 
   if (active === undefined) {
     return (
@@ -140,11 +150,17 @@ export default function QrDisplay() {
                     <Users className="w-4 h-4 text-green-600" />
                     <span className="text-sm font-medium">Attendance</span>
                   </div>
-                  <div className="text-2xl font-bold text-green-600 mt-1">{attendanceCount}</div>
+                  <div className="text-2xl font-bold text-green-600 mt-1">{active.attendanceCount || 0}</div>
                 </div>
               </div>
 
               <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">CDS Group:</span>
+                  <span className="font-medium">
+                    {allActiveSessions?.find((s: any) => s.cdsGroupId === selectedGroupId)?.cdsGroupName || "Unknown"}
+                  </span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Session Started:</span>
                   <span className="font-medium">{meetingDate}</span>
@@ -177,22 +193,30 @@ export default function QrDisplay() {
       )}
 
       {/* Action Buttons */}
-      {active && (
+      {active && selectedGroupId && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex gap-3 justify-center">
-              <Link href="/dashboard">
-                <Button variant="destructive" onClick={async () => {
+              <Button 
+                variant="destructive" 
+                onClick={async () => {
+                  if (!selectedGroupId) return;
                   try {
-                    await stopQrAction();
-                    push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
+                    const res = await stopQrAction(selectedGroupId);
+                    if (res.ok) {
+                      push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
+                      setSelectedGroupId("");
+                      window.location.reload();
+                    } else {
+                      throw new Error(res.error || "Failed to stop session");
+                    }
                   } catch (e: unknown) {
                     push({ variant: "error", title: "Failed", description: e instanceof Error ? e.message : "Unknown error" });
                   }
-                }}>
-                  Stop Session
-                </Button>
-              </Link>
+                }}
+              >
+                Stop Session
+              </Button>
               <Link href="/scan">
                 <Button variant="secondary">
                   Test Scanner

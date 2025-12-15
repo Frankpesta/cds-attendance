@@ -53,8 +53,8 @@ export const getTodayGroups = query({
 });
 
 export const startQrSession = mutation({
-  args: { sessionToken: v.string() },
-  handler: async (ctx, { sessionToken }) => {
+  args: { sessionToken: v.string(), cdsGroupId: v.id("cds_groups") },
+  handler: async (ctx, { sessionToken, cdsGroupId }) => {
     const session = await ctx.db
       .query("sessions")
       .filter((q) => q.eq(q.field("session_token"), sessionToken))
@@ -63,37 +63,36 @@ export const startQrSession = mutation({
     const admin = await ctx.db.get(session.user_id);
     if (!admin) throw new Error("Unauthorized");
 
-    const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "Africa/Lagos" });
-    const today = toNigeriaYYYYMMDD(new Date());
-
-    // groups admin can operate
-    let groups = await ctx.db.query("cds_groups").collect();
+    // Verify admin has access to this group
     if (admin.role !== "super_admin") {
       const assignments = await ctx.db
         .query("admin_group_assignments")
         .filter((q) => q.eq(q.field("admin_id"), admin._id))
         .collect();
       
-      // Get assignments from both sources
       const allowedFromAssignments = new Set(assignments.map((a) => a.cds_group_id));
-      const allowedFromAdminIds = new Set(groups.filter((g) => g.admin_ids.includes(admin._id)).map((g) => g._id));
+      const group = await ctx.db.get(cdsGroupId);
+      const allowedFromAdminIds = group && group.admin_ids.includes(admin._id);
       
-      // Combine both assignment methods
-      const allAllowed = new Set([...allowedFromAssignments, ...allowedFromAdminIds]);
-      
-      groups = groups.filter((g) => allAllowed.has(g._id));
-    }
-    const todayGroups = groups.filter((g) => g.meeting_days.includes(weekday));
-    
-    if (todayGroups.length === 0) {
-      throw new Error("None of your assigned CDS groups meet today.");
+      if (!allowedFromAssignments.has(cdsGroupId) && !allowedFromAdminIds) {
+        throw new Error("You don't have permission to manage this CDS group.");
+      }
     }
 
-    // Pick meeting window from first group; policy uses same day session for all
-    const refGroup = todayGroups[0];
+    const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "Africa/Lagos" });
+    const today = toNigeriaYYYYMMDD(new Date());
+
+    // Verify group meets today
+    const group = await ctx.db.get(cdsGroupId);
+    if (!group) throw new Error("CDS group not found.");
+    if (!group.meeting_days.includes(weekday)) {
+      throw new Error("This CDS group doesn't meet today.");
+    }
+
+    // Check meeting time window
     const withinWindow = isWithinMeetingWindow(
-      refGroup.meeting_time,
-      refGroup.meeting_duration,
+      group.meeting_time,
+      group.meeting_duration,
       30,
       0,
     );
@@ -101,20 +100,48 @@ export const startQrSession = mutation({
       throw new Error("Not within meeting time window for QR generation.");
     }
 
-    // Ensure single active session for today
-    const existing = await ctx.db
+    // Check if there's already an active session for this group today
+    // Try new format first (by_group_date index)
+    let existing = await ctx.db
       .query("meetings")
-      .filter((q) => q.eq(q.field("meeting_date"), today))
+      .withIndex("by_group_date", (q) => q.eq("cds_group_id", cdsGroupId).eq("meeting_date", today))
       .unique();
+    
+    // Fallback: check old format (cds_group_ids array) if not found
+    if (!existing) {
+      const allTodayMeetings = await ctx.db
+        .query("meetings")
+        .filter((q) => q.eq(q.field("meeting_date"), today))
+        .collect();
+      existing = allTodayMeetings.find(
+        (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
+      );
+      
+      // Migrate old format to new format if found
+      if (existing && existing.cds_group_ids) {
+        // If this is the only group in the array, migrate it
+        if (existing.cds_group_ids.length === 1) {
+          await ctx.db.patch(existing._id, {
+            cds_group_id: cdsGroupId,
+            cds_group_ids: undefined, // Remove old field
+          });
+          existing = await ctx.db.get(existing._id);
+        } else {
+          // Multiple groups - create separate meeting for this group
+          // (old meetings with multiple groups will need manual migration)
+        }
+      }
+    }
+    
     if (existing && existing.is_active) {
-      throw new Error("QR generation already active for today.");
+      throw new Error("QR session already active for this CDS group today.");
     }
 
     const meetingId = existing
       ? existing._id
       : await ctx.db.insert("meetings", {
           meeting_date: today,
-          cds_group_ids: todayGroups.map((g) => g._id),
+          cds_group_id: cdsGroupId,
           is_active: true,
           activated_by_admin_id: admin._id,
           activated_at: nowMs(),
@@ -137,6 +164,7 @@ export const startQrSession = mutation({
     const tokenId = await ctx.db.insert("qr_tokens", {
       token,
       meeting_date: today,
+      cds_group_id: cdsGroupId,
       generated_by_admin_id: admin._id,
       generated_at: generatedAt,
       expires_at: expiresAt,
@@ -147,32 +175,42 @@ export const startQrSession = mutation({
     // schedule rotation
     await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, api.qr.rotate, {
       meetingDate: today,
+      cdsGroupId: cdsGroupId,
       nextSequence: 2,
       adminId: admin._id,
     });
 
-    return { meetingId, tokenId, token, rotation: 1, expiresAt };
+    return { meetingId, tokenId, token, rotation: 1, expiresAt, cdsGroupId };
   },
 });
 
 export const rotate = mutation({
-  args: { meetingDate: v.string(), nextSequence: v.number(), adminId: v.id("users") },
-  handler: async (ctx, { meetingDate, nextSequence, adminId }) => {
-    const meeting = await ctx.db
+  args: { meetingDate: v.string(), cdsGroupId: v.id("cds_groups"), nextSequence: v.number(), adminId: v.id("users") },
+  handler: async (ctx, { meetingDate, cdsGroupId, nextSequence, adminId }) => {
+    // Try new format first
+    let meeting = await ctx.db
       .query("meetings")
-      .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+      .withIndex("by_group_date", (q) => q.eq("cds_group_id", cdsGroupId).eq("meeting_date", meetingDate))
       .unique();
+    
+    // Fallback: check old format if not found
+    if (!meeting) {
+      const allMeetings = await ctx.db
+        .query("meetings")
+        .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+        .collect();
+      meeting = allMeetings.find(
+        (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
+      );
+    }
+    
     if (!meeting || !meeting.is_active) return false;
 
-    // Stop automatically after meeting duration elapsed relative to activation group
-    const groups = await ctx.db
-      .query("cds_groups")
-      .collect();
-    // Use the first group's settings for window check (policy simplified)
-    const refGroup = groups.find((g) => meeting.cds_group_ids.includes(g._id));
-    if (!refGroup) return false;
+    // Get the group for window check
+    const group = await ctx.db.get(cdsGroupId);
+    if (!group) return false;
 
-    const withinWindow = isWithinMeetingWindow(refGroup.meeting_time, refGroup.meeting_duration, 0, 0);
+    const withinWindow = isWithinMeetingWindow(group.meeting_time, group.meeting_duration, 0, 0);
     if (!withinWindow) {
       await ctx.db.patch(meeting._id, { is_active: false, deactivated_at: nowMs() });
       return false;
@@ -184,6 +222,7 @@ export const rotate = mutation({
     await ctx.db.insert("qr_tokens", {
       token,
       meeting_date: meetingDate,
+      cds_group_id: cdsGroupId,
       generated_by_admin_id: adminId,
       generated_at: generatedAt,
       expires_at: expiresAt,
@@ -193,6 +232,7 @@ export const rotate = mutation({
 
     await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, api.qr.rotate, {
       meetingDate,
+      cdsGroupId,
       nextSequence: nextSequence + 1,
       adminId,
     });
@@ -202,8 +242,8 @@ export const rotate = mutation({
 });
 
 export const stopQrSession = mutation({
-  args: { sessionToken: v.string() },
-  handler: async (ctx, { sessionToken }) => {
+  args: { sessionToken: v.string(), cdsGroupId: v.id("cds_groups") },
+  handler: async (ctx, { sessionToken, cdsGroupId }) => {
     const session = await ctx.db
       .query("sessions")
       .filter((q) => q.eq(q.field("session_token"), sessionToken))
@@ -211,10 +251,23 @@ export const stopQrSession = mutation({
     if (!session) throw new Error("Unauthorized");
 
     const today = toNigeriaYYYYMMDD(new Date());
-    const meeting = await ctx.db
+    // Try new format first
+    let meeting = await ctx.db
       .query("meetings")
-      .filter((q) => q.eq(q.field("meeting_date"), today))
+      .withIndex("by_group_date", (q) => q.eq("cds_group_id", cdsGroupId).eq("meeting_date", today))
       .unique();
+    
+    // Fallback: check old format if not found
+    if (!meeting) {
+      const allMeetings = await ctx.db
+        .query("meetings")
+        .filter((q) => q.eq(q.field("meeting_date"), today))
+        .collect();
+      meeting = allMeetings.find(
+        (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
+      );
+    }
+    
     if (!meeting) return false;
     await ctx.db.patch(meeting._id, { is_active: false, deactivated_at: nowMs() });
     return true;
@@ -222,26 +275,129 @@ export const stopQrSession = mutation({
 });
 
 export const getActiveQr = query({
-  args: { meetingDate: v.string() },
-  handler: async (ctx, { meetingDate }) => {
-    const meeting = await ctx.db
+  args: { meetingDate: v.string(), cdsGroupId: v.id("cds_groups") },
+  handler: async (ctx, { meetingDate, cdsGroupId }) => {
+    // Try new format first
+    let meeting = await ctx.db
       .query("meetings")
-      .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+      .withIndex("by_group_date", (q) => q.eq("cds_group_id", cdsGroupId).eq("meeting_date", meetingDate))
       .unique();
+    
+    // Fallback: check old format if not found
+    if (!meeting) {
+      const allMeetings = await ctx.db
+        .query("meetings")
+        .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+        .collect();
+      meeting = allMeetings.find(
+        (m) => m.cds_group_ids && m.cds_group_ids.includes(cdsGroupId)
+      );
+    }
+    
     if (!meeting || !meeting.is_active) return null;
-    // Latest token by sequence
-    const tokens = await ctx.db
+    
+    // Latest token by sequence for this group
+    // Try new format first (with cds_group_id)
+    let tokens = await ctx.db
       .query("qr_tokens")
-      .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+      .withIndex("by_group_date", (q) => q.eq("cds_group_id", cdsGroupId).eq("meeting_date", meetingDate))
       .collect();
+    
+    // Fallback: if no tokens with cds_group_id, get all tokens for the date and filter
+    if (tokens.length === 0) {
+      const allTokens = await ctx.db
+        .query("qr_tokens")
+        .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+        .collect();
+      // For backward compatibility, if no cds_group_id is set, accept the token
+      // (old tokens won't have cds_group_id)
+      tokens = allTokens.filter((t) => !t.cds_group_id || t.cds_group_id === cdsGroupId);
+    }
+    
     if (tokens.length === 0) return null;
     tokens.sort((a, b) => b.rotation_sequence - a.rotation_sequence);
     const current = tokens[0];
     const count = await ctx.db
       .query("attendance")
-      .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+      .filter((q) => q.and(
+        q.eq(q.field("meeting_date"), meetingDate),
+        q.eq(q.field("cds_group_id"), cdsGroupId)
+      ))
       .collect();
-    return { token: current.token, rotation: current.rotation_sequence, expiresAt: current.expires_at, attendanceCount: count.length };
+    return { 
+      token: current.token, 
+      rotation: current.rotation_sequence, 
+      expiresAt: current.expires_at, 
+      attendanceCount: count.length,
+      cdsGroupId: cdsGroupId
+    };
+  },
+});
+
+// Get all active QR sessions for a date (for super admin dashboard)
+export const getAllActiveQr = query({
+  args: { meetingDate: v.string() },
+  handler: async (ctx, { meetingDate }) => {
+    const meetings = await ctx.db
+      .query("meetings")
+      .filter((q) => q.and(
+        q.eq(q.field("meeting_date"), meetingDate),
+        q.eq(q.field("is_active"), true)
+      ))
+      .collect();
+    
+    const results = await Promise.all(
+      meetings.map(async (meeting) => {
+        // Handle both new format (cds_group_id) and old format (cds_group_ids)
+        let groupId: any = null;
+        if (meeting.cds_group_id) {
+          groupId = meeting.cds_group_id;
+        } else if (meeting.cds_group_ids && meeting.cds_group_ids.length > 0) {
+          // Old format - use first group (for backward compatibility)
+          groupId = meeting.cds_group_ids[0];
+        }
+        
+        if (!groupId) return null;
+        
+        // Get tokens for this group
+        let tokens = await ctx.db
+          .query("qr_tokens")
+          .withIndex("by_group_date", (q) => q.eq("cds_group_id", groupId).eq("meeting_date", meetingDate))
+          .collect();
+        
+        // Fallback: if no tokens with cds_group_id, get all tokens for the date
+        if (tokens.length === 0) {
+          const allTokens = await ctx.db
+            .query("qr_tokens")
+            .filter((q) => q.eq(q.field("meeting_date"), meetingDate))
+            .collect();
+          // For backward compatibility, if no cds_group_id is set, accept the token
+          tokens = allTokens.filter((t) => !t.cds_group_id || t.cds_group_id === groupId);
+        }
+        
+        if (tokens.length === 0) return null;
+        tokens.sort((a, b) => b.rotation_sequence - a.rotation_sequence);
+        const current = tokens[0];
+        const group = await ctx.db.get(groupId);
+        const count = await ctx.db
+          .query("attendance")
+          .filter((q) => q.and(
+            q.eq(q.field("meeting_date"), meetingDate),
+            q.eq(q.field("cds_group_id"), groupId)
+          ))
+          .collect();
+        return {
+          cdsGroupId: groupId,
+          cdsGroupName: group?.name || "Unknown",
+          token: current.token,
+          rotation: current.rotation_sequence,
+          expiresAt: current.expires_at,
+          attendanceCount: count.length,
+        };
+      })
+    );
+    
+    return results.filter((r) => r !== null);
   },
 });
 

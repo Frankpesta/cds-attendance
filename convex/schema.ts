@@ -39,18 +39,21 @@ export default defineSchema({
 
   meetings: defineTable({
     meeting_date: v.string(), // YYYY-MM-DD (WAT displayed)
-    cds_group_ids: v.array(v.id("cds_groups")),
+    cds_group_ids: v.optional(v.array(v.id("cds_groups"))), // Legacy: multiple groups (deprecated)
+    cds_group_id: v.optional(v.id("cds_groups")), // New: single group per meeting
     is_active: v.boolean(),
     activated_by_admin_id: v.optional(v.id("users")),
     activated_at: v.optional(v.number()),
     deactivated_at: v.optional(v.number()),
   })
-    .index("by_date", ["meeting_date"]) // one per day
+    .index("by_date", ["meeting_date"])
+    .index("by_group_date", ["cds_group_id", "meeting_date"]) // one per group per day
     .index("by_active", ["is_active"]),
 
   qr_tokens: defineTable({
     token: v.string(),
     meeting_date: v.string(), // YYYY-MM-DD
+    cds_group_id: v.optional(v.id("cds_groups")), // Associate token with specific group (optional for backward compatibility)
     generated_by_admin_id: v.id("users"),
     generated_at: v.number(),
     expires_at: v.number(),
@@ -59,7 +62,8 @@ export default defineSchema({
   })
     .index("by_token", ["token"]) // unique in logic
     .index("by_meeting_date", ["meeting_date"]) // for cleanup/validation
-    .index("by_rotation", ["meeting_date", "rotation_sequence"]),
+    .index("by_group_date", ["cds_group_id", "meeting_date"]) // for group-specific queries
+    .index("by_rotation", ["cds_group_id", "meeting_date", "rotation_sequence"]),
 
   attendance: defineTable({
     user_id: v.id("users"),

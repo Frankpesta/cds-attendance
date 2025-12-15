@@ -212,6 +212,10 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
   const stats = useQuery(api.dashboard.getStats, {});
   const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 5 });
   const [error, setError] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [starting, setStarting] = useState(false);
+  
+  const todayGroups = Array.isArray(getToday) ? getToday : (getToday?.meetingToday || []);
 
   if (!stats) {
     return (
@@ -255,46 +259,76 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">QR Session Management</h3>
-          <p className="text-sm text-muted-foreground">Start and manage attendance sessions</p>
+          <p className="text-sm text-muted-foreground">Start and manage attendance sessions for specific CDS groups</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="primary"
-              onClick={async () => {
-                setError(null);
-                try {
-                  const res = await startQrAction();
-                  if (!res.ok) throw new Error(res.error);
-                  window.location.href = "/qr";
-                } catch (e: unknown) {
-                  setError(e instanceof Error ? e.message : "Failed to start QR");
-                }
-              }}
-            >
-              <Activity className="w-4 h-4 mr-2" />
-              Start QR Session
-            </Button>
-            <Link href="/qr">
-              <Button variant="secondary">
-                <Target className="w-4 h-4 mr-2" />
-                View QR Display
-              </Button>
-            </Link>
-            <Link href="/onboarding">
-              <Button variant="secondary">
-                <Users className="w-4 h-4 mr-2" />
-                Onboard Members
-              </Button>
-            </Link>
-          </div>
+          {todayGroups.length > 0 ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-2">Select CDS Group</label>
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">-- Select a CDS group --</option>
+                  {todayGroups.map((group: any) => (
+                    <option key={group._id} value={group._id}>
+                      {group.name} ({group.meeting_time})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="primary"
+                  disabled={!selectedGroupId || starting}
+                  onClick={async () => {
+                    if (!selectedGroupId) return;
+                    setError(null);
+                    setStarting(true);
+                    try {
+                      const res = await startQrAction(selectedGroupId);
+                      if (!res.ok) throw new Error(res.error);
+                      setSelectedGroupId("");
+                      // Refresh the page to show updated session status
+                      window.location.reload();
+                    } catch (e: unknown) {
+                      setError(e instanceof Error ? e.message : "Failed to start QR");
+                    } finally {
+                      setStarting(false);
+                    }
+                  }}
+                >
+                  <Activity className="w-4 h-4 mr-2" />
+                  {starting ? "Starting..." : "Start QR Session"}
+                </Button>
+                <Link href="/qr">
+                  <Button variant="secondary">
+                    <Target className="w-4 h-4 mr-2" />
+                    View QR Display
+                  </Button>
+                </Link>
+                <Link href="/onboarding">
+                  <Button variant="secondary">
+                    <Users className="w-4 h-4 mr-2" />
+                    Onboard Members
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-yellow-800 text-sm">No CDS groups are meeting today. You cannot start a QR session.</p>
+            </div>
+          )}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
               <p className="text-red-600 text-sm">{error}</p>
             </div>
           )}
           <div className="text-sm text-muted-foreground">
-            Groups meeting today: <span className="font-medium">{getToday ? (Array.isArray(getToday) ? getToday.length : getToday.meetingToday.length) : 0}</span>
+            Groups meeting today: <span className="font-medium">{todayGroups.length}</span>
           </div>
         </CardContent>
       </Card>
