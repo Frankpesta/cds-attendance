@@ -98,7 +98,10 @@ export const getTodayGroupsWithSessions = query({
         let managingAdmin = null;
         if (meeting?.activated_by_admin_id) {
           const admin = await ctx.db.get(meeting.activated_by_admin_id);
-          managingAdmin = admin ? { id: admin._id, name: admin.name } : null;
+          // Type guard: ensure admin is a user record with name property
+          if (admin && "name" in admin) {
+            managingAdmin = { id: admin._id, name: admin.name };
+          }
         }
 
         return {
