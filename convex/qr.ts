@@ -12,6 +12,7 @@ const DEFAULT_ROTATION_SEC = Number(process.env.QR_ROTATION_INTERVAL || 45);
 const EXPIRY_BUFFER_SEC = Number(process.env.QR_EXPIRY_BUFFER || 5);
 
 // Determine groups meeting today for an admin (or all, for super admin)
+// Admins can see all groups meeting today, not just their assigned ones
 export const getTodayGroups = query({
   args: { sessionToken: v.optional(v.string()) },
   handler: async (ctx, { sessionToken }) => {
@@ -28,27 +29,89 @@ export const getTodayGroups = query({
     const user = await ctx.db.get(session.user_id);
     if (!user) return { groups: [], meetingToday: [] };
 
-    const nigeriaDate = toNigeriaYYYYMMDD(new Date());
     const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "Africa/Lagos" });
 
     const groups = await ctx.db.query("cds_groups").collect();
     const meetingToday = groups.filter((g) => g.meeting_days.includes(weekday));
 
-    if (user.role === "super_admin") return meetingToday;
+    // Super admins and regular admins can see all groups meeting today
+    if (user.role === "super_admin" || user.role === "admin") {
+      return meetingToday;
+    }
 
-    // Get admin assignments from both sources
-    const assignments = await ctx.db
-      .query("admin_group_assignments")
-      .filter((q) => q.eq(q.field("admin_id"), user._id))
+    // Corps members see nothing (they don't manage QR sessions)
+    return [];
+  },
+});
+
+// Get groups meeting today with their active session status and managing admin
+export const getTodayGroupsWithSessions = query({
+  args: { sessionToken: v.optional(v.string()) },
+  handler: async (ctx, { sessionToken }) => {
+    if (!sessionToken) {
+      return [];
+    }
+    
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .unique();
+    if (!session) return [];
+    const user = await ctx.db.get(session.user_id);
+    if (!user) return [];
+
+    // Only admins can see this
+    if (user.role !== "super_admin" && user.role !== "admin") {
+      return [];
+    }
+
+    const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "Africa/Lagos" });
+    const today = toNigeriaYYYYMMDD(new Date());
+
+    const groups = await ctx.db.query("cds_groups").collect();
+    const meetingToday = groups.filter((g) => g.meeting_days.includes(weekday));
+
+    // Get all active meetings for today
+    const activeMeetings = await ctx.db
+      .query("meetings")
+      .filter((q) => q.and(
+        q.eq(q.field("meeting_date"), today),
+        q.eq(q.field("is_active"), true)
+      ))
       .collect();
-    
-    const allowedFromAssignments = new Set(assignments.map((a) => a.cds_group_id));
-    const allowedFromAdminIds = new Set(meetingToday.filter((g) => g.admin_ids.includes(user._id)).map((g) => g._id));
-    
-    // Combine both assignment methods
-    const allAllowed = new Set([...allowedFromAssignments, ...allowedFromAdminIds]);
-    
-    return meetingToday.filter((g) => allAllowed.has(g._id));
+
+    // Create a map of group ID to active meeting
+    const meetingMap = new Map();
+    for (const meeting of activeMeetings) {
+      if (meeting.cds_group_id) {
+        meetingMap.set(meeting.cds_group_id, meeting);
+      } else if (meeting.cds_group_ids && meeting.cds_group_ids.length > 0) {
+        // Legacy format - use first group
+        meetingMap.set(meeting.cds_group_ids[0], meeting);
+      }
+    }
+
+    // Return groups with session status
+    return await Promise.all(
+      meetingToday.map(async (group) => {
+        const meeting = meetingMap.get(group._id);
+        let managingAdmin = null;
+        if (meeting?.activated_by_admin_id) {
+          const admin = await ctx.db.get(meeting.activated_by_admin_id);
+          managingAdmin = admin ? { id: admin._id, name: admin.name } : null;
+        }
+
+        return {
+          _id: group._id,
+          name: group.name,
+          meeting_time: group.meeting_time,
+          meeting_duration: group.meeting_duration,
+          venue_name: group.venue_name,
+          hasActiveSession: !!meeting,
+          managingAdmin: managingAdmin,
+        };
+      })
+    );
   },
 });
 
@@ -63,20 +126,9 @@ export const startQrSession = mutation({
     const admin = await ctx.db.get(session.user_id);
     if (!admin) throw new Error("Unauthorized");
 
-    // Verify admin has access to this group
-    if (admin.role !== "super_admin") {
-      const assignments = await ctx.db
-        .query("admin_group_assignments")
-        .filter((q) => q.eq(q.field("admin_id"), admin._id))
-        .collect();
-      
-      const allowedFromAssignments = new Set(assignments.map((a) => a.cds_group_id));
-      const group = await ctx.db.get(cdsGroupId);
-      const allowedFromAdminIds = group && group.admin_ids.includes(admin._id);
-      
-      if (!allowedFromAssignments.has(cdsGroupId) && !allowedFromAdminIds) {
-        throw new Error("You don't have permission to manage this CDS group.");
-      }
+    // Verify user is an admin (super_admin or admin)
+    if (admin.role !== "super_admin" && admin.role !== "admin") {
+      throw new Error("Only admins can start QR sessions.");
     }
 
     const weekday = new Date().toLocaleDateString("en-US", { weekday: "long", timeZone: "Africa/Lagos" });
@@ -135,7 +187,15 @@ export const startQrSession = mutation({
     }
     
     if (existing && existing.is_active) {
-      throw new Error("QR session already active for this CDS group today.");
+      // Get the admin who started this session
+      let adminName = "another admin";
+      if (existing.activated_by_admin_id) {
+        const managingAdmin = await ctx.db.get(existing.activated_by_admin_id);
+        if (managingAdmin) {
+          adminName = managingAdmin.name;
+        }
+      }
+      throw new Error(`QR session already active for this CDS group. It is currently being managed by ${adminName}.`);
     }
 
     const meetingId = existing

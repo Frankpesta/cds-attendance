@@ -209,6 +209,7 @@ function SuperAdminHome() {
 
 function AdminHome({ sessionToken }: { sessionToken: string }) {
   const getToday = useQuery(api.qr.getTodayGroups, { sessionToken });
+  const groupsWithSessions = useQuery(api.qr.getTodayGroupsWithSessions, { sessionToken });
   const stats = useQuery(api.dashboard.getStats, {});
   const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 5 });
   const [error, setError] = useState<string | null>(null);
@@ -259,7 +260,7 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">QR Session Management</h3>
-          <p className="text-sm text-muted-foreground">Start and manage attendance sessions for specific CDS groups</p>
+          <p className="text-sm text-muted-foreground">Start and manage attendance sessions for specific CDS groups. One admin per active group.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {todayGroups.length > 0 ? (
@@ -272,19 +273,47 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="">-- Select a CDS group --</option>
-                  {todayGroups.map((group: any) => (
-                    <option key={group._id} value={group._id}>
-                      {group.name} ({group.meeting_time})
-                    </option>
-                  ))}
+                  {todayGroups.map((group: any) => {
+                    const groupWithSession = groupsWithSessions?.find((g: any) => g._id === group._id);
+                    const isActive = groupWithSession?.hasActiveSession || false;
+                    const managingAdmin = groupWithSession?.managingAdmin;
+                    return (
+                      <option key={group._id} value={group._id} disabled={isActive}>
+                        {group.name} ({group.meeting_time})
+                        {isActive && managingAdmin ? ` - Active by ${managingAdmin.name}` : isActive ? " - Active" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
+              {groupsWithSessions && groupsWithSessions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Active Sessions:</p>
+                  <div className="space-y-1">
+                    {groupsWithSessions
+                      .filter((g: any) => g.hasActiveSession)
+                      .map((group: any) => (
+                        <div key={group._id} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded text-sm">
+                          <span className="font-medium">{group.name}</span>
+                          <span className="text-green-700">
+                            {group.managingAdmin ? `Managed by ${group.managingAdmin.name}` : "Active"}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 <Button
                   variant="primary"
-                  disabled={!selectedGroupId || starting}
+                  disabled={!selectedGroupId || starting || (groupsWithSessions?.find((g: any) => g._id === selectedGroupId)?.hasActiveSession || false)}
                   onClick={async () => {
                     if (!selectedGroupId) return;
+                    const selectedGroup = groupsWithSessions?.find((g: any) => g._id === selectedGroupId);
+                    if (selectedGroup?.hasActiveSession) {
+                      setError("This group already has an active session managed by another admin.");
+                      return;
+                    }
                     setError(null);
                     setStarting(true);
                     try {
