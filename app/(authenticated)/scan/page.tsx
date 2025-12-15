@@ -217,6 +217,31 @@ export default function ScanPage() {
               <p className="text-sm text-gray-600">Use your camera to manually capture QR codes</p>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Always render video element (hidden when inactive) so ref is available */}
+              <div className={cameraActive ? "relative" : "hidden"}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
+                  style={{ backgroundColor: "#000" }}
+                />
+                {cameraActive && (
+                  <>
+                    <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none">
+                      <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-blue-500"></div>
+                      <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-blue-500"></div>
+                      <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-blue-500"></div>
+                      <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
+                    </div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
+                      Position QR code within frame, then tap "Capture & Scan"
+                    </div>
+                  </>
+                )}
+              </div>
+              
               {!cameraActive && (
                 <div className="text-center py-8">
                   {cameraLoading ? (
@@ -251,26 +276,6 @@ export default function ScanPage() {
               )}
               {cameraActive && (
                 <div className="space-y-4">
-                  <div className="relative">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
-                      style={{ backgroundColor: "#000" }}
-                    />
-                    <div className="absolute inset-0 border-2 border-blue-500 rounded-lg pointer-events-none">
-                      <div className="absolute top-2 left-2 w-6 h-6 border-t-2 border-l-2 border-blue-500"></div>
-                      <div className="absolute top-2 right-2 w-6 h-6 border-t-2 border-r-2 border-blue-500"></div>
-                      <div className="absolute bottom-2 left-2 w-6 h-6 border-b-2 border-l-2 border-blue-500"></div>
-                      <div className="absolute bottom-2 right-2 w-6 h-6 border-b-2 border-r-2 border-blue-500"></div>
-                    </div>
-                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-1 rounded text-sm">
-                      Position QR code within frame, then tap "Capture & Scan"
-                    </div>
-                  </div>
-
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
                       onClick={handleScanClick}
