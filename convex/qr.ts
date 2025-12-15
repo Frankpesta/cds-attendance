@@ -382,7 +382,7 @@ export const getAllActiveQr = query({
         if (tokens.length === 0) return null;
         tokens.sort((a, b) => b.rotation_sequence - a.rotation_sequence);
         const current = tokens[0];
-        const group = await ctx.db.get(groupId);
+        const group = await ctx.db.get(groupId as any);
         const count = await ctx.db
           .query("attendance")
           .filter((q) => q.and(
@@ -392,7 +392,7 @@ export const getAllActiveQr = query({
           .collect();
         return {
           cdsGroupId: groupId,
-          cdsGroupName: group?.name || "Unknown",
+          cdsGroupName: (group && "name" in group ? group.name : null) || "Unknown",
           token: current.token,
           rotation: current.rotation_sequence,
           expiresAt: current.expires_at,
