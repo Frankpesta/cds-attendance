@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 import { SAED_SKILLS, getTrainersForSkill, type SAEDTrainer } from "@/lib/saed-constants";
 import { User, Building2, Phone, Mail, MapPin, Users } from "lucide-react";
+import { extractErrorMessage } from "@/lib/utils";
 
 export default function SAEDSelectionPage({ params }: { params: { token: string } }) {
   const router = useRouter();
