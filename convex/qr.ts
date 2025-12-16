@@ -341,8 +341,12 @@ export const stopQrSession = mutation({
 });
 
 export const getActiveQr = query({
-  args: { meetingDate: v.string(), cdsGroupId: v.id("cds_groups") },
+  args: { meetingDate: v.string(), cdsGroupId: v.optional(v.id("cds_groups")) },
   handler: async (ctx, { meetingDate, cdsGroupId }) => {
+    // If cdsGroupId is not provided, return null (shouldn't happen in normal flow)
+    if (!cdsGroupId) {
+      return null;
+    }
     // Try new format first
     let meeting = await ctx.db
       .query("meetings")

@@ -31,15 +31,19 @@ export default function QrDisplay() {
   }, []);
 
   const allActiveSessions = useQuery(api.qr.getAllActiveQr, meetingDate ? { meetingDate } : "skip");
+  // Only call getActiveQr when we have both meetingDate and a valid selectedGroupId
+  const shouldFetchActiveQr = meetingDate && selectedGroupId && selectedGroupId.trim() !== "";
   const active = useQuery(
     api.qr.getActiveQr, 
-    meetingDate && selectedGroupId ? { meetingDate, cdsGroupId: selectedGroupId as any } : "skip"
+    shouldFetchActiveQr
+      ? { meetingDate, cdsGroupId: selectedGroupId as any } 
+      : "skip"
   );
   const attendanceStats = useQuery(api.dashboard.getStats, {});
 
   // Auto-select first active session if available
   useEffect(() => {
-    if (allActiveSessions && allActiveSessions.length > 0 && !selectedGroupId) {
+    if (allActiveSessions && allActiveSessions.length > 0 && (!selectedGroupId || selectedGroupId.trim() === "")) {
       setSelectedGroupId(allActiveSessions[0].cdsGroupId);
     }
   }, [allActiveSessions, selectedGroupId]);
