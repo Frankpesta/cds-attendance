@@ -55,7 +55,7 @@ export default defineSchema({
   qr_tokens: defineTable({
     token: v.string(),
     meeting_date: v.string(), // YYYY-MM-DD
-    meeting_id: v.id("meetings"), // Link to the session/meeting this token belongs to
+    meeting_id: v.optional(v.id("meetings")), // Link to the session/meeting this token belongs to (optional for backward compatibility)
     cds_group_id: v.optional(v.id("cds_groups")), // Legacy: kept for backward compatibility, not used for validation
     generated_by_admin_id: v.id("users"),
     generated_at: v.number(),
