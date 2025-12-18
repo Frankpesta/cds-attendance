@@ -15,30 +15,44 @@ export function extractErrorMessage(error: unknown, fallback: string = "An error
   
   let message: string | null = null;
   
-  // Handle string errors
+  // Handle string errors directly
   if (typeof error === "string") {
     message = error;
   }
-  // Handle Error instances
+  // Handle Error instances (including ConvexError which extends Error)
   else if (error instanceof Error) {
     message = error.message;
     
     // Check if it's a ConvexError with data property
-    if ((error as any).data) {
-      const data = (error as any).data;
+    // ConvexError has a data property that may contain the actual error message
+    const errorAny = error as any;
+    if (errorAny.data !== undefined) {
+      const data = errorAny.data;
+      // If data is a string, use it directly
       if (typeof data === "string") {
         message = data;
-      } else if (data && typeof data === "object" && "message" in data) {
-        message = String(data.message);
+      }
+      // If data is an object, check for common message fields
+      else if (data && typeof data === "object") {
+        if (data.message) {
+          message = String(data.message);
+        } else if (data.error) {
+          message = String(data.error);
+        } else if (data.statusMessage) {
+          message = String(data.statusMessage);
+        } else if (data.code) {
+          // Sometimes errors have codes, try to get a readable message
+          message = error.message || String(data.code);
+        }
       }
     }
   }
-  // Handle objects with message property
+  // Handle plain objects (not Error instances)
   else if (typeof error === "object" && error !== null) {
     const err = error as any;
     
     // Check for ConvexError structure (data property)
-    if (err.data) {
+    if (err.data !== undefined) {
       if (typeof err.data === "string") {
         message = err.data;
       } else if (err.data && typeof err.data === "object") {
@@ -61,7 +75,7 @@ export function extractErrorMessage(error: unknown, fallback: string = "An error
     if (!message && err.error) {
       if (typeof err.error === "string") {
         message = err.error;
-      } else if (err.error.message) {
+      } else if (err.error && typeof err.error === "object" && err.error.message) {
         message = String(err.error.message);
       }
     }
@@ -70,12 +84,26 @@ export function extractErrorMessage(error: unknown, fallback: string = "An error
     if (!message && err.statusText) {
       message = String(err.statusText);
     }
+    
+    // Check for response.data (common in fetch errors)
+    if (!message && err.response && err.response.data) {
+      const responseData = err.response.data;
+      if (typeof responseData === "string") {
+        message = responseData;
+      } else if (responseData && typeof responseData === "object" && responseData.message) {
+        message = String(responseData.message);
+      }
+    }
   }
   
   // If we still don't have a message, try to stringify the error
   if (!message) {
     try {
-      message = String(error);
+      const errorString = String(error);
+      // Only use stringified version if it's not just "[object Object]"
+      if (errorString !== "[object Object]" && errorString !== "{}") {
+        message = errorString;
+      }
     } catch {
       message = null;
     }
@@ -106,6 +134,9 @@ function cleanErrorMessage(message: string): string {
   // Remove "Convex error" prefix
   cleaned = cleaned.replace(/^Convex error\s*:?\s*/i, "");
   
+  // Remove "ConvexError" prefix
+  cleaned = cleaned.replace(/^ConvexError\s*:?\s*/i, "");
+  
   // Remove "Error:" prefix if present
   cleaned = cleaned.replace(/^Error\s*:?\s*/i, "");
   
@@ -114,6 +145,9 @@ function cleanErrorMessage(message: string): string {
   
   // Remove common technical prefixes
   cleaned = cleaned.replace(/^(Failed|Error|Exception)\s*:?\s*/i, "");
+  
+  // Remove "called by client" type messages that aren't helpful
+  cleaned = cleaned.replace(/called by client/gi, "");
   
   // Remove URLs
   cleaned = cleaned.replace(/https?:\/\/[^\s]+/gi, "");
@@ -127,7 +161,8 @@ function cleanErrorMessage(message: string): string {
   }
   
   // If the message is still very generic, return the fallback
-  if (cleaned.toLowerCase() === "error" || cleaned.toLowerCase() === "server error") {
+  const lowerCleaned = cleaned.toLowerCase();
+  if (lowerCleaned === "error" || lowerCleaned === "server error" || lowerCleaned === "an error occurred") {
     return "An error occurred. Please try again.";
   }
   
