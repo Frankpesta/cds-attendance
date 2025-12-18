@@ -78,7 +78,7 @@ export async function signupAction(formData: FormData) {
     
     return { ok: true } as const;
   } catch (e: any) {
-    return { ok: false, error: e?.message || "Failed to sign up" } as const;
+    return { ok: false, error: extractErrorMessage(e, "Failed to sign up") } as const;
   }
 }
 

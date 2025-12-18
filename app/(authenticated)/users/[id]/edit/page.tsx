@@ -81,7 +81,7 @@ export default function EditUserPage() {
       
       push({ variant: "success", title: "User updated", description: "User has been updated successfully" });
     } catch (e: any) {
-      push({ variant: "error", title: "Failed", description: e?.message });
+      push({ variant: "error", title: "Failed", description: extractErrorMessage(e, "Failed to update user") });
     } finally {
       setLoading(false);
     }

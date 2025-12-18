@@ -38,7 +38,7 @@ export const submitScan = mutation({
       throw new Error("Scanning is only available during meeting hours.");
     }
 
-    // Token validation - must match user's CDS group
+    // Token validation - check if QR code is valid and active
     const qr = await ctx.db
       .query("qr_tokens")
       .filter((q) => q.eq(q.field("token"), token))
@@ -47,11 +47,20 @@ export const submitScan = mutation({
     const now = nowMs();
     if (qr.expires_at < now) throw new Error("QR code expired. Please scan the current code.");
     
-    // Verify QR token is for the user's CDS group
-    // For backward compatibility: if qr.cds_group_id is not set (old tokens), allow it
-    // Otherwise, verify it matches the user's group
-    if (qr.cds_group_id && qr.cds_group_id !== group._id) {
-      throw new Error("This QR code is not for your CDS group. Please scan the correct QR code for your group.");
+    // For new tokens, verify the meeting/session associated with this QR code is still active
+    // Legacy tokens without meeting_id are not supported in the new system
+    if (!qr.meeting_id) {
+      throw new Error("This QR code format is no longer supported. Please scan a current QR code.");
+    }
+    
+    const meeting = await ctx.db.get(qr.meeting_id);
+    if (!meeting || !meeting.is_active) {
+      throw new Error("This QR code session is no longer active.");
+    }
+    
+    // Verify the meeting date matches today
+    if (meeting.meeting_date !== today) {
+      throw new Error("This QR code is not valid for today.");
     }
 
     const attendanceId = await ctx.db.insert("attendance", {

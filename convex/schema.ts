@@ -40,20 +40,23 @@ export default defineSchema({
   meetings: defineTable({
     meeting_date: v.string(), // YYYY-MM-DD (WAT displayed)
     cds_group_ids: v.optional(v.array(v.id("cds_groups"))), // Legacy: multiple groups (deprecated)
-    cds_group_id: v.optional(v.id("cds_groups")), // New: single group per meeting
+    cds_group_id: v.optional(v.id("cds_groups")), // Legacy: kept for backward compatibility, not required for new sessions
+    session_id: v.optional(v.string()), // Unique identifier for this session (generated UUID-like string), optional for backward compatibility
     is_active: v.boolean(),
     activated_by_admin_id: v.optional(v.id("users")),
     activated_at: v.optional(v.number()),
     deactivated_at: v.optional(v.number()),
   })
     .index("by_date", ["meeting_date"])
-    .index("by_group_date", ["cds_group_id", "meeting_date"]) // one per group per day
-    .index("by_active", ["is_active"]),
+    .index("by_group_date", ["cds_group_id", "meeting_date"]) // Legacy index
+    .index("by_active", ["is_active"])
+    .index("by_session_id", ["session_id"]),
 
   qr_tokens: defineTable({
     token: v.string(),
     meeting_date: v.string(), // YYYY-MM-DD
-    cds_group_id: v.optional(v.id("cds_groups")), // Associate token with specific group (optional for backward compatibility)
+    meeting_id: v.id("meetings"), // Link to the session/meeting this token belongs to
+    cds_group_id: v.optional(v.id("cds_groups")), // Legacy: kept for backward compatibility, not used for validation
     generated_by_admin_id: v.id("users"),
     generated_at: v.number(),
     expires_at: v.number(),
@@ -62,8 +65,9 @@ export default defineSchema({
   })
     .index("by_token", ["token"]) // unique in logic
     .index("by_meeting_date", ["meeting_date"]) // for cleanup/validation
-    .index("by_group_date", ["cds_group_id", "meeting_date"]) // for group-specific queries
-    .index("by_rotation", ["cds_group_id", "meeting_date", "rotation_sequence"]),
+    .index("by_meeting_id", ["meeting_id"]) // for session-specific queries
+    .index("by_group_date", ["cds_group_id", "meeting_date"]) // Legacy index
+    .index("by_rotation", ["meeting_id", "rotation_sequence"]), // Updated to use meeting_id
 
   attendance: defineTable({
     user_id: v.id("users"),

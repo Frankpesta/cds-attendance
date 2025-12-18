@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +63,7 @@ export default function SettingsPage() {
       });
       push({ variant: "success", title: "Settings Updated", description: "Batch attendance requirements updated successfully" });
     } catch (error: any) {
-      push({ variant: "error", title: "Failed to Update", description: error?.message || "Could not update settings" });
+      push({ variant: "error", title: "Failed to Update", description: extractErrorMessage(error, "Could not update settings") });
     } finally {
       setSaving(false);
     }

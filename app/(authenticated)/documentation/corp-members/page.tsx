@@ -184,7 +184,7 @@ export default function CorpMembersDocumentationPage() {
         description: "New registration link copied to clipboard.",
       });
     } catch (error: any) {
-      push({ variant: "error", title: "Failed to create link", description: error?.message });
+      push({ variant: "error", title: "Failed to create link", description: extractErrorMessage(error, "Failed to create link") });
     }
   };
 

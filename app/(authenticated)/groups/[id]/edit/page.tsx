@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +85,7 @@ export default function EditGroupPage() {
       push({ variant: "success", title: "Group updated", description: "CDS group has been updated successfully" });
       window.location.href = "/groups";
     } catch (e: any) {
-      push({ variant: "error", title: "Update failed", description: e?.message });
+      push({ variant: "error", title: "Update failed", description: extractErrorMessage(e, "Failed to update group") });
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { MultiSelect } from "@/components/ui/multiselect";
@@ -75,7 +76,7 @@ export default function GroupsPage() {
       });
       load();
     } catch (e: any) {
-      push({ variant: "error", title: "Create failed", description: e?.message });
+      push({ variant: "error", title: "Create failed", description: extractErrorMessage(e, "Failed to create group") });
     }
   };
 
@@ -193,7 +194,7 @@ export default function GroupsPage() {
                             push({ variant: "success", title: "Group deleted", description: `${g.name} has been deleted successfully` });
                             load();
                           } catch (e: any) {
-                            push({ variant: "error", title: "Delete failed", description: e?.message || "Could not delete group" });
+                            push({ variant: "error", title: "Delete failed", description: extractErrorMessage(e, "Could not delete group") });
                           }
                         }
                       }}

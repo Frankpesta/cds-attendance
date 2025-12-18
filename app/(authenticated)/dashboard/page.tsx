@@ -209,12 +209,14 @@ function SuperAdminHome() {
 
 function AdminHome({ sessionToken }: { sessionToken: string }) {
   const getToday = useQuery(api.qr.getTodayGroups, { sessionToken });
-  const groupsWithSessions = useQuery(api.qr.getTodayGroupsWithSessions, { sessionToken });
   const stats = useQuery(api.dashboard.getStats, {});
   const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 5 });
   const [error, setError] = useState<string | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [starting, setStarting] = useState(false);
+  
+  const today = new Date().toISOString().split('T')[0];
+  const allActiveSessions = useQuery(api.qr.getAllActiveQr, today ? { meetingDate: today } : "skip");
+  const myActiveSessions = useQuery(api.qr.getMyActiveSessions, sessionToken ? { sessionToken } : "skip");
   
   const todayGroups = Array.isArray(getToday) ? getToday : (getToday?.meetingToday || []);
 
@@ -260,66 +262,49 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">QR Session Management</h3>
-          <p className="text-sm text-muted-foreground">Start and manage attendance sessions for specific CDS groups. One admin per active group.</p>
+          <p className="text-sm text-muted-foreground">Create independent QR sessions. Anyone can sign with any active QR code during meeting hours.</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {todayGroups.length > 0 ? (
             <>
-              <div>
-                <label className="block text-sm font-medium mb-2">Select CDS Group</label>
-                <select
-                  value={selectedGroupId}
-                  onChange={(e) => setSelectedGroupId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">-- Select a CDS group --</option>
-                  {todayGroups.map((group: any) => {
-                    const groupWithSession = groupsWithSessions?.find((g: any) => g._id === group._id);
-                    const isActive = groupWithSession?.hasActiveSession || false;
-                    const managingAdmin = groupWithSession?.managingAdmin;
-                    return (
-                      <option key={group._id} value={group._id} disabled={isActive}>
-                        {group.name} ({group.meeting_time})
-                        {isActive && managingAdmin ? ` - Active by ${managingAdmin.name}` : isActive ? " - Active" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              {groupsWithSessions && groupsWithSessions.length > 0 && (
+              {myActiveSessions && myActiveSessions.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Active Sessions:</p>
+                  <p className="text-sm font-medium">My Active Sessions:</p>
                   <div className="space-y-1">
-                    {groupsWithSessions
-                      .filter((g: any) => g.hasActiveSession)
-                      .map((group: any) => (
-                        <div key={group._id} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded text-sm">
-                          <span className="font-medium">{group.name}</span>
-                          <span className="text-green-700">
-                            {group.managingAdmin ? `Managed by ${group.managingAdmin.name}` : "Active"}
-                          </span>
-                        </div>
-                      ))}
+                    {myActiveSessions.map((session: any) => (
+                      <div key={session.meetingId} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded text-sm">
+                        <span className="font-medium">Session {session.sessionId?.substring(0, 8) || "Active"}</span>
+                        <span className="text-green-700">Active</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
+              
+              {allActiveSessions && allActiveSessions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">All Active Sessions ({allActiveSessions.length}):</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {allActiveSessions.map((session: any) => (
+                      <div key={session.meetingId} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                        <span className="font-medium">Session {session.sessionId?.substring(0, 8) || "Active"}</span>
+                        <span className="text-blue-700">{session.adminName} • {session.attendanceCount} scans</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex flex-wrap gap-3">
                 <Button
                   variant="primary"
-                  disabled={!selectedGroupId || starting || (groupsWithSessions?.find((g: any) => g._id === selectedGroupId)?.hasActiveSession || false)}
+                  disabled={starting}
                   onClick={async () => {
-                    if (!selectedGroupId) return;
-                    const selectedGroup = groupsWithSessions?.find((g: any) => g._id === selectedGroupId);
-                    if (selectedGroup?.hasActiveSession) {
-                      setError("This group already has an active session managed by another admin.");
-                      return;
-                    }
                     setError(null);
                     setStarting(true);
                     try {
-                      const res = await startQrAction(selectedGroupId);
+                      const res = await startQrAction();
                       if (!res.ok) throw new Error(res.error);
-                      setSelectedGroupId("");
                       // Refresh the page to show updated session status
                       window.location.reload();
                     } catch (e: unknown) {
@@ -330,7 +315,7 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
                   }}
                 >
                   <Activity className="w-4 h-4 mr-2" />
-                  {starting ? "Starting..." : "Start QR Session"}
+                  {starting ? "Starting..." : "Start New QR Session"}
                 </Button>
                 <Link href="/qr">
                   <Button variant="secondary">

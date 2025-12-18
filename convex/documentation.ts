@@ -247,7 +247,43 @@ export const listCorpMembers = query({
       .query("corp_member_docs")
       .filter((q) => q.eq(q.field("is_deleted"), false))
       .collect();
-    return records.sort((a, b) => b.created_at - a.created_at);
+    
+    // Explicitly return all fields including SAED details
+    return records.sort((a, b) => b.created_at - a.created_at).map((record) => ({
+      _id: record._id,
+      link_id: record.link_id,
+      link_token: record.link_token,
+      created_at: record.created_at,
+      updated_at: record.updated_at,
+      created_by_admin_id: record.created_by_admin_id,
+      is_deleted: record.is_deleted,
+      deleted_at: record.deleted_at,
+      full_name: record.full_name,
+      state_code: record.state_code,
+      phone_number: record.phone_number,
+      residential_address: record.residential_address,
+      next_of_kin: record.next_of_kin,
+      next_of_kin_phone: record.next_of_kin_phone,
+      gender: record.gender,
+      ppa: record.ppa,
+      course_of_study: record.course_of_study,
+      call_up_number: record.call_up_number,
+      email: record.email,
+      nysc_account_number: record.nysc_account_number,
+      bank_name: record.bank_name,
+      nin: record.nin,
+      cds: record.cds,
+      medical_history: record.medical_history,
+      medical_files: record.medical_files,
+      // SAED fields explicitly included
+      personal_skill: record.personal_skill,
+      saed_camp_skill: record.saed_camp_skill,
+      proposed_post_camp_saed_skill: record.proposed_post_camp_saed_skill,
+      selected_trainer_name: record.selected_trainer_name,
+      selected_trainer_business: record.selected_trainer_business,
+      selected_trainer_phone: record.selected_trainer_phone,
+      selected_trainer_email: record.selected_trainer_email,
+    }));
   },
 });
 

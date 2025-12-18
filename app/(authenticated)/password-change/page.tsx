@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { changePasswordAction } from "@/app/actions/auth";
+import { extractErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -35,7 +36,7 @@ export default function PasswordChangePage() {
       push({ variant: "success", title: "Password updated" });
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err?.message || "Failed to change password");
+      setError(extractErrorMessage(err, "Failed to change password"));
     }
   };
 

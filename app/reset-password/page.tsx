@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { resetPasswordAction, validateResetTokenAction } from "../actions/password-reset";
+import { extractErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -62,7 +63,7 @@ function ResetPasswordForm() {
         router.push("/login");
       }, 2000);
     } catch (err: any) {
-      push({ variant: "error", title: "Error", description: err?.message || "Something went wrong" });
+      push({ variant: "error", title: "Error", description: extractErrorMessage(err, "Something went wrong") });
     } finally {
       setLoading(false);
     }

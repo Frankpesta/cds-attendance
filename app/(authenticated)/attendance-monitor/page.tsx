@@ -31,10 +31,8 @@ export default function AttendanceMonitorPage() {
   const allActiveQrSessions = useQuery(api.qr.getAllActiveQr, { meetingDate });
   const attendanceStats = useQuery(api.dashboard.getStats, {});
   
-  // Get active session for selected group, or first active session if no group selected
-  const activeQrSession = selectedGroup 
-    ? allActiveQrSessions?.find((s: any) => s.cdsGroupId === selectedGroup)
-    : allActiveQrSessions?.[0];
+  // Get first active session (sessions are now independent and not tied to groups)
+  const activeQrSession = allActiveQrSessions?.[0];
 
   // Filter attendance by selected group
   const filteredAttendance = todayAttendance?.filter((record: any) => 

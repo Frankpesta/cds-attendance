@@ -16,7 +16,7 @@ export default function QrDisplay() {
   const [qrSrc, setQrSrc] = useState("");
   const [rotationCount, setRotationCount] = useState(0);
   const [attendanceCount, setAttendanceCount] = useState(0);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string>("");
   const { push } = useToast();
 
   useEffect(() => {
@@ -31,22 +31,22 @@ export default function QrDisplay() {
   }, []);
 
   const allActiveSessions = useQuery(api.qr.getAllActiveQr, meetingDate ? { meetingDate } : "skip");
-  // Only call getActiveQr when we have both meetingDate and a valid selectedGroupId
-  const shouldFetchActiveQr = meetingDate && selectedGroupId && selectedGroupId.trim() !== "";
+  
+  // Only call getActiveQr when we have a valid selectedMeetingId
   const active = useQuery(
     api.qr.getActiveQr, 
-    shouldFetchActiveQr
-      ? { meetingDate, cdsGroupId: selectedGroupId as any } 
+    selectedMeetingId && selectedMeetingId.trim() !== ""
+      ? { meetingId: selectedMeetingId as any } 
       : "skip"
   );
   const attendanceStats = useQuery(api.dashboard.getStats, {});
 
   // Auto-select first active session if available
   useEffect(() => {
-    if (allActiveSessions && allActiveSessions.length > 0 && (!selectedGroupId || selectedGroupId.trim() === "")) {
-      setSelectedGroupId(allActiveSessions[0].cdsGroupId);
+    if (allActiveSessions && allActiveSessions.length > 0 && (!selectedMeetingId || selectedMeetingId.trim() === "")) {
+      setSelectedMeetingId(allActiveSessions[0].meetingId);
     }
-  }, [allActiveSessions, selectedGroupId]);
+  }, [allActiveSessions, selectedMeetingId]);
 
   useEffect(() => {
     if (active?.token) {
@@ -93,6 +93,28 @@ export default function QrDisplay() {
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">QR Code Display</h1>
         <p className="text-sm sm:text-base text-muted-foreground">Live QR code for attendance scanning with security features</p>
       </div>
+
+      {allActiveSessions && allActiveSessions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Select Session</h3>
+          </CardHeader>
+          <CardContent>
+            <select
+              value={selectedMeetingId}
+              onChange={(e) => setSelectedMeetingId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">-- Select a session --</option>
+              {allActiveSessions.map((session: any) => (
+                <option key={session.meetingId} value={session.meetingId}>
+                  Session {session.sessionId?.substring(0, 8) || "Active"} - {session.adminName} ({session.attendanceCount} scans)
+                </option>
+              ))}
+            </select>
+          </CardContent>
+        </Card>
+      )}
 
       {active ? (
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
@@ -160,13 +182,17 @@ export default function QrDisplay() {
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">CDS Group:</span>
+                  <span className="text-muted-foreground">Session ID:</span>
                   <span className="font-medium">
-                    {allActiveSessions?.find((s: any) => s.cdsGroupId === selectedGroupId)?.cdsGroupName || "Unknown"}
+                    {active.sessionId?.substring(0, 8) || "N/A"}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Session Started:</span>
+                  <span className="text-muted-foreground">Created By:</span>
+                  <span className="font-medium">{active.adminName || "Unknown"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Date:</span>
                   <span className="font-medium">{meetingDate}</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -197,19 +223,19 @@ export default function QrDisplay() {
       )}
 
       {/* Action Buttons */}
-      {active && selectedGroupId && (
+      {active && selectedMeetingId && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex gap-3 justify-center">
               <Button 
                 variant="destructive" 
                 onClick={async () => {
-                  if (!selectedGroupId) return;
+                  if (!selectedMeetingId) return;
                   try {
-                    const res = await stopQrAction(selectedGroupId);
+                    const res = await stopQrAction(selectedMeetingId);
                     if (res.ok) {
                       push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
-                      setSelectedGroupId("");
+                      setSelectedMeetingId("");
                       window.location.reload();
                     } else {
                       throw new Error(res.error || "Failed to stop session");

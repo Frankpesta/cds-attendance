@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -51,7 +52,7 @@ export default function ClearancePage() {
       );
       setData(res.data);
     } catch (e: any) {
-      push({ variant: "error", title: "Failed to load clearance", description: e?.message });
+      push({ variant: "error", title: "Failed to load clearance", description: extractErrorMessage(e, "Failed to load clearance data") });
     } finally {
       setLoading(false);
     }
@@ -105,7 +106,7 @@ export default function ClearancePage() {
       }
       push({ variant: "success", title: "PDF Generated", description: "Clearance certificate has been generated for printing." });
     } catch (e: any) {
-      push({ variant: "error", title: "Export failed", description: e?.message });
+      push({ variant: "error", title: "Export failed", description: extractErrorMessage(e, "Failed to export PDF") });
     } finally {
       setExporting(false);
     }

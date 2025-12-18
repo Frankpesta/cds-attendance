@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multiselect";
 import { useToast } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/lib/utils";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { ArrowLeft, Save } from "lucide-react";
@@ -64,7 +65,7 @@ export default function CreateGroupPage() {
       push({ variant: "success", title: "Group created", description: "CDS group has been created successfully" });
       window.location.href = "/groups";
     } catch (e: any) {
-      push({ variant: "error", title: "Create failed", description: e?.message });
+      push({ variant: "error", title: "Create failed", description: extractErrorMessage(e, "Failed to create group") });
     } finally {
       setLoading(false);
     }
