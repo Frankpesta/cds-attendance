@@ -103,130 +103,143 @@ export default function RejectedRepostingRegistrationPage({ params }: { params: 
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      name: event.target.value,
-                    }))
-                  }
-                  placeholder="Enter full name"
-                />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+            >
+              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Enter full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    State Code <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={form.state_code}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        state_code: event.target.value.toUpperCase(),
+                      }))
+                    }
+                    placeholder="Enter state code"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Sex <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    value={form.sex}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        sex: event.target.value,
+                      }))
+                    }
+                    options={[
+                      { value: "", label: "Select" },
+                      { value: "Male", label: "Male" },
+                      { value: "Female", label: "Female" },
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Discipline <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={form.discipline}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        discipline: event.target.value,
+                      }))
+                    }
+                    placeholder="Enter discipline"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Previous PPA <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={form.previous_ppa}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        previous_ppa: event.target.value.toUpperCase(),
+                      }))
+                    }
+                    placeholder="Enter previous PPA"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    New PPA <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={form.new_ppa}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        new_ppa: event.target.value.toUpperCase(),
+                      }))
+                    }
+                    placeholder="Enter new PPA (if applicable)"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+
+                <div className="sm:col-span-1 md:col-span-2">
+                  <label className="mb-2 block text-sm font-medium">
+                    Recommendation <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={form.recommendation}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        recommendation: event.target.value,
+                      }))
+                    }
+                    placeholder="Enter recommendation (if any)"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  State Code <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={form.state_code}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      state_code: event.target.value.toUpperCase(),
-                    }))
-                  }
-                  placeholder="Enter state code"
-                  style={{ textTransform: 'uppercase' }}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Sex <span className="text-red-500">*</span>
-                </label>
-                <Select
-                  value={form.sex}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      sex: event.target.value,
-                    }))
-                  }
-                  options={[
-                    { value: "", label: "Select" },
-                    { value: "Male", label: "Male" },
-                    { value: "Female", label: "Female" },
-                  ]}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Discipline <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={form.discipline}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      discipline: event.target.value,
-                    }))
-                  }
-                  placeholder="Enter discipline"
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  Previous PPA <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={form.previous_ppa}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      previous_ppa: event.target.value.toUpperCase(),
-                    }))
-                  }
-                  placeholder="Enter previous PPA"
-                  style={{ textTransform: 'uppercase' }}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">
-                  New PPA <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
-                </label>
-                <Input
-                  value={form.new_ppa}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      new_ppa: event.target.value.toUpperCase(),
-                    }))
-                  }
-                  placeholder="Enter new PPA (if applicable)"
-                  style={{ textTransform: 'uppercase' }}
-                />
-              </div>
-
-              <div className="sm:col-span-1 md:col-span-2">
-                <label className="mb-2 block text-sm font-medium">
-                  Recommendation <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
-                </label>
-                <Input
-                  value={form.recommendation}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      recommendation: event.target.value,
-                    }))
-                  }
-                  placeholder="Enter recommendation (if any)"
-                />
-              </div>
-            </div>
-
-            <Button className="w-full" disabled={disabled || submitting} onClick={handleSubmit}>
-              {submitting ? "Submitting..." : "Submit Form"}
-            </Button>
+              <Button type="submit" className="w-full mt-6" disabled={disabled || submitting}>
+                {submitting ? "Submitting..." : "Submit Form"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>

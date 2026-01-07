@@ -556,6 +556,7 @@ export default function RejectedRepostingDocumentationPage() {
                     <span className="text-xs uppercase text-muted-foreground">New PPA (Optional)</span>
                     {editMode ? (
                       <Input
+                        type="text"
                         value={editDraft.new_ppa || ""}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
