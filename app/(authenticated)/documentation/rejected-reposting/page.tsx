@@ -37,6 +37,7 @@ export default function RejectedRepostingDocumentationPage() {
   const [session, setSession] = useState<any | null>(null);
   const [linksPage, setLinksPage] = useState(1);
   const linksItemsPerPage = 80;
+  const [exporting, setExporting] = useState(false);
 
   const listLinks = useQuery(
     api.documentation.listLinks,
@@ -185,6 +186,42 @@ export default function RejectedRepostingDocumentationPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    if (!sessionToken) {
+      push({ variant: "error", title: "Error", description: "Session token not available" });
+      return;
+    }
+    setExporting(true);
+    try {
+      const response = await fetch("/api/export-documentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionToken, type: "rejected_reposting" }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Export failed");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const dateSuffix = selectedDate ? `-${selectedDate.replace(/\//g, "-")}` : "";
+      a.download = `rejected-reposting-documentation${dateSuffix}-${new Date().toISOString().split("T")[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      push({ variant: "success", title: "Export successful", description: "Excel file downloaded" });
+    } catch (error: any) {
+      push({ variant: "error", title: "Export failed", description: extractErrorMessage(error, "Failed to export") });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handlePrint = () => {
     const printData = selectedDate ? filteredRecords : records || [];
     if (printData.length === 0) {
@@ -192,31 +229,79 @@ export default function RejectedRepostingDocumentationPage() {
       return;
     }
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
     const dateLabel = selectedDate ? ` for ${selectedDate}` : "";
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8">
           <title>Rejected/Reposting Corp Members${dateLabel}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { color: #333; border-bottom: 2px solid #008751; padding-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #008751; color: white; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f2f2f2; }
-            .no-data { text-align: center; padding: 20px; color: #666; }
+            @media print {
+              @page {
+                margin: 1cm;
+                size: A4 landscape;
+              }
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              font-size: 12px;
+            }
+            h1 { 
+              color: #333; 
+              border-bottom: 2px solid #008751; 
+              padding-bottom: 10px;
+              margin-bottom: 10px;
+            }
+            .header-info {
+              margin-bottom: 15px;
+              color: #666;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-top: 20px;
+              font-size: 11px;
+            }
+            th, td { 
+              border: 1px solid #ddd; 
+              padding: 6px 8px; 
+              text-align: left;
+              word-wrap: break-word;
+            }
+            th { 
+              background-color: #008751; 
+              color: white; 
+              font-weight: bold;
+              text-align: center;
+            }
+            tr:nth-child(even) { 
+              background-color: #f9f9f9; 
+            }
+            .no-data { 
+              text-align: center; 
+              padding: 20px; 
+              color: #666; 
+            }
+            .summary {
+              margin-top: 15px;
+              padding: 10px;
+              background-color: #f0f0f0;
+              border-radius: 4px;
+            }
           </style>
         </head>
         <body>
           <h1>Rejected/Reposting Corp Members${dateLabel}</h1>
-          <p>Generated: ${new Date().toLocaleString()}</p>
+          <div class="header-info">
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Total Records:</strong> ${printData.length}</p>
+          </div>
           <table>
             <thead>
               <tr>
+                <th>S/N</th>
                 <th>Name</th>
                 <th>State Code</th>
                 <th>Sex</th>
@@ -228,29 +313,46 @@ export default function RejectedRepostingDocumentationPage() {
               </tr>
             </thead>
             <tbody>
-              ${printData.map((record: any) => `
+              ${printData.map((record: any, index: number) => `
                 <tr>
-                  <td>${record.name || "-"}</td>
-                  <td>${record.state_code || "-"}</td>
-                  <td>${record.sex || "-"}</td>
-                  <td>${record.discipline || "-"}</td>
-                  <td>${record.previous_ppa || "-"}</td>
-                  <td>${record.new_ppa || "-"}</td>
-                  <td>${record.recommendation || "-"}</td>
+                  <td style="text-align: center;">${index + 1}</td>
+                  <td>${(record.name || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                  <td>${(record.state_code || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                  <td>${(record.sex || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                  <td>${(record.discipline || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                  <td>${(record.previous_ppa || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                  <td>${(record.new_ppa || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                  <td>${(record.recommendation || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
                   <td>${formatDate(record.created_at)}</td>
                 </tr>
               `).join("")}
             </tbody>
           </table>
+          <div class="summary">
+            <p><strong>Summary:</strong> ${printData.length} record(s)${dateLabel}</p>
+          </div>
         </body>
       </html>
     `;
 
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      push({ variant: "error", title: "Print failed", description: "Please allow pop-ups to print" });
+      return;
+    }
+
     printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    
+    // Wait for content to load before printing
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+      // Don't close immediately - let user cancel print dialog if needed
+      // printWindow.close();
+    }, 250);
+    
+    push({ variant: "success", title: "Print dialog opened", description: "Use your browser's print options to save as PDF" });
   };
 
   const columns = [
@@ -417,9 +519,13 @@ export default function RejectedRepostingDocumentationPage() {
             </div>
           </div>
           <div className="mt-4 flex gap-2">
+            <Button onClick={handleExportExcel} disabled={exporting} variant="secondary">
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? "Exporting..." : "Export Excel"}
+            </Button>
             <Button onClick={handlePrint} variant="secondary">
               <Printer className="mr-2 h-4 w-4" />
-              Print {selectedDate ? `(${selectedDate})` : "All Records"}
+              Print/PDF {selectedDate ? `(${selectedDate})` : "All Records"}
             </Button>
           </div>
         </CardContent>

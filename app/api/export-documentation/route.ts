@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify session and check if user is super_admin
+    // Verify session and check if user is admin or super_admin
     const session = await client.query(api.auth.getSession, { sessionToken });
-    if (!session || session.user.role !== "super_admin") {
+    if (!session || (session.user.role !== "super_admin" && session.user.role !== "admin")) {
       return NextResponse.json(
-        { error: "Unauthorized. Super admin access required." },
+        { error: "Unauthorized. Admin access required." },
         { status: 403 }
       );
     }
@@ -75,16 +75,30 @@ export async function POST(request: NextRequest) {
         "Nearest Landmark",
         "Created At",
       ];
+    } else if (type === "rejected_reposting") {
+      const rejectedReposting = await client.query(api.documentation.listRejectedReposting, { sessionToken });
+      data = rejectedReposting || [];
+      headers = [
+        "Name",
+        "State Code",
+        "Sex",
+        "Discipline",
+        "Previous PPA",
+        "New PPA",
+        "Recommendation",
+        "Created At",
+      ];
     } else {
       return NextResponse.json(
-        { error: "Invalid type. Must be 'corp_member' or 'employer'" },
+        { error: "Invalid type. Must be 'corp_member', 'employer', or 'rejected_reposting'" },
         { status: 400 }
       );
     }
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(type === "corp_member" ? "Corp Members" : "Employers");
+    const sheetName = type === "corp_member" ? "Corp Members" : type === "employer" ? "Employers" : "Rejected/Reposting";
+    const worksheet = workbook.addWorksheet(sheetName);
 
     // Add headers
     worksheet.addRow(headers);
@@ -129,7 +143,7 @@ export async function POST(request: NextRequest) {
           item.selected_trainer_email || "",
           item.created_at ? new Date(item.created_at).toLocaleString() : "",
         ]);
-      } else {
+      } else if (type === "employer") {
         worksheet.addRow([
           item.organization_name || "",
           item.organization_address || "",
@@ -142,6 +156,17 @@ export async function POST(request: NextRequest) {
           item.monthly_stipend || 0,
           item.email || "",
           item.nearest_landmark || "",
+          item.created_at ? new Date(item.created_at).toLocaleString() : "",
+        ]);
+      } else if (type === "rejected_reposting") {
+        worksheet.addRow([
+          item.name || "",
+          item.state_code || "",
+          item.sex || "",
+          item.discipline || "",
+          item.previous_ppa || "",
+          item.new_ppa || "",
+          item.recommendation || "",
           item.created_at ? new Date(item.created_at).toLocaleString() : "",
         ]);
       }
@@ -157,10 +182,11 @@ export async function POST(request: NextRequest) {
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
 
+    const filename = type === "corp_member" ? "corp-members" : type === "employer" ? "employers" : "rejected-reposting";
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${type === "corp_member" ? "corp-members" : "employers"}-documentation-${new Date().toISOString().split("T")[0]}.xlsx"`,
+        "Content-Disposition": `attachment; filename="${filename}-documentation-${new Date().toISOString().split("T")[0]}.xlsx"`,
       },
     });
   } catch (error: any) {
