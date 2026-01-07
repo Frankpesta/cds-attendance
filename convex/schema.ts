@@ -111,7 +111,7 @@ export default defineSchema({
 
   documentation_links: defineTable({
     token: v.string(),
-    type: v.union(v.literal("corp_member"), v.literal("employer")),
+    type: v.union(v.literal("corp_member"), v.literal("employer"), v.literal("rejected_reposting")),
     status: v.union(v.literal("active"), v.literal("inactive")),
     created_by_admin_id: v.id("users"),
     created_at: v.number(),
@@ -204,6 +204,25 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_user", ["user_id"]),
+
+  rejected_reposting_docs: defineTable({
+    link_id: v.id("documentation_links"),
+    link_token: v.string(),
+    created_at: v.number(),
+    updated_at: v.number(),
+    created_by_admin_id: v.id("users"),
+    is_deleted: v.boolean(),
+    deleted_at: v.optional(v.number()),
+    name: v.string(),
+    state_code: v.string(),
+    sex: v.string(),
+    discipline: v.string(),
+    previous_ppa: v.string(),
+    new_ppa: v.optional(v.string()),
+    recommendation: v.optional(v.string()),
+  })
+    .index("by_link", ["link_token"])
+    .index("by_created_at", ["created_at"]),
 });
 
 

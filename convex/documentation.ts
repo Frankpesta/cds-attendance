@@ -5,7 +5,7 @@ import { generateRandomTokenHex, nowMs } from "./utils";
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_MEDICAL_FILES = 3;
 
-const documentationType = v.union(v.literal("corp_member"), v.literal("employer"));
+const documentationType = v.union(v.literal("corp_member"), v.literal("employer"), v.literal("rejected_reposting"));
 
 const fileDescriptor = v.object({
   storageId: v.id("_storage"),
@@ -509,6 +509,102 @@ export const saveSAEDData = mutation({
       updated_at: nowMs(),
     });
     
+    return true;
+  },
+});
+
+// ========== Rejected/Reposting Corp Members ==========
+
+export const submitRejectedReposting = mutation({
+  args: {
+    token: v.string(),
+    payload: v.object({
+      name: v.string(),
+      state_code: v.string(),
+      sex: v.string(),
+      discipline: v.string(),
+      previous_ppa: v.string(),
+      new_ppa: v.optional(v.string()),
+      recommendation: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, { token, payload }) => {
+    const link = await ctx.db
+      .query("documentation_links")
+      .filter((q) => q.eq(q.field("token"), token))
+      .unique();
+    if (!link || link.type !== "rejected_reposting" || link.status !== "active") {
+      throw new Error("Invalid or inactive link");
+    }
+    const now = nowMs();
+    const docId = await ctx.db.insert("rejected_reposting_docs", {
+      link_id: link._id,
+      link_token: link.token,
+      created_at: now,
+      updated_at: now,
+      created_by_admin_id: link.created_by_admin_id,
+      is_deleted: false,
+      deleted_at: undefined,
+      ...payload,
+    });
+    await ctx.db.patch(link._id, { uses_count: link.uses_count + 1 });
+    return { docId, linkToken: link.token };
+  },
+});
+
+export const listRejectedReposting = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, { sessionToken }) => {
+    await requireAdminSession(ctx, sessionToken);
+    const records = await ctx.db
+      .query("rejected_reposting_docs")
+      .filter((q) => q.eq(q.field("is_deleted"), false))
+      .collect();
+    return records.sort((a, b) => b.created_at - a.created_at);
+  },
+});
+
+export const getRejectedReposting = query({
+  args: { sessionToken: v.string(), id: v.id("rejected_reposting_docs") },
+  handler: async (ctx, { sessionToken, id }) => {
+    await requireAdminSession(ctx, sessionToken);
+    return await ctx.db.get(id);
+  },
+});
+
+export const updateRejectedReposting = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("rejected_reposting_docs"),
+    updates: v.object({
+      name: v.optional(v.string()),
+      state_code: v.optional(v.string()),
+      sex: v.optional(v.string()),
+      discipline: v.optional(v.string()),
+      previous_ppa: v.optional(v.string()),
+      new_ppa: v.optional(v.string()),
+      recommendation: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, { sessionToken, id, updates }) => {
+    await requireAdminSession(ctx, sessionToken);
+    const record = await ctx.db.get(id);
+    if (!record || record.is_deleted) {
+      throw new Error("Record not found");
+    }
+    await ctx.db.patch(id, {
+      ...updates,
+      updated_at: nowMs(),
+    });
+    return true;
+  },
+});
+
+export const deleteRejectedReposting = mutation({
+  args: { sessionToken: v.string(), id: v.id("rejected_reposting_docs") },
+  handler: async (ctx, { sessionToken, id }) => {
+    await requireAdminSession(ctx, sessionToken);
+    await ctx.db.patch(id, { is_deleted: true, deleted_at: nowMs() });
     return true;
   },
 });

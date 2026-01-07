@@ -305,11 +305,15 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
                     try {
                       const res = await startQrAction();
                       if (!res.ok) throw new Error(res.error);
-                      // Refresh the page to show updated session status
-                      window.location.reload();
+                      // Redirect to QR display page with the newly created meeting ID
+                      if (res.data?.meetingId) {
+                        window.location.href = `/qr?meetingId=${res.data.meetingId}`;
+                      } else {
+                        // Fallback: redirect to QR page without meetingId
+                        window.location.href = "/qr";
+                      }
                     } catch (e: unknown) {
                       setError(e instanceof Error ? e.message : "Failed to start QR");
-                    } finally {
                       setStarting(false);
                     }
                   }}

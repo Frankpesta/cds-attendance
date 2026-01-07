@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { QrCode as QrIcon, Clock, Users, Shield, RotateCcw } from "lucide-react";
 
 export default function QrDisplay() {
@@ -18,6 +19,7 @@ export default function QrDisplay() {
   const [attendanceCount, setAttendanceCount] = useState(0);
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>("");
   const { push } = useToast();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const token = document.cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith("session_token="))?.split("=")[1] || "";
@@ -28,7 +30,19 @@ export default function QrDisplay() {
     const m = String(today.getMonth() + 1).padStart(2, "0");
     const d = String(today.getDate()).padStart(2, "0");
     setMeetingDate(`${y}-${m}-${d}`);
-  }, []);
+
+    // Check for meetingId in URL query parameters (from redirect after creating session)
+    const meetingIdFromUrl = searchParams.get("meetingId");
+    if (meetingIdFromUrl && meetingIdFromUrl.trim() !== "") {
+      setSelectedMeetingId(meetingIdFromUrl);
+      // Clean up URL by removing query parameter
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("meetingId");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+  }, [searchParams]);
 
   const allActiveSessions = useQuery(api.qr.getAllActiveQr, meetingDate ? { meetingDate } : "skip");
   
@@ -41,12 +55,17 @@ export default function QrDisplay() {
   );
   const attendanceStats = useQuery(api.dashboard.getStats, {});
 
-  // Auto-select first active session if available
+  // Auto-select first active session if available (only if no meetingId was set from URL)
   useEffect(() => {
-    if (allActiveSessions && allActiveSessions.length > 0 && (!selectedMeetingId || selectedMeetingId.trim() === "")) {
+    const meetingIdFromUrl = searchParams.get("meetingId");
+    // Only auto-select if:
+    // 1. We have active sessions
+    // 2. No meetingId is currently selected
+    // 3. No meetingId was in the URL (to avoid overriding URL-based selection)
+    if (allActiveSessions && allActiveSessions.length > 0 && (!selectedMeetingId || selectedMeetingId.trim() === "") && !meetingIdFromUrl) {
       setSelectedMeetingId(allActiveSessions[0].meetingId);
     }
-  }, [allActiveSessions, selectedMeetingId]);
+  }, [allActiveSessions, selectedMeetingId, searchParams]);
 
   useEffect(() => {
     if (active?.token) {

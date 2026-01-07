@@ -17,6 +17,10 @@ const isPublicDocumentationRoute = (pathname: string): boolean => {
   if (pathname.startsWith("/documentation/employers/") && pathname !== "/documentation/employers") {
     return true;
   }
+  // Allow /documentation/rejected-reposting/[token]
+  if (pathname.startsWith("/documentation/rejected-reposting/") && pathname !== "/documentation/rejected-reposting") {
+    return true;
+  }
   return false;
 };
 
