@@ -200,40 +200,46 @@ export default function RejectedRepostingRegistrationPage({ params }: { params: 
                   />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    New PPA <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={form.new_ppa}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        new_ppa: event.target.value.toUpperCase(),
-                      }))
-                    }
-                    placeholder="Enter new PPA (if applicable)"
-                    style={{ textTransform: 'uppercase' }}
-                  />
-                </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  New PPA <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                </label>
+                <Input
+                  type="text"
+                  value={form.new_ppa}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      new_ppa: event.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder="Enter new PPA (if applicable)"
+                  style={{ textTransform: 'uppercase' }}
+                  disabled
+                  className="bg-muted cursor-not-allowed"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">This field will be filled by admin</p>
+              </div>
 
-                <div className="sm:col-span-1 md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium">
-                    Recommendation <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
-                  </label>
-                  <Input
-                    type="text"
-                    value={form.recommendation}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        recommendation: event.target.value,
-                      }))
-                    }
-                    placeholder="Enter recommendation (if any)"
-                  />
-                </div>
+              <div className="sm:col-span-1 md:col-span-2">
+                <label className="mb-2 block text-sm font-medium">
+                  Recommendation <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                </label>
+                <Input
+                  type="text"
+                  value={form.recommendation}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      recommendation: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter recommendation (if any)"
+                  disabled
+                  className="bg-muted cursor-not-allowed"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">This field will be filled by admin</p>
+              </div>
               </div>
 
               <Button type="submit" className="w-full mt-6" disabled={disabled || submitting}>
