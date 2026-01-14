@@ -643,7 +643,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     {editMode ? (
                       <Input
                         type="number"
-                        value={editDraft.number_of_corp_members_requested || 0}
+                        value={typeof editDraft.number_of_corp_members_requested === "number" ? editDraft.number_of_corp_members_requested : 0}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
