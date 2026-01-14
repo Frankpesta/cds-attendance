@@ -586,7 +586,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     {editMode ? (
                       <Input
                         type="text"
-                        value={editDraft.ppa_name || ""}
+                        value={String(editDraft.ppa_name || "")}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
@@ -605,7 +605,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     {editMode ? (
                       <Input
                         type="text"
-                        value={editDraft.ppa_address || ""}
+                        value={String(editDraft.ppa_address || "")}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
@@ -624,7 +624,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     {editMode ? (
                       <Input
                         type="text"
-                        value={editDraft.ppa_phone_number || ""}
+                        value={String(editDraft.ppa_phone_number || "")}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
@@ -663,7 +663,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     {editMode ? (
                       <Input
                         type="text"
-                        value={editDraft.discipline_needed || ""}
+                        value={String(editDraft.discipline_needed || "")}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
@@ -681,7 +681,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     <span className="text-xs uppercase text-muted-foreground">Gender Needed</span>
                     {editMode ? (
                       <Select
-                        value={editDraft.gender_needed || ""}
+                        value={String(editDraft.gender_needed || "")}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
@@ -705,7 +705,7 @@ export default function CorpMemberRequestsDocumentationPage() {
                     {editMode ? (
                       <Input
                         type="number"
-                        value={editDraft.monthly_stipend || 0}
+                        value={typeof editDraft.monthly_stipend === "number" ? editDraft.monthly_stipend : 0}
                         onChange={(event) =>
                           setEditDraft((prev) => ({
                             ...prev,
