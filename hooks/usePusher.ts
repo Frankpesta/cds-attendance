@@ -21,15 +21,26 @@ export function usePusher() {
         cluster: pusherCluster,
         authEndpoint: "/api/pusher/auth",
       });
+
+      pusherClient.connection.bind("connected", () => {
+        console.log("Pusher: Connected");
+        setIsConnected(true);
+      });
+
+      pusherClient.connection.bind("disconnected", () => {
+        console.log("Pusher: Disconnected");
+        setIsConnected(false);
+      });
+
+      pusherClient.connection.bind("error", (err: any) => {
+        console.error("Pusher connection error:", err);
+      });
     }
 
-    pusherClient.connection.bind("connected", () => {
+    // Check if already connected
+    if (pusherClient.connection.state === "connected") {
       setIsConnected(true);
-    });
-
-    pusherClient.connection.bind("disconnected", () => {
-      setIsConnected(false);
-    });
+    }
 
     return () => {
       // Don't disconnect on unmount - keep connection alive
@@ -37,12 +48,30 @@ export function usePusher() {
   }, []);
 
   const subscribe = (channel: string, event: string, callback: (data: any) => void) => {
-    if (!pusherClient) return () => {};
+    if (!pusherClient) {
+      console.warn("Pusher: Cannot subscribe, client not initialized");
+      return () => {};
+    }
 
+    console.log(`Pusher: Subscribing to channel "${channel}", event "${event}"`);
+    
     const channelInstance = pusherClient.subscribe(channel);
-    channelInstance.bind(event, callback);
+    
+    channelInstance.bind("pusher:subscription_succeeded", () => {
+      console.log(`Pusher: Successfully subscribed to channel "${channel}"`);
+    });
+
+    channelInstance.bind("pusher:subscription_error", (err: any) => {
+      console.error(`Pusher: Subscription error for channel "${channel}":`, err);
+    });
+
+    channelInstance.bind(event, (data: any) => {
+      console.log(`Pusher: Received event "${event}" on channel "${channel}":`, data);
+      callback(data);
+    });
 
     return () => {
+      console.log(`Pusher: Unsubscribing from channel "${channel}"`);
       channelInstance.unbind(event, callback);
       pusherClient?.unsubscribe(channel);
     };

@@ -25,9 +25,14 @@ export function PusherNotifications() {
   }, []);
 
   useEffect(() => {
-    if (!isConnected || !isAdmin) return;
+    if (!isConnected || !isAdmin) {
+      console.log("PusherNotifications: Not subscribing", { isConnected, isAdmin });
+      return;
+    }
 
+    console.log("PusherNotifications: Setting up subscription");
     const unsubscribe = subscribe("admin-notifications", "corp-member-request", (data: any) => {
+      console.log("PusherNotifications: Received notification data:", data);
       // Request browser notification permission
       if ("Notification" in window && Notification.permission === "granted") {
         const notification = new Notification("New Corp Member Request", {

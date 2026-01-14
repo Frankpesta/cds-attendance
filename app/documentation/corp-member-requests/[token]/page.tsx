@@ -67,7 +67,7 @@ export default function CorpMemberRequestRegistrationPage({ params }: { params: 
 
       // Trigger Pusher notification
       try {
-        await fetch("/api/pusher/notify", {
+        const notifyResponse = await fetch("/api/pusher/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -81,6 +81,13 @@ export default function CorpMemberRequestRegistrationPage({ params }: { params: 
             },
           }),
         });
+        
+        const notifyResult = await notifyResponse.json();
+        if (!notifyResponse.ok) {
+          console.error("Pusher notification failed:", notifyResult);
+        } else {
+          console.log("Pusher notification sent successfully:", notifyResult);
+        }
       } catch (notifError) {
         // Don't fail the submission if notification fails
         console.error("Failed to send notification:", notifError);
