@@ -5,7 +5,7 @@ import { generateRandomTokenHex, nowMs } from "./utils";
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_MEDICAL_FILES = 3;
 
-const documentationType = v.union(v.literal("corp_member"), v.literal("employer"), v.literal("rejected_reposting"));
+const documentationType = v.union(v.literal("corp_member"), v.literal("employer"), v.literal("rejected_reposting"), v.literal("corp_member_request"));
 
 const fileDescriptor = v.object({
   storageId: v.id("_storage"),
@@ -602,6 +602,106 @@ export const updateRejectedReposting = mutation({
 
 export const deleteRejectedReposting = mutation({
   args: { sessionToken: v.string(), id: v.id("rejected_reposting_docs") },
+  handler: async (ctx, { sessionToken, id }) => {
+    await requireAdminSession(ctx, sessionToken);
+    await ctx.db.patch(id, { is_deleted: true, deleted_at: nowMs() });
+    return true;
+  },
+});
+
+// ========== Corp Member Requests ==========
+
+export const submitCorpMemberRequest = mutation({
+  args: {
+    token: v.string(),
+    payload: v.object({
+      ppa_name: v.string(),
+      ppa_address: v.string(),
+      ppa_phone_number: v.string(),
+      number_of_corp_members_requested: v.number(),
+      discipline_needed: v.string(),
+      gender_needed: v.string(),
+      monthly_stipend: v.number(),
+      available_accommodation: v.boolean(),
+    }),
+  },
+  handler: async (ctx, { token, payload }) => {
+    const link = await ctx.db
+      .query("documentation_links")
+      .filter((q) => q.eq(q.field("token"), token))
+      .unique();
+    if (!link || link.type !== "corp_member_request" || link.status !== "active") {
+      throw new Error("Invalid or inactive link");
+    }
+    const now = nowMs();
+    const docId = await ctx.db.insert("corp_member_requests", {
+      link_id: link._id,
+      link_token: link.token,
+      created_at: now,
+      updated_at: now,
+      created_by_admin_id: link.created_by_admin_id,
+      is_deleted: false,
+      deleted_at: undefined,
+      ...payload,
+    });
+    await ctx.db.patch(link._id, { uses_count: link.uses_count + 1 });
+    
+    // Trigger Pusher notification (will be handled by action/webhook)
+    return { docId, linkToken: link.token };
+  },
+});
+
+export const listCorpMemberRequests = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, { sessionToken }) => {
+    await requireAdminSession(ctx, sessionToken);
+    const records = await ctx.db
+      .query("corp_member_requests")
+      .filter((q) => q.eq(q.field("is_deleted"), false))
+      .collect();
+    return records.sort((a, b) => b.created_at - a.created_at);
+  },
+});
+
+export const getCorpMemberRequest = query({
+  args: { sessionToken: v.string(), id: v.id("corp_member_requests") },
+  handler: async (ctx, { sessionToken, id }) => {
+    await requireAdminSession(ctx, sessionToken);
+    return await ctx.db.get(id);
+  },
+});
+
+export const updateCorpMemberRequest = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("corp_member_requests"),
+    updates: v.object({
+      ppa_name: v.optional(v.string()),
+      ppa_address: v.optional(v.string()),
+      ppa_phone_number: v.optional(v.string()),
+      number_of_corp_members_requested: v.optional(v.number()),
+      discipline_needed: v.optional(v.string()),
+      gender_needed: v.optional(v.string()),
+      monthly_stipend: v.optional(v.number()),
+      available_accommodation: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, { sessionToken, id, updates }) => {
+    await requireAdminSession(ctx, sessionToken);
+    const record = await ctx.db.get(id);
+    if (!record || record.is_deleted) {
+      throw new Error("Record not found");
+    }
+    await ctx.db.patch(id, {
+      ...updates,
+      updated_at: nowMs(),
+    });
+    return true;
+  },
+});
+
+export const deleteCorpMemberRequest = mutation({
+  args: { sessionToken: v.string(), id: v.id("corp_member_requests") },
   handler: async (ctx, { sessionToken, id }) => {
     await requireAdminSession(ctx, sessionToken);
     await ctx.db.patch(id, { is_deleted: true, deleted_at: nowMs() });

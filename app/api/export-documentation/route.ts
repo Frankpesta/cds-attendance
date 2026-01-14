@@ -88,16 +88,34 @@ export async function POST(request: NextRequest) {
         "Recommendation",
         "Created At",
       ];
+    } else if (type === "corp_member_request") {
+      const requests = await client.query(api.documentation.listCorpMemberRequests, { sessionToken });
+      data = requests || [];
+      headers = [
+        "PPA Name",
+        "PPA Address",
+        "PPA Phone Number",
+        "Number of Corp Members Requested",
+        "Discipline Needed",
+        "Gender Needed",
+        "Monthly Stipend",
+        "Available Accommodation",
+        "Created At",
+      ];
     } else {
       return NextResponse.json(
-        { error: "Invalid type. Must be 'corp_member', 'employer', or 'rejected_reposting'" },
+        { error: "Invalid type. Must be 'corp_member', 'employer', 'rejected_reposting', or 'corp_member_request'" },
         { status: 400 }
       );
     }
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook();
-    const sheetName = type === "corp_member" ? "Corp Members" : type === "employer" ? "Employers" : "Rejected/Reposting";
+    const sheetName = 
+      type === "corp_member" ? "Corp Members" : 
+      type === "employer" ? "Employers" : 
+      type === "rejected_reposting" ? "Rejected/Reposting" :
+      "Corp Member Requests";
     const worksheet = workbook.addWorksheet(sheetName);
 
     // Add headers
@@ -169,6 +187,18 @@ export async function POST(request: NextRequest) {
           item.recommendation || "",
           item.created_at ? new Date(item.created_at).toLocaleString() : "",
         ]);
+      } else if (type === "corp_member_request") {
+        worksheet.addRow([
+          item.ppa_name || "",
+          item.ppa_address || "",
+          item.ppa_phone_number || "",
+          item.number_of_corp_members_requested || 0,
+          item.discipline_needed || "",
+          item.gender_needed || "",
+          item.monthly_stipend || 0,
+          item.available_accommodation ? "Yes" : "No",
+          item.created_at ? new Date(item.created_at).toLocaleString() : "",
+        ]);
       }
     });
 
@@ -182,7 +212,11 @@ export async function POST(request: NextRequest) {
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
 
-    const filename = type === "corp_member" ? "corp-members" : type === "employer" ? "employers" : "rejected-reposting";
+    const filename = 
+      type === "corp_member" ? "corp-members" : 
+      type === "employer" ? "employers" : 
+      type === "rejected_reposting" ? "rejected-reposting" :
+      "corp-member-requests";
     return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

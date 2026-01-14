@@ -111,7 +111,7 @@ export default defineSchema({
 
   documentation_links: defineTable({
     token: v.string(),
-    type: v.union(v.literal("corp_member"), v.literal("employer"), v.literal("rejected_reposting")),
+    type: v.union(v.literal("corp_member"), v.literal("employer"), v.literal("rejected_reposting"), v.literal("corp_member_request")),
     status: v.union(v.literal("active"), v.literal("inactive")),
     created_by_admin_id: v.id("users"),
     created_at: v.number(),
@@ -220,6 +220,26 @@ export default defineSchema({
     previous_ppa: v.string(),
     new_ppa: v.optional(v.string()),
     recommendation: v.optional(v.string()),
+  })
+    .index("by_link", ["link_token"])
+    .index("by_created_at", ["created_at"]),
+
+  corp_member_requests: defineTable({
+    link_id: v.id("documentation_links"),
+    link_token: v.string(),
+    created_at: v.number(),
+    updated_at: v.number(),
+    created_by_admin_id: v.id("users"),
+    is_deleted: v.boolean(),
+    deleted_at: v.optional(v.number()),
+    ppa_name: v.string(),
+    ppa_address: v.string(),
+    ppa_phone_number: v.string(),
+    number_of_corp_members_requested: v.number(),
+    discipline_needed: v.string(),
+    gender_needed: v.string(), // "Male", "Female", or "Any"
+    monthly_stipend: v.number(),
+    available_accommodation: v.boolean(),
   })
     .index("by_link", ["link_token"])
     .index("by_created_at", ["created_at"]),

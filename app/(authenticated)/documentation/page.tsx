@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Building2, UserX } from "lucide-react";
+import { Users, Building2, UserX, UserPlus } from "lucide-react";
 
 export default function DocumentationLandingPage() {
   const tiles = [
@@ -28,6 +28,13 @@ export default function DocumentationLandingPage() {
       icon: UserX,
       cta: "Open Rejected/Reposting Desk",
     },
+    {
+      title: "Corp Member Requests",
+      description: "Generate links for employers to request corp members and manage submitted requests.",
+      href: "/documentation/corp-member-requests",
+      icon: UserPlus,
+      cta: "Open Corp Member Requests Desk",
+    },
   ];
 
   return (
@@ -35,7 +42,7 @@ export default function DocumentationLandingPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Documentation Hub</h1>
         <p className="text-muted-foreground">
-          Generate registration links for corp members, employers, and rejected/reposting corp members, then manage their submissions in one place.
+          Generate registration links for corp members, employers, rejected/reposting corp members, and corp member requests, then manage their submissions in one place.
         </p>
       </div>
 
