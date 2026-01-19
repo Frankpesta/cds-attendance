@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Pusher from "pusher-js";
 
 let pusherClient: Pusher | null = null;
 
 export function usePusher() {
   const [isConnected, setIsConnected] = useState(false);
+  const connectionHandlersBound = useRef(false);
 
   useEffect(() => {
     const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
@@ -21,20 +22,23 @@ export function usePusher() {
         cluster: pusherCluster,
         authEndpoint: "/api/pusher/auth",
       });
+    }
 
+    // Only bind connection handlers once
+    if (!connectionHandlersBound.current) {
       pusherClient.connection.bind("connected", () => {
-        console.log("Pusher: Connected");
         setIsConnected(true);
       });
 
       pusherClient.connection.bind("disconnected", () => {
-        console.log("Pusher: Disconnected");
         setIsConnected(false);
       });
 
       pusherClient.connection.bind("error", (err: any) => {
         console.error("Pusher connection error:", err);
       });
+
+      connectionHandlersBound.current = true;
     }
 
     // Check if already connected
@@ -47,40 +51,27 @@ export function usePusher() {
     };
   }, []);
 
-  const subscribe = (channel: string, event: string, callback: (data: any) => void) => {
-    if (!pusherClient) {
-      console.warn("Pusher: Cannot subscribe, client not initialized");
-      return () => {};
-    }
+  const subscribe = useCallback((channel: string, event: string, callback: (data: any) => void) => {
+    if (!pusherClient) return () => {};
 
-    console.log(`Pusher: Subscribing to channel "${channel}", event "${event}"`);
-    
     const channelInstance = pusherClient.subscribe(channel);
     
-    channelInstance.bind("pusher:subscription_succeeded", () => {
-      console.log(`Pusher: Successfully subscribed to channel "${channel}"`);
-    });
-
     channelInstance.bind("pusher:subscription_error", (err: any) => {
       console.error(`Pusher: Subscription error for channel "${channel}":`, err);
     });
 
-    channelInstance.bind(event, (data: any) => {
-      console.log(`Pusher: Received event "${event}" on channel "${channel}":`, data);
-      callback(data);
-    });
+    channelInstance.bind(event, callback);
 
     return () => {
-      console.log(`Pusher: Unsubscribing from channel "${channel}"`);
       channelInstance.unbind(event, callback);
       pusherClient?.unsubscribe(channel);
     };
-  };
+  }, []);
 
-  const unsubscribe = (channel: string) => {
+  const unsubscribe = useCallback((channel: string) => {
     if (!pusherClient) return;
     pusherClient.unsubscribe(channel);
-  };
+  }, []);
 
   return {
     isConnected,

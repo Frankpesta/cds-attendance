@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
-import { Users, Plus, Edit, Trash2, Search } from "lucide-react";
-import { deleteUserAction } from "@/app/actions/users";
+import { Users, Plus, Edit, Trash2, Search, Unlock } from "lucide-react";
+import { deleteUserAction, unblockUserAction } from "@/app/actions/users";
 import { extractErrorMessage } from "@/lib/utils";
 import Link from "next/link";
 
@@ -17,6 +17,7 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [unblocking, setUnblocking] = useState<string | null>(null);
   const { push } = useToast();
 
   // Fetch users data
@@ -122,6 +123,21 @@ export default function UsersPage() {
             label: "Created",
             render: (value: any) => new Date(value).toLocaleDateString()
           },
+          { 
+            key: "is_blocked", 
+            label: "Status",
+            render: (value: any, user: any) => (
+              value ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  Blocked
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Active
+                </span>
+              )
+            )
+          },
           {
             key: "actions",
             label: "Actions",
@@ -132,6 +148,35 @@ export default function UsersPage() {
                     <Edit className="w-4 h-4" />
                   </Button>
                 </Link>
+                {user.is_blocked && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-green-600 hover:text-green-700"
+                    disabled={unblocking === user._id}
+                    onClick={async () => {
+                      if (!confirm(`Unblock ${user.name}? This will allow them to login from any device.`)) {
+                        return;
+                      }
+                      setUnblocking(user._id);
+                      try {
+                        const res = await unblockUserAction(user._id, true);
+                        if (!res.ok) {
+                          push({ variant: "error", title: "Unblock failed", description: res.error || "Failed to unblock user" });
+                          return;
+                        }
+                        push({ variant: "success", title: "User unblocked", description: `${user.name} has been unblocked and can now login from any device` });
+                        // The query will automatically refresh
+                      } catch (err: any) {
+                        push({ variant: "error", title: "Unblock failed", description: extractErrorMessage(err, "Failed to unblock user") });
+                      } finally {
+                        setUnblocking(null);
+                      }
+                    }}
+                  >
+                    <Unlock className="w-4 h-4" />
+                  </Button>
+                )}
                 <Button 
                   variant="ghost" 
                   size="sm"

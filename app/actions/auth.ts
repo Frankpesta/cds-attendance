@@ -10,11 +10,16 @@ const client = new ConvexHttpClient(convexUrl);
 export async function loginAction(formData: FormData) {
   const stateCode = String(formData.get("stateCode") || "").trim();
   const password = String(formData.get("password") || "");
+  const deviceFingerprint = String(formData.get("deviceFingerprint") || "").trim();
   if (!stateCode || !password) {
     return { ok: false, error: "Missing credentials" } as const;
   }
   try {
-    const res = await client.mutation(api.auth.login, { stateCode, password });
+    const res = await client.mutation(api.auth.login, { 
+      stateCode, 
+      password,
+      deviceFingerprint: deviceFingerprint || undefined,
+    });
     const c = await cookies();
     c.set("session_token", res.sessionToken, {
       httpOnly: true,

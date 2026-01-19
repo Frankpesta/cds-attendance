@@ -108,3 +108,21 @@ export async function changeUserPasswordAction(id: string, newPassword: string) 
   }
 }
 
+export async function unblockUserAction(userId: string, allowAnyDevice: boolean = false) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false, error: "Unauthorized" } as const;
+  }
+
+  try {
+    const res = await client.mutation(api.users.unblockUser, {
+      sessionToken,
+      userId: userId as any,
+      allowAnyDevice,
+    });
+    return { ok: true, data: res } as const;
+  } catch (e: any) {
+    return { ok: false, error: extractErrorMessage(e, "Failed to unblock user") } as const;
+  }
+}

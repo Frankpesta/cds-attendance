@@ -14,6 +14,9 @@ export const list = query({
       role: user.role,
       created_at: user.created_at,
       updated_at: user.updated_at,
+      is_blocked: user.is_blocked || false,
+      blocked_at: user.blocked_at,
+      blocked_reason: user.blocked_reason,
       // Don't return sensitive data
     }));
   },
@@ -259,3 +262,48 @@ export const assignCdsGroup = mutation({
   },
 });
 
+// Function to unblock a user (super_admin only)
+export const unblockUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    userId: v.id("users"),
+    allowAnyDevice: v.optional(v.boolean()), // If true, clears allowed_device_fingerprint to allow any device
+  },
+  handler: async (ctx, { sessionToken, userId, allowAnyDevice }) => {
+    // Require super_admin authorization
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .unique();
+    if (!session) {
+      throw new Error("Unauthorized");
+    }
+    const currentUser = await ctx.db.get(session.user_id);
+    if (!currentUser || currentUser.role !== "super_admin") {
+      throw new Error("Forbidden: Super admin access required");
+    }
+
+    // Check if user exists
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const now = Date.now();
+    const updates: any = {
+      is_blocked: false,
+      blocked_at: undefined,
+      blocked_reason: undefined,
+      updated_at: now,
+    };
+
+    // If allowAnyDevice is true, clear the device fingerprint to allow login from any device
+    if (allowAnyDevice) {
+      updates.allowed_device_fingerprint = undefined;
+    }
+
+    await ctx.db.patch(userId, updates);
+
+    return { success: true };
+  },
+});

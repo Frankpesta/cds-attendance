@@ -11,6 +11,10 @@ export default defineSchema({
     cds_group_id: v.optional(v.id("cds_groups")),
     created_at: v.number(), // ms epoch UTC
     updated_at: v.number(), // ms epoch UTC
+    is_blocked: v.optional(v.boolean()), // Account blocked due to device mismatch
+    blocked_at: v.optional(v.number()), // When account was blocked
+    blocked_reason: v.optional(v.string()), // Reason for blocking
+    allowed_device_fingerprint: v.optional(v.string()), // Device fingerprint allowed for this user
   })
     .index("by_email", ["email"]) // unique in logic
     .index("by_state_code", ["state_code"]) // unique in logic
@@ -98,6 +102,7 @@ export default defineSchema({
     created_at: v.number(),
     last_active_at: v.number(),
     expires_at: v.number(),
+    device_fingerprint: v.optional(v.string()), // Device fingerprint for this session
   })
     .index("by_token", ["session_token"]) 
     .index("by_user", ["user_id"]) ,

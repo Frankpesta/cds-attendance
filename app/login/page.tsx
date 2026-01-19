@@ -4,7 +4,7 @@ import { loginAction } from "../actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { extractErrorMessage } from "@/lib/utils";
+import { extractErrorMessage, generateDeviceFingerprint } from "@/lib/utils";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -19,9 +19,11 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
+      const deviceFingerprint = generateDeviceFingerprint();
       const fd = new FormData();
       fd.set("stateCode", stateCode);
       fd.set("password", password);
+      fd.set("deviceFingerprint", deviceFingerprint);
       const res = await loginAction(fd);
       if (!res.ok) {
         setError(res.error || "Login failed");

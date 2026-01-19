@@ -226,3 +226,71 @@ function cleanErrorMessage(message: string): string {
   
   return cleaned;
 }
+
+/**
+ * Generates a device fingerprint based on browser characteristics.
+ * This is used to track and identify devices for security purposes.
+ * The fingerprint is a hash of various browser properties that together
+ * form a unique identifier for the device/browser combination.
+ */
+export function generateDeviceFingerprint(): string {
+  if (typeof window === "undefined") {
+    // Server-side: return empty string (will be generated on client)
+    return "";
+  }
+
+  const components: string[] = [];
+
+  // User agent
+  if (navigator.userAgent) {
+    components.push(navigator.userAgent);
+  }
+
+  // Screen resolution
+  if (screen.width && screen.height) {
+    components.push(`${screen.width}x${screen.height}`);
+  }
+
+  // Color depth
+  if (screen.colorDepth) {
+    components.push(`color:${screen.colorDepth}`);
+  }
+
+  // Timezone
+  try {
+    components.push(`tz:${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+  } catch {
+    // Fallback if timezone not available
+  }
+
+  // Language
+  if (navigator.language) {
+    components.push(`lang:${navigator.language}`);
+  }
+
+  // Platform
+  if (navigator.platform) {
+    components.push(`platform:${navigator.platform}`);
+  }
+
+  // Hardware concurrency (CPU cores)
+  if (navigator.hardwareConcurrency) {
+    components.push(`cores:${navigator.hardwareConcurrency}`);
+  }
+
+  // Device memory (if available)
+  if ((navigator as any).deviceMemory) {
+    components.push(`memory:${(navigator as any).deviceMemory}`);
+  }
+
+  // Combine all components and create a simple hash
+  const combined = components.join("|");
+  
+  // Simple hash function (djb2 algorithm)
+  let hash = 5381;
+  for (let i = 0; i < combined.length; i++) {
+    hash = ((hash << 5) + hash) + combined.charCodeAt(i);
+  }
+  
+  return Math.abs(hash).toString(36);
+}

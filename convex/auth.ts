@@ -30,8 +30,8 @@ export const getUserByEmail = query({
 });
 
 export const login = mutation({
-  args: { stateCode: v.string(), password: v.string() },
-  handler: async (ctx, { stateCode, password }) => {
+  args: { stateCode: v.string(), password: v.string(), deviceFingerprint: v.optional(v.string()) },
+  handler: async (ctx, { stateCode, password, deviceFingerprint }) => {
     const user = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("state_code"), stateCode))
@@ -45,18 +45,46 @@ export const login = mutation({
       throw new Error("Invalid state code or password");
     }
 
+    // Check if user is blocked
+    if (user.is_blocked === true) {
+      throw new Error("Your account has been blocked due to login from a different device. Please contact a super admin to unblock your account.");
+    }
+
     const now = nowMs();
-    // Invalidate old sessions for this user that are expired
-    // Note: avoid deletes in queries; just create a fresh session
+    
+    // Device fingerprint validation
+    if (deviceFingerprint) {
+      // If user has an allowed device fingerprint set
+      if (user.allowed_device_fingerprint) {
+        // Check if the current device matches the allowed device
+        if (user.allowed_device_fingerprint !== deviceFingerprint) {
+          // Different device detected - block the account
+          await ctx.db.patch(user._id, {
+            is_blocked: true,
+            blocked_at: now,
+            blocked_reason: "Login attempt from different device",
+            updated_at: now,
+          });
+          throw new Error("Login from a different device detected. Your account has been blocked for security. Please contact a super admin to unblock your account.");
+        }
+      } else {
+        // First login - set the device fingerprint as allowed
+        await ctx.db.patch(user._id, {
+          allowed_device_fingerprint: deviceFingerprint,
+          updated_at: now,
+        });
+      }
+    }
 
     // Create new session token
     const token = crypto.randomUUID();
-    const sessionId = await ctx.db.insert("sessions", {
+    await ctx.db.insert("sessions", {
       user_id: user._id,
       session_token: token,
       created_at: now,
       last_active_at: now,
       expires_at: now + SESSION_TTL_MS,
+      device_fingerprint: deviceFingerprint,
     });
 
     return {
@@ -89,6 +117,12 @@ export const getSession = query({
     if (!user) {
       return null;
     }
+
+    // Check if user is blocked
+    if (user.is_blocked === true) {
+      return null;
+    }
+
     return { session, user };
   },
 });
@@ -175,6 +209,10 @@ export const signup = mutation({
       cds_group_id,
       created_at: now,
       updated_at: now,
+      is_blocked: false,
+      blocked_at: undefined,
+      blocked_reason: undefined,
+      allowed_device_fingerprint: undefined,
     });
 
     // If user selected a CDS group, update their documentation record
@@ -208,6 +246,7 @@ export const signup = mutation({
       created_at: now,
       last_active_at: now,
       expires_at: now + SESSION_TTL_MS,
+      device_fingerprint: undefined, // Will be set on first login
     });
 
     return {
