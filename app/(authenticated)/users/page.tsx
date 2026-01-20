@@ -32,7 +32,7 @@ export default function UsersPage() {
     const matchesRole = !roleFilter || user.role === roleFilter;
     const matchesStatus = !statusFilter || 
       (statusFilter === "blocked" && user.is_blocked === true) ||
-      (statusFilter === "active" && !user.is_blocked);
+      (statusFilter === "active" && user.is_blocked !== true);
     return matchesSearch && matchesRole && matchesStatus;
   }) || [];
 
@@ -173,7 +173,7 @@ export default function UsersPage() {
             key: "is_blocked", 
             label: "Status",
             render: (value: any, user: any) => (
-              value ? (
+              value === true ? (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                   Blocked
                 </span>
@@ -194,7 +194,7 @@ export default function UsersPage() {
                     <Edit className="w-4 h-4" />
                   </Button>
                 </Link>
-                {user.is_blocked && (
+                {user.is_blocked === true && (
                   <Button 
                     variant="primary" 
                     size="sm"

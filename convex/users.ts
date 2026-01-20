@@ -14,7 +14,7 @@ export const list = query({
       role: user.role,
       created_at: user.created_at,
       updated_at: user.updated_at,
-      is_blocked: user.is_blocked ?? false,
+      is_blocked: user.is_blocked === true, // Explicitly convert to boolean
       blocked_at: user.blocked_at,
       blocked_reason: user.blocked_reason,
       // Don't return sensitive data
