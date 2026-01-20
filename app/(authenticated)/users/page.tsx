@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
-import { Users, Plus, Edit, Trash2, Search, Unlock } from "lucide-react";
+import { Users, Plus, Edit, Trash2, Search, Unlock, AlertCircle } from "lucide-react";
 import { deleteUserAction, unblockUserAction } from "@/app/actions/users";
 import { extractErrorMessage } from "@/lib/utils";
 import Link from "next/link";
@@ -16,6 +16,7 @@ import Link from "next/link";
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // "blocked", "active", or ""
   const [deleting, setDeleting] = useState<string | null>(null);
   const [unblocking, setUnblocking] = useState<string | null>(null);
   const { push } = useToast();
@@ -29,8 +30,13 @@ export default function UsersPage() {
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.state_code.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = !roleFilter || user.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesStatus = !statusFilter || 
+      (statusFilter === "blocked" && user.is_blocked === true) ||
+      (statusFilter === "active" && !user.is_blocked);
+    return matchesSearch && matchesRole && matchesStatus;
   }) || [];
+
+  const blockedUsersCount = allUsers?.filter((user: any) => user.is_blocked === true).length || 0;
 
   const roleOptions = [
     { value: "", label: "All Roles" },
@@ -54,13 +60,40 @@ export default function UsersPage() {
         </Link>
       </div>
 
+      {/* Blocked Users Alert */}
+      {blockedUsersCount > 0 && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="font-semibold text-red-900">
+                    {blockedUsersCount} user{blockedUsersCount !== 1 ? 's' : ''} {blockedUsersCount !== 1 ? 'are' : 'is'} currently blocked
+                  </p>
+                  <p className="text-sm text-red-700">
+                    Blocked users cannot login. Use the unblock button to restore access.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={() => setStatusFilter("blocked")}
+              >
+                View Blocked Users
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card>
         <CardHeader>
           <h3 className="text-lg font-semibold">Filters</h3>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Search</label>
               <div className="relative">
@@ -81,12 +114,25 @@ export default function UsersPage() {
                 options={roleOptions}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Status</label>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                options={[
+                  { value: "", label: "All Status" },
+                  { value: "active", label: "Active" },
+                  { value: "blocked", label: "Blocked" },
+                ]}
+              />
+            </div>
             <div className="flex items-end">
               <Button 
                 variant="secondary" 
                 onClick={() => {
                   setSearchTerm("");
                   setRoleFilter("");
+                  setStatusFilter("");
                 }}
               >
                 Clear Filters
@@ -150,9 +196,9 @@ export default function UsersPage() {
                 </Link>
                 {user.is_blocked && (
                   <Button 
-                    variant="ghost" 
+                    variant="default" 
                     size="sm"
-                    className="text-green-600 hover:text-green-700"
+                    className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={unblocking === user._id}
                     onClick={async () => {
                       if (!confirm(`Unblock ${user.name}? This will allow them to login from any device.`)) {
@@ -174,7 +220,8 @@ export default function UsersPage() {
                       }
                     }}
                   >
-                    <Unlock className="w-4 h-4" />
+                    <Unlock className="w-4 h-4 mr-1" />
+                    {unblocking === user._id ? "Unblocking..." : "Unblock"}
                   </Button>
                 )}
                 <Button 
