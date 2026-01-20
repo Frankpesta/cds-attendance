@@ -1,8 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { nowMs, passwordMeetsPolicy } from "./utils";
 import bcrypt from "bcryptjs";
-import { internal } from "./_generated/api";
 
 // ENV configuration (Convex actions can read environment variables)
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24h inactivity expiry
@@ -59,33 +58,18 @@ export const login = mutation({
       });
     }
 
-    // Check if user is blocked (only for corps_member - admins/super_admins should not be blocked)
-    if (user.is_blocked === true && user.role === "corps_member") {
-      throw new Error("Your account has been blocked due to login from a different device. Please contact a super admin to unblock your account.");
-    }
+    // Temporarily allow all users (corps_member, admin, super_admin) to login from anywhere
+    // Device fingerprint validation is disabled for now
+    // TODO: Re-enable device fingerprint validation for corps_members later
     
-    // Device fingerprint validation - ONLY for corps_member role
-    // Admins and super_admins can login from anywhere without restrictions
-    if (user.role === "corps_member" && deviceFingerprint) {
-      // If user has an allowed device fingerprint set
-      if (user.allowed_device_fingerprint) {
-        // Check if the current device matches the allowed device
-        if (user.allowed_device_fingerprint !== deviceFingerprint) {
-          // Different device detected - block the account
-          // Use internal mutation to ensure the block is committed even if we throw an error
-          await ctx.scheduler.runAfter(0, internal.users.blockUserInternal, {
-            userId: user._id,
-            reason: "Login attempt from different device",
-          });
-          throw new Error("Login from a different device detected. Your account has been blocked for security. Please contact a super admin to unblock your account.");
-        }
-      } else {
-        // First login - set the device fingerprint as allowed
-        await ctx.db.patch(user._id, {
-          allowed_device_fingerprint: deviceFingerprint,
-          updated_at: now,
-        });
-      }
+    // Automatically unblock any blocked users (temporary - allowing all logins)
+    if (user.is_blocked === true) {
+      await ctx.db.patch(user._id, {
+        is_blocked: false,
+        blocked_at: undefined,
+        blocked_reason: undefined,
+        updated_at: now,
+      });
     }
 
     // Create new session token
