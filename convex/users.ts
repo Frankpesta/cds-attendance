@@ -6,9 +6,12 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const users = await ctx.db.query("users").collect();
+    
     return users.map(user => {
-      // Ensure is_blocked is a proper boolean
-      const isBlocked = user.is_blocked === true;
+      // If user has blocked_at set, they are blocked (even if is_blocked is undefined)
+      // This handles cases where users were blocked before is_blocked was properly set
+      const isBlocked = user.is_blocked === true || (user.blocked_at !== undefined && user.blocked_at !== null);
+      
       return {
         _id: user._id,
         name: user.name,
