@@ -196,7 +196,7 @@ export default function UsersPage() {
                 </Link>
                 {user.is_blocked && (
                   <Button 
-                    variant="default" 
+                    variant="primary" 
                     size="sm"
                     className="bg-green-600 hover:bg-green-700 text-white"
                     disabled={unblocking === user._id}
