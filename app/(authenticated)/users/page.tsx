@@ -25,17 +25,6 @@ export default function UsersPage() {
   const users = useQuery(api.dashboard.getStats, {});
   const allUsers = useQuery(api.users.list, {});
 
-  // Debug: Log users data to console
-  useEffect(() => {
-    if (allUsers) {
-      const blocked = allUsers.filter((u: any) => u.is_blocked === true);
-      console.log("All users:", allUsers.length);
-      console.log("Blocked users:", blocked.length);
-      console.log("Blocked users data:", blocked);
-      console.log("Sample user is_blocked values:", allUsers.slice(0, 5).map((u: any) => ({ name: u.name, is_blocked: u.is_blocked, type: typeof u.is_blocked })));
-    }
-  }, [allUsers]);
-
   const filteredUsers = allUsers?.filter((user: any) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
