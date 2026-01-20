@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { nowMs, passwordMeetsPolicy } from "./utils";
 import bcrypt from "bcryptjs";
+import { internal } from "./_generated/api";
 
 // ENV configuration (Convex actions can read environment variables)
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24h inactivity expiry
@@ -71,11 +72,10 @@ export const login = mutation({
         // Check if the current device matches the allowed device
         if (user.allowed_device_fingerprint !== deviceFingerprint) {
           // Different device detected - block the account
-          await ctx.db.patch(user._id, {
-            is_blocked: true,
-            blocked_at: now,
-            blocked_reason: "Login attempt from different device",
-            updated_at: now,
+          // Use internal mutation to ensure the block is committed even if we throw an error
+          await ctx.scheduler.runAfter(0, internal.users.blockUserInternal, {
+            userId: user._id,
+            reason: "Login attempt from different device",
           });
           throw new Error("Login from a different device detected. Your account has been blocked for security. Please contact a super admin to unblock your account.");
         }

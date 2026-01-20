@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import bcrypt from "bcryptjs";
 
@@ -265,6 +265,24 @@ export const assignCdsGroup = mutation({
       updated_at: Date.now(),
     });
     
+    return { success: true };
+  },
+});
+
+// Internal mutation to block a user (called from actions/mutations)
+export const blockUserInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    reason: v.string(),
+  },
+  handler: async (ctx, { userId, reason }) => {
+    const now = Date.now();
+    await ctx.db.patch(userId, {
+      is_blocked: true,
+      blocked_at: now,
+      blocked_reason: reason,
+      updated_at: now,
+    });
     return { success: true };
   },
 });
