@@ -25,18 +25,34 @@ export default function UsersPage() {
   const users = useQuery(api.dashboard.getStats, {});
   const allUsers = useQuery(api.users.list, {});
 
+  // Debug: Log users data to console
+  useEffect(() => {
+    if (allUsers) {
+      const blocked = allUsers.filter((u: any) => u.is_blocked === true);
+      console.log("All users:", allUsers.length);
+      console.log("Blocked users:", blocked.length);
+      console.log("Blocked users data:", blocked);
+      console.log("Sample user is_blocked values:", allUsers.slice(0, 5).map((u: any) => ({ name: u.name, is_blocked: u.is_blocked, type: typeof u.is_blocked })));
+    }
+  }, [allUsers]);
+
   const filteredUsers = allUsers?.filter((user: any) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.state_code.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = !roleFilter || user.role === roleFilter;
+    // Handle is_blocked as boolean or string "true"
+    const isBlocked = user.is_blocked === true || user.is_blocked === "true";
     const matchesStatus = !statusFilter || 
-      (statusFilter === "blocked" && user.is_blocked === true) ||
-      (statusFilter === "active" && user.is_blocked !== true);
+      (statusFilter === "blocked" && isBlocked) ||
+      (statusFilter === "active" && !isBlocked);
     return matchesSearch && matchesRole && matchesStatus;
   }) || [];
 
-  const blockedUsersCount = allUsers?.filter((user: any) => user.is_blocked === true).length || 0;
+  const blockedUsersCount = allUsers?.filter((user: any) => {
+    const isBlocked = user.is_blocked === true || user.is_blocked === "true";
+    return isBlocked;
+  }).length || 0;
 
   const roleOptions = [
     { value: "", label: "All Roles" },
@@ -172,8 +188,9 @@ export default function UsersPage() {
           { 
             key: "is_blocked", 
             label: "Status",
-            render: (value: any, user: any) => (
-              value === true ? (
+            render: (value: any, user: any) => {
+              const isBlocked = value === true || value === "true" || user.is_blocked === true || user.is_blocked === "true";
+              return isBlocked ? (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                   Blocked
                 </span>
@@ -181,8 +198,8 @@ export default function UsersPage() {
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   Active
                 </span>
-              )
-            )
+              );
+            }
           },
           {
             key: "actions",
@@ -194,7 +211,7 @@ export default function UsersPage() {
                     <Edit className="w-4 h-4" />
                   </Button>
                 </Link>
-                {user.is_blocked === true && (
+                {(user.is_blocked === true || user.is_blocked === "true") && (
                   <Button 
                     variant="primary" 
                     size="sm"

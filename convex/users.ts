@@ -6,19 +6,23 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const users = await ctx.db.query("users").collect();
-    return users.map(user => ({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      state_code: user.state_code,
-      role: user.role,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      is_blocked: user.is_blocked === true, // Explicitly convert to boolean
-      blocked_at: user.blocked_at,
-      blocked_reason: user.blocked_reason,
-      // Don't return sensitive data
-    }));
+    return users.map(user => {
+      // Ensure is_blocked is a proper boolean
+      const isBlocked = user.is_blocked === true || user.is_blocked === "true";
+      return {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        state_code: user.state_code,
+        role: user.role,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+        is_blocked: isBlocked,
+        blocked_at: user.blocked_at,
+        blocked_reason: user.blocked_reason,
+        // Don't return sensitive data
+      };
+    });
   },
 });
 
