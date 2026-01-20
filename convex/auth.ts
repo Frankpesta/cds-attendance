@@ -45,15 +45,27 @@ export const login = mutation({
       throw new Error("Invalid state code or password");
     }
 
-    // Check if user is blocked
-    if (user.is_blocked === true) {
-      throw new Error("Your account has been blocked due to login from a different device. Please contact a super admin to unblock your account.");
+    const now = nowMs();
+
+    // Automatically unblock admins/super_admins if they were somehow blocked
+    // They should never be restricted by device blocking
+    if ((user.role === "admin" || user.role === "super_admin") && user.is_blocked === true) {
+      await ctx.db.patch(user._id, {
+        is_blocked: false,
+        blocked_at: undefined,
+        blocked_reason: undefined,
+        updated_at: now,
+      });
     }
 
-    const now = nowMs();
+    // Check if user is blocked (only for corps_member - admins/super_admins should not be blocked)
+    if (user.is_blocked === true && user.role === "corps_member") {
+      throw new Error("Your account has been blocked due to login from a different device. Please contact a super admin to unblock your account.");
+    }
     
-    // Device fingerprint validation
-    if (deviceFingerprint) {
+    // Device fingerprint validation - ONLY for corps_member role
+    // Admins and super_admins can login from anywhere without restrictions
+    if (user.role === "corps_member" && deviceFingerprint) {
       // If user has an allowed device fingerprint set
       if (user.allowed_device_fingerprint) {
         // Check if the current device matches the allowed device
@@ -118,8 +130,8 @@ export const getSession = query({
       return null;
     }
 
-    // Check if user is blocked
-    if (user.is_blocked === true) {
+    // Check if user is blocked (only block corps_member - admins/super_admins should never be blocked)
+    if (user.is_blocked === true && user.role === "corps_member") {
       return null;
     }
 
