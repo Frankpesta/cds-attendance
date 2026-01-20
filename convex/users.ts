@@ -8,7 +8,7 @@ export const list = query({
     const users = await ctx.db.query("users").collect();
     return users.map(user => {
       // Ensure is_blocked is a proper boolean
-      const isBlocked = user.is_blocked === true || user.is_blocked === "true";
+      const isBlocked = user.is_blocked === true;
       return {
         _id: user._id,
         name: user.name,
