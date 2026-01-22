@@ -54,11 +54,19 @@ export const useRealtimeAttendance = () => {
   // Generate QR session notifications
   useEffect(() => {
     if (activeQrSession) {
+      // In new system, token is generated client-side (null in server response)
+      // For legacy sessions, token exists; for new sessions, use sessionId
+      const tokenDisplay = activeQrSession.token 
+        ? `${activeQrSession.token.substring(0, 8)}...`
+        : activeQrSession.sessionId 
+        ? `Session ${activeQrSession.sessionId.substring(0, 8)}...`
+        : "Active";
+      
       const notification: Notification = {
         id: `qr-session-${Date.now()}`,
         type: "attendance",
         title: "QR Session Active",
-        message: `QR code session is now active. Token: ${activeQrSession.token.substring(0, 8)}...`,
+        message: `QR code session is now active. ${tokenDisplay}`,
         timestamp: Date.now(),
         read: false,
       };
