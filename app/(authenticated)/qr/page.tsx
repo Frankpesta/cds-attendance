@@ -227,7 +227,7 @@ export default function QrDisplay() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Token Length:</span>
-                  <span className="font-medium">{active.token.length} characters</span>
+                  <span className="font-medium">{qrSession.currentToken ? qrSession.currentToken.length : 0} characters</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Security Level:</span>
