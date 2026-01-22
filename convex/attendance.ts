@@ -324,7 +324,6 @@ export const markAttendanceManually = mutation({
     // If no active QR token found, create a manual one
     if (!qrTokenId) {
       // Create a manual QR token for this attendance record
-      const { generateRandomTokenHex } = await import("./utils");
       const manualToken = generateRandomTokenHex(32);
       const qrToken = await ctx.db.insert("qr_tokens", {
         token: manualToken,
