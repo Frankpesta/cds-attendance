@@ -30,7 +30,8 @@ export async function loginAction(formData: FormData) {
     });
     return { ok: true } as const;
   } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Login failed") } as const;
+    const errorMsg = extractErrorMessage(e, "Login failed");
+    return { ok: false, error: errorMsg } as const;
   }
 }
 

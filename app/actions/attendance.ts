@@ -26,4 +26,23 @@ export async function submitAttendanceAction(formData: FormData) {
   }
 }
 
+export async function markAttendanceManuallyAction(userId: string, meetingDate?: string) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false, error: "Unauthorized" } as const;
+  }
+
+  try {
+    const res = await client.mutation(api.attendance.markAttendanceManually, {
+      sessionToken,
+      userId: userId as any,
+      meetingDate: meetingDate || undefined,
+    });
+    return { ok: true, data: res } as const;
+  } catch (e: any) {
+    return { ok: false, error: extractErrorMessage(e, "Failed to mark attendance") } as const;
+  }
+}
+
 

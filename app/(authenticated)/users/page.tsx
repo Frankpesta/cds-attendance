@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
-import { Users, Plus, Edit, Trash2, Search, Unlock, AlertCircle } from "lucide-react";
+import { Users, Plus, Edit, Trash2, Search, Unlock, AlertCircle, CheckCircle } from "lucide-react";
 import { deleteUserAction, unblockUserAction } from "@/app/actions/users";
+import { markAttendanceManuallyAction } from "@/app/actions/attendance";
 import { extractErrorMessage } from "@/lib/utils";
+import { getSessionAction } from "@/app/actions/session";
 import Link from "next/link";
 
 export default function UsersPage() {
@@ -19,7 +21,19 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState(""); // "blocked", "active", or ""
   const [deleting, setDeleting] = useState<string | null>(null);
   const [unblocking, setUnblocking] = useState<string | null>(null);
+  const [markingAttendance, setMarkingAttendance] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const { push } = useToast();
+
+  // Get current user's role
+  useEffect(() => {
+    (async () => {
+      const session = await getSessionAction();
+      if (session) {
+        setCurrentUserRole(session.user.role);
+      }
+    })();
+  }, []);
 
   // Fetch users data
   const users = useQuery(api.dashboard.getStats, {});
@@ -200,6 +214,36 @@ export default function UsersPage() {
                     <Edit className="w-4 h-4" />
                   </Button>
                 </Link>
+                {currentUserRole === "super_admin" && user.role === "corps_member" && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-blue-600 hover:text-blue-700"
+                    disabled={markingAttendance === user._id}
+                    onClick={async () => {
+                      if (!confirm(`Mark attendance for ${user.name} today?`)) {
+                        return;
+                      }
+                      setMarkingAttendance(user._id);
+                      try {
+                        const res = await markAttendanceManuallyAction(user._id);
+                        if (!res.ok) {
+                          push({ variant: "error", title: "Failed to mark attendance", description: res.error || "Failed to mark attendance" });
+                          return;
+                        }
+                        push({ variant: "success", title: "Attendance marked", description: `Attendance has been marked for ${user.name}` });
+                        // The query will automatically refresh
+                      } catch (err: any) {
+                        push({ variant: "error", title: "Failed to mark attendance", description: extractErrorMessage(err, "Failed to mark attendance") });
+                      } finally {
+                        setMarkingAttendance(null);
+                      }
+                    }}
+                    title="Mark attendance for this corps member"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                  </Button>
+                )}
                 {(user.is_blocked === true || user.is_blocked === "true") && (
                   <Button 
                     variant="primary" 

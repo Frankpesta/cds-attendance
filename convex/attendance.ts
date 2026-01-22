@@ -141,3 +141,116 @@ export const getTodayAttendance = query({
   },
 });
 
+// Manual attendance marking by super_admin
+export const markAttendanceManually = mutation({
+  args: {
+    sessionToken: v.string(),
+    userId: v.id("users"),
+    meetingDate: v.optional(v.string()), // YYYY-MM-DD format, defaults to today
+  },
+  handler: async (ctx, { sessionToken, userId, meetingDate }) => {
+    // Require super_admin authorization
+    const session = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .unique();
+    if (!session) {
+      throw new Error("Unauthorized");
+    }
+    const currentUser = await ctx.db.get(session.user_id);
+    if (!currentUser || currentUser.role !== "super_admin") {
+      throw new Error("Forbidden: Super admin access required");
+    }
+
+    // Get the user to mark attendance for
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (user.role !== "corps_member") {
+      throw new Error("Can only mark attendance for corps members");
+    }
+
+    if (!user.cds_group_id) {
+      throw new Error("User does not have a CDS group assigned");
+    }
+
+    const group = await ctx.db.get(user.cds_group_id);
+    if (!group) {
+      throw new Error("CDS group not found");
+    }
+
+    const today = meetingDate || toNigeriaYYYYMMDD(new Date());
+    const now = nowMs();
+
+    // Check if already marked for this date
+    const existing = await ctx.db
+      .query("attendance")
+      .filter((q) => q.and(
+        q.eq(q.field("user_id"), userId),
+        q.eq(q.field("meeting_date"), today)
+      ))
+      .unique();
+    
+    if (existing) {
+      throw new Error(`Attendance already marked for ${user.name} on ${today}`);
+    }
+
+    // Find an active QR token for today, or create a manual one
+    let qrTokenId;
+    
+    // Try to find an active QR token for today
+    const activeMeetings = await ctx.db
+      .query("meetings")
+      .filter((q) => q.and(
+        q.eq(q.field("is_active"), true),
+        q.eq(q.field("meeting_date"), today)
+      ))
+      .collect();
+    
+    if (activeMeetings.length > 0) {
+      // Find a QR token for one of the active meetings
+      const meeting = activeMeetings[0];
+      const qrTokens = await ctx.db
+        .query("qr_tokens")
+        .filter((q) => q.eq(q.field("meeting_id"), meeting._id))
+        .collect();
+      
+      if (qrTokens.length > 0) {
+        qrTokenId = qrTokens[0]._id;
+      }
+    }
+
+    // If no active QR token found, create a manual one
+    if (!qrTokenId) {
+      // Create a manual QR token for this attendance record
+      const { generateRandomTokenHex } = await import("./utils");
+      const manualToken = generateRandomTokenHex(32);
+      const qrToken = await ctx.db.insert("qr_tokens", {
+        token: manualToken,
+        meeting_date: today,
+        meeting_id: undefined, // Manual token, not tied to a meeting
+        cds_group_id: group._id,
+        generated_by_admin_id: currentUser._id,
+        generated_at: now,
+        expires_at: now + (24 * 60 * 60 * 1000), // 24 hours
+        rotation_sequence: 0,
+        is_consumed: false,
+      });
+      qrTokenId = qrToken;
+    }
+
+    // Create attendance record
+    const attendanceId = await ctx.db.insert("attendance", {
+      user_id: userId,
+      cds_group_id: group._id,
+      meeting_date: today,
+      scanned_at: now,
+      qr_token_id: qrTokenId,
+      status: "present",
+    });
+
+    return { attendanceId, meetingDate: today };
+  },
+});
