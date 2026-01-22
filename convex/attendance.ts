@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { isWithinMeetingWindow, nowMs, toNigeriaYYYYMMDD } from "./utils";
+import { isWithinMeetingWindow, nowMs, toNigeriaYYYYMMDD, generateRandomTokenHex, generateQrTokenServer } from "./utils";
 
 export const submitScan = mutation({
   args: {
@@ -16,12 +16,12 @@ export const submitScan = mutation({
     const user = await ctx.db.get(session.user_id);
     if (!user) throw new Error("Unauthorized");
 
-    const today = toNigeriaYYYYMMDD(new Date());
+    const todayDate = toNigeriaYYYYMMDD(new Date());
 
     // Already scanned today?
     const existing = await ctx.db
       .query("attendance")
-      .filter((q) => q.and(q.eq(q.field("user_id"), user._id), q.eq(q.field("meeting_date"), today)))
+      .filter((q) => q.and(q.eq(q.field("user_id"), user._id), q.eq(q.field("meeting_date"), todayDate)))
       .unique();
     if (existing) {
       throw new Error(`You already marked attendance today.`);
@@ -38,37 +38,136 @@ export const submitScan = mutation({
       throw new Error("Scanning is only available during meeting hours.");
     }
 
-    // Token validation - check if QR code is valid and active
-    const qr = await ctx.db
-      .query("qr_tokens")
-      .filter((q) => q.eq(q.field("token"), token))
-      .unique();
-    if (!qr) throw new Error("Invalid QR code.");
+    // Token validation - support both new (client-generated) and legacy (server-generated) tokens
     const now = nowMs();
-    if (qr.expires_at < now) throw new Error("QR code expired. Please scan the current code.");
+    let validToken = false;
+    let validMeeting = null;
     
-    // For new tokens, verify the meeting/session associated with this QR code is still active
-    // Legacy tokens without meeting_id are not supported in the new system
-    if (!qr.meeting_id) {
-      throw new Error("This QR code format is no longer supported. Please scan a current QR code.");
+    // First, try to validate as client-generated token (new system)
+    const activeMeetings = await ctx.db
+      .query("meetings")
+      .filter((q) => q.and(
+        q.eq(q.field("meeting_date"), todayDate),
+        q.eq(q.field("is_active"), true)
+      ))
+      .collect();
+    
+    // Optimize: Only check meetings with session_secret (new system)
+    // Most meetings will have secrets, so this is efficient
+    for (const meeting of activeMeetings) {
+      // Skip if no session secret (legacy meeting)
+      if (!meeting.session_secret) continue;
+      
+      const rotationInterval = meeting.rotation_interval_sec || 50;
+      
+      // Generate expected token using same algorithm as client
+      // Note: This is async but we await it - typically only 1-5 active meetings per day
+      const expectedToken = await generateQrTokenServer(
+        meeting.session_secret,
+        now,
+        rotationInterval
+      );
+      
+      // Quick check: if current window matches, we're done
+      if (token === expectedToken) {
+        validToken = true;
+        validMeeting = meeting;
+        break;
+      }
+      
+      // Only check previous/next windows if current doesn't match (optimization)
+      // This reduces computation for most cases
+      const prevWindowToken = await generateQrTokenServer(
+        meeting.session_secret,
+        now - (rotationInterval * 1000),
+        rotationInterval
+      );
+      
+      if (token === prevWindowToken) {
+        validToken = true;
+        validMeeting = meeting;
+        break;
+      }
+      
+      const nextWindowToken = await generateQrTokenServer(
+        meeting.session_secret,
+        now + (rotationInterval * 1000),
+        rotationInterval
+      );
+      
+      if (token === nextWindowToken) {
+        validToken = true;
+        validMeeting = meeting;
+        break;
+      }
     }
     
-    const meeting = await ctx.db.get(qr.meeting_id);
-    if (!meeting || !meeting.is_active) {
-      throw new Error("This QR code session is no longer active.");
+    // If not found as client-generated, try legacy token validation
+    if (!validToken) {
+      const qr = await ctx.db
+        .query("qr_tokens")
+        .filter((q) => q.eq(q.field("token"), token))
+        .unique();
+      
+      if (qr) {
+        if (qr.expires_at < now) {
+          throw new Error("QR code expired. Please scan the current code.");
+        }
+        
+        if (!qr.meeting_id) {
+          throw new Error("This QR code format is no longer supported. Please scan a current QR code.");
+        }
+        
+        const meeting = await ctx.db.get(qr.meeting_id);
+        if (meeting && meeting.is_active && meeting.meeting_date === todayDate) {
+          validToken = true;
+          validMeeting = meeting;
+        }
+      }
+    }
+    
+    if (!validToken || !validMeeting) {
+      throw new Error("Invalid or expired QR code.");
     }
     
     // Verify the meeting date matches today
-    if (meeting.meeting_date !== today) {
+    if (validMeeting.meeting_date !== todayDate) {
       throw new Error("This QR code is not valid for today.");
+    }
+    
+    // Store token in qr_tokens for audit (optional, only for new tokens)
+    let qrTokenId: any;
+    if (validMeeting.session_secret) {
+      // New system - create audit record
+      qrTokenId = await ctx.db.insert("qr_tokens", {
+        token,
+        meeting_date: todayDate,
+        meeting_id: validMeeting._id,
+        generated_by_admin_id: validMeeting.activated_by_admin_id || user._id,
+        generated_at: now,
+        expires_at: now + ((validMeeting.rotation_interval_sec || 50) * 1000),
+        rotation_sequence: 0, // Not used in new system
+        is_consumed: true, // Mark as consumed immediately
+        cds_group_id: undefined,
+      });
+    } else {
+      // Legacy system - use existing qr token
+      const qr = await ctx.db
+        .query("qr_tokens")
+        .filter((q) => q.eq(q.field("token"), token))
+        .unique();
+      if (!qr) {
+        throw new Error("QR token not found for legacy session.");
+      }
+      qrTokenId = qr._id;
     }
 
     const attendanceId = await ctx.db.insert("attendance", {
       user_id: user._id,
       cds_group_id: group._id,
-      meeting_date: today,
+      meeting_date: todayDate,
       scanned_at: now,
-      qr_token_id: qr._id,
+      qr_token_id: qrTokenId,
       status: "present",
     });
 

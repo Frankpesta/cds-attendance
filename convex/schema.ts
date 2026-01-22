@@ -50,6 +50,9 @@ export default defineSchema({
     activated_by_admin_id: v.optional(v.id("users")),
     activated_at: v.optional(v.number()),
     deactivated_at: v.optional(v.number()),
+    session_secret: v.optional(v.string()), // Secret for client-side token generation (HMAC key)
+    rotation_interval_sec: v.optional(v.number()), // Rotation interval in seconds (default 50)
+    token_algorithm: v.optional(v.string()), // Algorithm identifier (e.g., "hmac-sha256")
   })
     .index("by_date", ["meeting_date"])
     .index("by_group_date", ["cds_group_id", "meeting_date"]) // Legacy index

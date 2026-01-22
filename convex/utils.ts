@@ -69,6 +69,43 @@ export function generateQrToken(length = 32): string {
   return out;
 }
 
+// Generate QR token server-side using HMAC-SHA256 (for validation)
+// This matches the client-side generation algorithm
+// Uses Web Crypto API which is available in Convex runtime
+export async function generateQrTokenServer(
+  secret: string,
+  timestamp: number,
+  rotationInterval: number = 50
+): Promise<string> {
+  // Calculate time window (round down to rotation interval)
+  const windowStartSeconds = Math.floor(timestamp / 1000 / rotationInterval) * rotationInterval;
+  const message = `${windowStartSeconds}`;
+  
+  // Use Web Crypto API (available in Convex)
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(message);
+  
+  // Import key for HMAC
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  // Sign (HMAC) the message
+  const signature = await crypto.subtle.sign('HMAC', key, messageData);
+  
+  // Convert to hex string
+  const hashArray = Array.from(new Uint8Array(signature));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  // Return first 64 characters (SHA-256 produces 64 hex chars)
+  return hashHex.substring(0, 64);
+}
+
 // Temp password generator that guarantees all character classes appear at least once
 export function generateTempPassword(length = 12): string {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";

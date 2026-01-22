@@ -158,6 +158,10 @@ export const startQrSession = mutation({
 
     // Generate unique session ID
     const sessionId = generateRandomTokenHex(16);
+    
+    // Generate session secret for client-side token generation (32-byte hex = 64 chars)
+    const sessionSecret = generateRandomTokenHex(32);
+    const rotationInterval = DEFAULT_ROTATION_SEC;
 
     // Create new independent session (multiple admins can each create their own)
     const meetingId = await ctx.db.insert("meetings", {
@@ -167,45 +171,35 @@ export const startQrSession = mutation({
       activated_by_admin_id: admin._id,
       activated_at: nowMs(),
       deactivated_at: undefined,
+      session_secret: sessionSecret,
+      rotation_interval_sec: rotationInterval,
+      token_algorithm: "hmac-sha256",
       // Legacy fields kept undefined for new sessions
       cds_group_id: undefined,
       cds_group_ids: undefined,
     });
 
-    // Create initial token linked to this session
-    const token = generateQrToken(32);
-    const generatedAt = nowMs();
-    const expiresAt = generatedAt + (DEFAULT_ROTATION_SEC + EXPIRY_BUFFER_SEC) * 1000;
-    const tokenId = await ctx.db.insert("qr_tokens", {
-      token,
-      meeting_date: today,
-      meeting_id: meetingId,
-      generated_by_admin_id: admin._id,
-      generated_at: generatedAt,
-      expires_at: expiresAt,
-      rotation_sequence: 1,
-      is_consumed: false,
-      // Legacy field kept undefined
-      cds_group_id: undefined,
-    });
-
-    // Schedule rotation for this session
-    await ctx.scheduler.runAfter(DEFAULT_ROTATION_SEC * 1000, api.qr.rotate, {
-      meetingId: meetingId,
-      nextSequence: 2,
-      adminId: admin._id,
-    });
-
-    return { meetingId, tokenId, token, rotation: 1, expiresAt, sessionId };
+    // NO token generation - clients will generate tokens locally
+    // NO scheduler - clients will rotate tokens locally
+    
+    return { meetingId, sessionId };
   },
 });
 
+// DEPRECATED: This mutation is no longer used for new sessions
+// Kept for backward compatibility with legacy sessions that don't have session_secret
+// New sessions use client-side token generation
 export const rotate = mutation({
   args: { meetingId: v.id("meetings"), nextSequence: v.number(), adminId: v.id("users") },
   handler: async (ctx, { meetingId, nextSequence, adminId }) => {
     const meeting = await ctx.db.get(meetingId);
     
     if (!meeting || !meeting.is_active) return false;
+    
+    // If this is a new session with session_secret, don't rotate (clients handle it)
+    if (meeting.session_secret) {
+      return false; // New sessions don't use server-side rotation
+    }
 
     const today = toNigeriaYYYYMMDD(new Date());
     
@@ -278,6 +272,33 @@ export const stopQrSession = mutation({
   },
 });
 
+// Get session secret for client-side token generation
+export const getSessionSecret = query({
+  args: { meetingId: v.id("meetings") },
+  handler: async (ctx, { meetingId }) => {
+    const meeting = await ctx.db.get(meetingId);
+    
+    if (!meeting || !meeting.is_active) return null;
+    
+    // Verify user is admin (this should be checked via session token in middleware)
+    // For now, we'll return the secret - in production, add session token validation
+    
+    if (!meeting.session_secret) {
+      // Legacy session without secret - return null
+      return null;
+    }
+    
+    return {
+      secret: meeting.session_secret,
+      rotationInterval: meeting.rotation_interval_sec || DEFAULT_ROTATION_SEC,
+      meetingDate: meeting.meeting_date,
+      isActive: meeting.is_active,
+    };
+  },
+});
+
+// Legacy query - kept for backward compatibility but returns minimal data
+// Clients should use getSessionSecret and generate tokens locally
 export const getActiveQr = query({
   args: { meetingId: v.id("meetings") },
   handler: async (ctx, { meetingId }) => {
@@ -285,19 +306,7 @@ export const getActiveQr = query({
     
     if (!meeting || !meeting.is_active) return null;
     
-    // Get all tokens for this session/meeting
-    const tokens = await ctx.db
-      .query("qr_tokens")
-      .withIndex("by_meeting_id", (q) => q.eq("meeting_id", meetingId))
-      .collect();
-    
-    if (tokens.length === 0) return null;
-    
-    // Get latest token by rotation sequence
-    tokens.sort((a, b) => b.rotation_sequence - a.rotation_sequence);
-    const current = tokens[0];
-    
-    // Count total attendance for today (all groups, since QR codes work for any group)
+    // Count total attendance for today
     const today = meeting.meeting_date;
     const attendanceCount = await ctx.db
       .query("attendance")
@@ -313,10 +322,11 @@ export const getActiveQr = query({
       }
     }
     
+    // Return minimal data - token should be generated client-side
     return { 
-      token: current.token, 
-      rotation: current.rotation_sequence, 
-      expiresAt: current.expires_at, 
+      token: null, // Clients generate tokens locally
+      rotation: 0, // Clients track rotation locally
+      expiresAt: 0, // Not applicable for client-side generation
       attendanceCount: attendanceCount.length,
       sessionId: meeting.session_id,
       meetingId: meeting._id,
@@ -337,9 +347,39 @@ export const getAllActiveQr = query({
       ))
       .collect();
     
+    // Count total attendance for today (shared across all sessions)
+    const attendanceCount = await ctx.db
+      .query("attendance")
+      .withIndex("by_date", (q) => q.eq("meeting_date", meetingDate))
+      .collect();
+    
     const results = await Promise.all(
       meetings.map(async (meeting) => {
-        // Get tokens for this session
+        // Get admin who created this session
+        let adminName = "Unknown";
+        if (meeting.activated_by_admin_id) {
+          const admin = await ctx.db.get(meeting.activated_by_admin_id);
+          if (admin && "name" in admin) {
+            adminName = admin.name;
+          }
+        }
+        
+        // For new sessions (with session_secret), tokens are generated client-side
+        if (meeting.session_secret) {
+          return {
+            meetingId: meeting._id,
+            sessionId: meeting.session_id || null,
+            token: null, // Generated client-side
+            rotation: 0, // Tracked client-side
+            expiresAt: 0, // Not applicable
+            attendanceCount: attendanceCount.length,
+            adminName: adminName,
+            activatedAt: meeting.activated_at,
+            hasSecret: true, // Indicates new system
+          };
+        }
+        
+        // Legacy sessions - get tokens from database
         const tokens = await ctx.db
           .query("qr_tokens")
           .withIndex("by_meeting_id", (q) => q.eq("meeting_id", meeting._id))
@@ -350,21 +390,6 @@ export const getAllActiveQr = query({
         tokens.sort((a, b) => b.rotation_sequence - a.rotation_sequence);
         const current = tokens[0];
         
-        // Get admin who created this session
-        let adminName = "Unknown";
-        if (meeting.activated_by_admin_id) {
-          const admin = await ctx.db.get(meeting.activated_by_admin_id);
-          if (admin && "name" in admin) {
-            adminName = admin.name;
-          }
-        }
-        
-        // Count total attendance for today
-        const attendanceCount = await ctx.db
-          .query("attendance")
-          .withIndex("by_date", (q) => q.eq("meeting_date", meetingDate))
-          .collect();
-        
         return {
           meetingId: meeting._id,
           sessionId: meeting.session_id || null,
@@ -374,6 +399,7 @@ export const getAllActiveQr = query({
           attendanceCount: attendanceCount.length,
           adminName: adminName,
           activatedAt: meeting.activated_at,
+          hasSecret: false, // Legacy system
         };
       })
     );

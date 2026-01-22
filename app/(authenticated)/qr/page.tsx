@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
 import QRCode from "qrcode";
 import { stopQrAction } from "@/app/actions/qr";
@@ -10,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { QrCode as QrIcon, Clock, Users, Shield, RotateCcw } from "lucide-react";
+import { useQrSession } from "@/hooks/useQrSession";
 
 export default function QrDisplay() {
   const [sessionToken, setSessionToken] = useState("");
@@ -44,9 +46,13 @@ export default function QrDisplay() {
     }
   }, [searchParams]);
 
+  const queryClient = useQueryClient();
   const allActiveSessions = useQuery(api.qr.getAllActiveQr, meetingDate ? { meetingDate } : "skip");
   
-  // Only call getActiveQr when we have a valid selectedMeetingId
+  // Use client-side token generation hook
+  const qrSession = useQrSession(selectedMeetingId && selectedMeetingId.trim() !== "" ? selectedMeetingId : null);
+  
+  // Get attendance count and session metadata (cached)
   const active = useQuery(
     api.qr.getActiveQr, 
     selectedMeetingId && selectedMeetingId.trim() !== ""
@@ -67,8 +73,9 @@ export default function QrDisplay() {
     }
   }, [allActiveSessions, selectedMeetingId, searchParams]);
 
+  // Generate QR code from client-generated token
   useEffect(() => {
-    if (active?.token) {
+    if (qrSession.currentToken) {
       const qrOptions = {
         errorCorrectionLevel: "H" as const,
         margin: 2,
@@ -79,7 +86,7 @@ export default function QrDisplay() {
         scale: 8,
       };
 
-      QRCode.toDataURL(active.token, qrOptions, (error: Error | null | undefined, url: string) => {
+      QRCode.toDataURL(qrSession.currentToken, qrOptions, (error: Error | null | undefined, url: string) => {
         if (error || !url) {
           console.error("QR generation error:", error);
           push({ variant: "error", title: "QR Generation Failed", description: "Failed to generate QR code" });
@@ -87,18 +94,22 @@ export default function QrDisplay() {
         }
         setQrSrc(url);
       });
+    } else {
+      setQrSrc("");
     }
-  }, [active?.token, push]);
+  }, [qrSession.currentToken, push]);
 
   // Update rotation count and attendance count
   useEffect(() => {
+    if (qrSession.rotationCount !== undefined) {
+      setRotationCount(qrSession.rotationCount);
+    }
     if (active) {
-      setRotationCount(active.rotation || 0);
       setAttendanceCount(active.attendanceCount || 0);
     }
-  }, [active]);
+  }, [qrSession.rotationCount, active]);
 
-  if (active === undefined) {
+  if (qrSession.isLoading || active === undefined) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -135,7 +146,7 @@ export default function QrDisplay() {
         </Card>
       )}
 
-      {active ? (
+      {qrSession.currentToken && active ? (
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           {/* QR Code Display */}
           <Card>
@@ -164,7 +175,7 @@ export default function QrDisplay() {
                     <span>Secure Token • {meetingDate}</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 break-all">
-                    Token: {active.token.substring(0, 8)}...
+                    Token: {qrSession.currentToken.substring(0, 8)}...
                   </div>
                 </div>
               </div>
@@ -255,7 +266,10 @@ export default function QrDisplay() {
                     if (res.ok) {
                       push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
                       setSelectedMeetingId("");
-                      window.location.reload();
+                      // Invalidate queries instead of reloading
+                      queryClient.invalidateQueries({ queryKey: [api.qr.getAllActiveQr] });
+                      queryClient.invalidateQueries({ queryKey: [api.qr.getActiveQr] });
+                      queryClient.invalidateQueries({ queryKey: [api.qr.getSessionSecret] });
                     } else {
                       throw new Error(res.error || "Failed to stop session");
                     }
