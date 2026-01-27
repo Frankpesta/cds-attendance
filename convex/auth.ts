@@ -59,32 +59,26 @@ export const login = mutation({
       });
     }
 
-    // Check if user is blocked (only for corps_member - admins/super_admins should not be blocked)
-    if (user.is_blocked === true && user.role === "corps_member") {
-      throw new Error("Your account has been blocked due to login from a different device. Please contact a super admin to unblock your account.");
+    // Device blocking is disabled - corps members can login from any device
+    // Device fingerprint is still stored for tracking purposes but not used for blocking
+    
+    // Automatically unblock corps members who were previously blocked due to device mismatch
+    if (user.role === "corps_member" && user.is_blocked === true) {
+      await ctx.db.patch(user._id, {
+        is_blocked: false,
+        blocked_at: undefined,
+        blocked_reason: undefined,
+        updated_at: now,
+      });
     }
     
-    // Device fingerprint validation - ONLY for corps_member role
-    // Admins and super_admins can login from anywhere without restrictions
+    // Store device fingerprint for tracking (optional update, not used for blocking)
     if (user.role === "corps_member" && deviceFingerprint) {
-      // If user has an allowed device fingerprint set
-      if (user.allowed_device_fingerprint) {
-        // Check if the current device matches the allowed device
-        if (user.allowed_device_fingerprint !== deviceFingerprint) {
-          // Different device detected - schedule blocking to ensure it commits even if login fails
-          await ctx.scheduler.runAfter(0, internal.users.blockUserInternal, {
-            userId: user._id,
-            reason: "Login attempt from different device",
-          });
-          throw new Error("Login from a different device detected. Your account has been blocked for security. Please contact a super admin to unblock your account.");
-        }
-      } else {
-        // First login - set the device fingerprint as allowed
-        await ctx.db.patch(user._id, {
-          allowed_device_fingerprint: deviceFingerprint,
-          updated_at: now,
-        });
-      }
+      // Update device fingerprint if provided, but don't enforce it
+      await ctx.db.patch(user._id, {
+        allowed_device_fingerprint: deviceFingerprint,
+        updated_at: now,
+      });
     }
 
     // Create new session token
@@ -129,10 +123,8 @@ export const getSession = query({
       return null;
     }
 
-    // Check if user is blocked (only block corps_member - admins/super_admins should never be blocked)
-    if (user.is_blocked === true && user.role === "corps_member") {
-      return null;
-    }
+    // Device blocking is disabled - corps members are not blocked
+    // Only check blocking for other reasons (if any) - but device-based blocking is disabled
 
     return { session, user };
   },
