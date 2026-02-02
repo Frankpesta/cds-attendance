@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { startQrAction } from "@/app/actions/qr";
+import { startQrAction, stopQrAction } from "@/app/actions/qr";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSessionAction } from "@/app/actions/session";
@@ -10,7 +10,8 @@ import Link from "next/link";
 import { MetricCard } from "@/components/ui/metric-card";
 import { DataTable } from "@/components/ui/data-table";
 import { Chart, BarChart, PieChart } from "@/components/ui/chart";
-import { Users, UserCheck, Building2, Activity, TrendingUp, Calendar, Clock, Target } from "lucide-react";
+import { Users, UserCheck, Building2, Activity, TrendingUp, Calendar, Clock, Target, Square } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 
 export default function Dashboard() {
   const [session, setSession] = useState<any | null | undefined>(undefined);
@@ -208,14 +209,15 @@ function SuperAdminHome() {
 }
 
 function AdminHome({ sessionToken }: { sessionToken: string }) {
+  const { push } = useToast();
   const getToday = useQuery(api.qr.getTodayGroups, { sessionToken });
   const stats = useQuery(api.dashboard.getStats, {});
   const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 5 });
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [stoppingMeetingId, setStoppingMeetingId] = useState<string | null>(null);
   
-  const today = new Date().toISOString().split('T')[0];
-  const allActiveSessions = useQuery(api.qr.getAllActiveQr, today ? { meetingDate: today } : "skip");
+  const allActiveSessions = useQuery(api.qr.getAllActiveQr, {}); // backend uses Nigeria date so stop/start match
   const myActiveSessions = useQuery(api.qr.getMyActiveSessions, sessionToken ? { sessionToken } : "skip");
   
   const todayGroups = Array.isArray(getToday) ? getToday : (getToday?.meetingToday || []);
@@ -284,11 +286,34 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
               {allActiveSessions && allActiveSessions.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">All Active Sessions ({allActiveSessions.length}):</p>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {allActiveSessions.map((session: any) => (
-                      <div key={session.meetingId} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded text-sm">
-                        <span className="font-medium">Session {session.sessionId?.substring(0, 8) || "Active"}</span>
-                        <span className="text-blue-700">{session.adminName} • {session.attendanceCount} scans</span>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {allActiveSessions.map((sess: any) => (
+                      <div key={sess.meetingId} className="flex items-center justify-between gap-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                        <span className="font-medium">Session {sess.sessionId?.substring(0, 8) || "Active"}</span>
+                        <span className="text-blue-700 flex-1 truncate">{sess.adminName} • {sess.attendanceCount} scans</span>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={stoppingMeetingId === sess.meetingId}
+                          onClick={async () => {
+                            setStoppingMeetingId(sess.meetingId);
+                            try {
+                              const res = await stopQrAction(sess.meetingId);
+                              if (res.ok) {
+                                push({ variant: "success", title: "Session stopped", description: "QR session has been ended." });
+                              } else {
+                                push({ variant: "error", title: "Failed to stop", description: res.error });
+                              }
+                            } catch (e) {
+                              push({ variant: "error", title: "Failed to stop", description: e instanceof Error ? e.message : "Unknown error" });
+                            } finally {
+                              setStoppingMeetingId(null);
+                            }
+                          }}
+                        >
+                          <Square className="w-3.5 h-3.5 mr-1" />
+                          Stop
+                        </Button>
                       </div>
                     ))}
                   </div>

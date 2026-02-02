@@ -39,10 +39,12 @@ export const monthlyReport = query({
 				.collect();
 		}
 
-		// Map user -> count and dates
+		// Map user -> count and dates (include ALL attendance: scanned and manually marked)
 		const byUser = new Map<string, { count: number; dates: string[]; groupId: string }>();
 		for (const a of attendance) {
-			if (!groupIds.has(a.cds_group_id)) continue;
+			// When userId is provided (e.g. clearance slip), include all attendance for that user
+			// so manually marked attendance is not excluded. Otherwise filter by group.
+			if (!userId && !groupIds.has(a.cds_group_id)) continue;
 			const key = a.user_id as unknown as string;
 			const entry = byUser.get(key) || { count: 0, dates: [], groupId: a.cds_group_id as unknown as string };
 			entry.count += a.status === "present" ? 1 : 0;
@@ -52,6 +54,24 @@ export const monthlyReport = query({
 
 		const users = await ctx.db.query("users").collect();
 		const result = [] as any[];
+		// When userId is provided (clearance slip), compute expected sessions in month for that user's group
+		let expectedSessionsInMonth: number | undefined;
+		if (userId) {
+			const u = users.find((x) => x._id === userId);
+			if (u?.cds_group_id) {
+				const group = await ctx.db.get(u.cds_group_id);
+				if (group?.meeting_days?.length) {
+					const lastDay = new Date(year, month, 0).getDate();
+					let count = 0;
+					for (let d = 1; d <= lastDay; d++) {
+						const date = new Date(year, month - 1, d);
+						const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
+						if (group.meeting_days.includes(weekday)) count++;
+					}
+					expectedSessionsInMonth = count;
+				}
+			}
+		}
 		for (const u of users) {
 			if (!groupIds.has(u.cds_group_id as any)) continue;
 			if (userId && u._id !== userId) continue; // Filter to specific user if userId provided
@@ -64,7 +84,7 @@ export const monthlyReport = query({
 				dates: rec.dates.sort(),
 			});
 		}
-		return { groups, data: result };
+		return { groups, data: result, expectedSessionsInMonth };
 	},
 });
 
@@ -263,8 +283,8 @@ export const exportUserPdf = action({
 			}
 		}
 		
-		// Calculate statistics
-		const totalRecords = rep.data.length;
+		// Calculate statistics (totalRecords = expected sessions in month; totalAttendance includes manual)
+		const totalRecords = rep.expectedSessionsInMonth ?? rep.data.length;
 		const totalAttendance = rep.data.reduce((sum, row) => sum + (row.count || 0), 0);
 		const averageAttendance = totalRecords > 0 ? ((totalAttendance / totalRecords) * 100).toFixed(2) : 0;
 		
@@ -273,7 +293,7 @@ export const exportUserPdf = action({
 			throw new Error(`You need at least ${requiredCount} attendance(s) for this month to print the report. You currently have ${totalAttendance}.`);
 		}
 		
-		const isCleared = totalAttendance >= totalRecords;
+		const isCleared = totalRecords > 0 && totalAttendance >= totalRecords;
 		
 		// Generate HTML for PDF
 		const monthNames = ["January", "February", "March", "April", "May", "June",

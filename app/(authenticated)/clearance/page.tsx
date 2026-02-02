@@ -14,6 +14,7 @@ export default function ClearancePage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [data, setData] = useState<any[] | null>(null);
+  const [expectedSessionsInMonth, setExpectedSessionsInMonth] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [session, setSession] = useState<any>(null);
@@ -51,6 +52,7 @@ export default function ClearancePage() {
         session.user._id
       );
       setData(res.data);
+      setExpectedSessionsInMonth(res.expectedSessionsInMonth);
     } catch (e: any) {
       push({ variant: "error", title: "Failed to load clearance", description: extractErrorMessage(e, "Failed to load clearance data") });
     } finally {
@@ -112,10 +114,10 @@ export default function ClearancePage() {
     }
   };
 
-  // Calculate statistics
-  const totalRecords = data?.length || 0;
+  // Calculate statistics (for clearance, totalRecords = expected CDS sessions in month; totalAttendance includes manual)
   const totalAttendance = data?.reduce((sum, row) => sum + (row.count || 0), 0) || 0;
-  const averageAttendance = totalRecords > 0 ? (totalAttendance / totalRecords).toFixed(2) : 0;
+  const totalRecords = expectedSessionsInMonth ?? data?.length ?? 0;
+  const averageAttendance = totalRecords > 0 ? ((totalAttendance / totalRecords) * 100).toFixed(2) : 0;
 
   const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];

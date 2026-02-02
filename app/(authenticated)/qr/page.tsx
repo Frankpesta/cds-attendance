@@ -15,7 +15,6 @@ import { useQrSession } from "@/hooks/useQrSession";
 
 export default function QrDisplay() {
   const [sessionToken, setSessionToken] = useState("");
-  const [meetingDate, setMeetingDate] = useState("");
   const [qrSrc, setQrSrc] = useState("");
   const [rotationCount, setRotationCount] = useState(0);
   const [attendanceCount, setAttendanceCount] = useState(0);
@@ -26,12 +25,6 @@ export default function QrDisplay() {
   useEffect(() => {
     const token = document.cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith("session_token="))?.split("=")[1] || "";
     setSessionToken(token);
-    
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-    const d = String(today.getDate()).padStart(2, "0");
-    setMeetingDate(`${y}-${m}-${d}`);
 
     // Check for meetingId in URL query parameters (from redirect after creating session)
     const meetingIdFromUrl = searchParams.get("meetingId");
@@ -47,7 +40,8 @@ export default function QrDisplay() {
   }, [searchParams]);
 
   const queryClient = useQueryClient();
-  const allActiveSessions = useQuery(api.qr.getAllActiveQr, meetingDate ? { meetingDate } : "skip");
+  const allActiveSessions = useQuery(api.qr.getAllActiveQr, {}); // backend uses Nigeria date
+  const todayMeetingDate = useQuery(api.qr.getTodayMeetingDate, {}); // for display only
   
   // Use client-side token generation hook
   const qrSession = useQrSession(selectedMeetingId && selectedMeetingId.trim() !== "" ? selectedMeetingId : null);
@@ -172,7 +166,7 @@ export default function QrDisplay() {
                 <div className="mt-4 w-full max-w-xs sm:max-w-sm p-3 bg-muted rounded-lg">
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Shield className="w-4 h-4" />
-                    <span>Secure Token • {meetingDate}</span>
+                    <span>Secure Token • {todayMeetingDate ?? "—"}</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 break-all">
                     Token: {qrSession.currentToken.substring(0, 8)}...
@@ -223,7 +217,7 @@ export default function QrDisplay() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Date:</span>
-                  <span className="font-medium">{meetingDate}</span>
+                  <span className="font-medium">{todayMeetingDate ?? "—"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Token Length:</span>

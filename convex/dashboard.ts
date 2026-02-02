@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { toNigeriaYYYYMMDD } from "./utils";
 
 export const getStats = query({
   args: { userId: v.optional(v.id("users")) },
@@ -25,9 +26,13 @@ export const getStats = query({
     const attendanceThisMonth = attendance.filter(a => a.scanned_at >= startOfMonth).length;
     const attendanceToday = attendance.filter(a => a.scanned_at >= startOfDay).length;
 
-    // Get active QR sessions
+    // Get active QR sessions for today (Nigeria date) so count matches start/stop
+    const todayNigeria = toNigeriaYYYYMMDD(new Date());
     const activeMeetings = await ctx.db.query("meetings")
-      .filter(q => q.eq(q.field("is_active"), true))
+      .filter(q => q.and(
+        q.eq(q.field("is_active"), true),
+        q.eq(q.field("meeting_date"), todayNigeria)
+      ))
       .collect();
     const activeSessions = activeMeetings.length;
 

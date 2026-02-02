@@ -335,22 +335,30 @@ export const getActiveQr = query({
   },
 });
 
+// Get today's meeting date in Nigeria time (for consistent queries)
+export const getTodayMeetingDate = query({
+  args: {},
+  handler: async (_ctx) => toNigeriaYYYYMMDD(new Date()),
+});
+
 // Get all active QR sessions for a date (for admin dashboard)
+// When meetingDate is omitted, uses Nigeria date so "today" matches how sessions are created/stopped
 export const getAllActiveQr = query({
-  args: { meetingDate: v.string() },
+  args: { meetingDate: v.optional(v.string()) },
   handler: async (ctx, { meetingDate }) => {
+    const dateToUse = meetingDate ?? toNigeriaYYYYMMDD(new Date());
     const meetings = await ctx.db
       .query("meetings")
       .filter((q) => q.and(
-        q.eq(q.field("meeting_date"), meetingDate),
+        q.eq(q.field("meeting_date"), dateToUse),
         q.eq(q.field("is_active"), true)
       ))
       .collect();
     
-    // Count total attendance for today (shared across all sessions)
+    // Count total attendance for the date (shared across all sessions)
     const attendanceCount = await ctx.db
       .query("attendance")
-      .withIndex("by_date", (q) => q.eq("meeting_date", meetingDate))
+      .withIndex("by_date", (q) => q.eq("meeting_date", dateToUse))
       .collect();
     
     const results = await Promise.all(
