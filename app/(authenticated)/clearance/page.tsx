@@ -114,10 +114,12 @@ export default function ClearancePage() {
     }
   };
 
-  // Calculate statistics (for clearance, totalRecords = expected CDS sessions in month; totalAttendance includes manual)
+  // Clearance is based on required count (admin setting): once met = 100% and can print
+  const requiredCount = requiredAttendanceCount ?? 3;
   const totalAttendance = data?.reduce((sum, row) => sum + (row.count || 0), 0) || 0;
   const totalRecords = expectedSessionsInMonth ?? data?.length ?? 0;
-  const averageAttendance = totalRecords > 0 ? ((totalAttendance / totalRecords) * 100).toFixed(2) : 0;
+  const meetsRequirement = totalAttendance >= requiredCount;
+  const averageAttendance = meetsRequirement ? "100" : (requiredCount > 0 ? Math.min(100, ((totalAttendance / requiredCount) * 100)).toFixed(2) : "0");
 
   const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];
@@ -225,15 +227,15 @@ export default function ClearancePage() {
               <Button 
                 onClick={exportPdf} 
                 loading={exporting} 
-                disabled={data && totalAttendance < (requiredAttendanceCount ?? 3)}
+                disabled={data && totalAttendance < requiredCount}
                 className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
-              {data && totalAttendance < (requiredAttendanceCount ?? 3) && (
+              {data && totalAttendance < requiredCount && (
                 <p className="text-sm text-red-600 mt-2">
-                  You need at least {requiredAttendanceCount ?? 3} attendance(s) to print. You have {totalAttendance}.
+                  You need at least {requiredCount} attendance(s) to print. You have {totalAttendance}.
                 </p>
               )}
             </div>
@@ -280,17 +282,17 @@ export default function ClearancePage() {
               
               <div className="border-t pt-4 mt-4">
                 <div className="flex items-center gap-2">
-                  {totalAttendance >= totalRecords ? (
+                  {meetsRequirement ? (
                     <CheckCircle className="w-5 h-5 text-green-600" />
                   ) : (
                     <AlertCircle className="w-5 h-5 text-yellow-600" />
                   )}
                   <span className={`font-medium ${
-                    totalAttendance >= totalRecords ? 'text-green-600' : 'text-yellow-600'
+                    meetsRequirement ? 'text-green-600' : 'text-yellow-600'
                   }`}>
-                    {totalAttendance >= totalRecords 
-                      ? 'CLEARED - Attendance requirement met' 
-                      : 'PENDING - Attendance requirement not met (100% required)'
+                    {meetsRequirement 
+                      ? 'CLEARED - Attendance requirement met (100%)' 
+                      : `PENDING - Need ${requiredCount - totalAttendance} more attendance(s) to clear`
                     }
                   </span>
                 </div>
@@ -326,8 +328,8 @@ export default function ClearancePage() {
         <CardContent className="space-y-2 text-sm text-gray-600">
           <p>• Select the month and year for which you want to generate your clearance certificate</p>
           <p>• The certificate will show your attendance statistics for the selected month</p>
-          <p>• You need at least <strong>{requiredAttendanceCount ?? 3} attendance(s)</strong> to print the report for this month</p>
-          <p>• You need 100% attendance to be cleared for the month</p>
+          <p>• You need at least <strong>{requiredCount} attendance(s)</strong> (set by admin) to print and be cleared for the month</p>
+          <p>• Once you meet the required attendances, you have 100% clearance and can print</p>
           <p>• Download the PDF certificate for your records or submission</p>
           <p>• This certificate is automatically generated and can be verified by administrators</p>
         </CardContent>

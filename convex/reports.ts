@@ -283,17 +283,17 @@ export const exportUserPdf = action({
 			}
 		}
 		
-		// Calculate statistics (totalRecords = expected sessions in month; totalAttendance includes manual)
+		// Statistics: clearance is based on required count (admin setting), not total sessions in month
 		const totalRecords = rep.expectedSessionsInMonth ?? rep.data.length;
 		const totalAttendance = rep.data.reduce((sum, row) => sum + (row.count || 0), 0);
-		const averageAttendance = totalRecords > 0 ? ((totalAttendance / totalRecords) * 100).toFixed(2) : 0;
+		// 100% when they meet the required count; otherwise percentage of required
+		const isCleared = totalAttendance >= requiredCount;
+		const averageAttendance = isCleared ? "100" : (requiredCount > 0 ? Math.min(100, ((totalAttendance / requiredCount) * 100)).toFixed(2) : "0");
 		
-		// Check if user meets attendance requirement
+		// Check if user meets attendance requirement to print
 		if (totalAttendance < requiredCount) {
 			throw new Error(`You need at least ${requiredCount} attendance(s) for this month to print the report. You currently have ${totalAttendance}.`);
 		}
-		
-		const isCleared = totalRecords > 0 && totalAttendance >= totalRecords;
 		
 		// Generate HTML for PDF
 		const monthNames = ["January", "February", "March", "April", "May", "June",
@@ -532,8 +532,8 @@ export const exportUserPdf = action({
 						<div class="status-icon">${isCleared ? '✅' : '⚠️'}</div>
 						<div class="status-text">
 							${isCleared 
-								? 'CLEARED - Attendance requirement met (100% required)' 
-								: 'PENDING - Attendance requirement not met (100% required)'
+								? 'CLEARED - Attendance requirement met (100%)' 
+								: 'PENDING - Attendance requirement not met'
 							}
 						</div>
 					</div>
