@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +29,7 @@ export default function CorpMemberRequestRegistrationPage({ params }: { params: 
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
 
-  const link = useQuery(api.documentation.validateLink, {
-    token: params.token,
-    type: "corp_member_request",
-  });
+  const { data: link } = useDocumentationValidateLink(params.token, "corp_member_request");
 
   const submitCorpMemberRequest = useMutation(api.documentation.submitCorpMemberRequest);
 

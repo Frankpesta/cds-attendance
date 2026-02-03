@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/ui/notification-bell";
@@ -12,6 +14,7 @@ type NavItem = { label: string; href: string; icon?: React.ComponentType<{ class
 
 export function AppShell({ nav, children, user }: { nav: NavItem[]; children: React.ReactNode; user?: any }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { notifications, markAsRead, clearAll } = useRealtimeAttendance();
   
@@ -50,9 +53,9 @@ export function AppShell({ nav, children, user }: { nav: NavItem[]; children: Re
         </div>
         <nav className="flex-1 p-6 space-y-3">
           {nav.map((n) => (
-            <a 
-              key={n.href} 
-              href={n.href} 
+            <Link
+              key={n.href}
+              href={n.href}
               className="flex items-center px-4 py-3 text-sm font-medium rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors group"
               onClick={() => setOpen(false)}
             >
@@ -60,7 +63,7 @@ export function AppShell({ nav, children, user }: { nav: NavItem[]; children: Re
                 <n.icon className="h-5 w-5 mr-3 text-muted-foreground group-hover:text-accent-foreground transition-colors" />
               )}
               {n.label}
-            </a>
+            </Link>
           ))}
         </nav>
         
@@ -71,7 +74,7 @@ export function AppShell({ nav, children, user }: { nav: NavItem[]; children: Re
             className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950 px-4 py-3"
             onClick={async () => {
               await logoutAction();
-              window.location.href = "/login";
+              router.push("/login");
             }}
           >
             <LogOut className="h-5 w-5 mr-3" />

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useTodayAttendance, useCdsGroupsList, useAllActiveQr, useDashboardStats } from "@/hooks/useConvexQueries";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
@@ -24,12 +24,11 @@ export default function AttendanceMonitorPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const { push } = useToast();
 
-  // Fetch real-time data
-  const todayAttendance = useQuery(api.attendance.getTodayAttendance, {});
-  const cdsGroups = useQuery(api.cds_groups.list, {});
-  const meetingDate = new Date().toISOString().split('T')[0];
-  const allActiveQrSessions = useQuery(api.qr.getAllActiveQr, { meetingDate });
-  const attendanceStats = useQuery(api.dashboard.getStats, {});
+  const { data: todayAttendance } = useTodayAttendance();
+  const { data: cdsGroups } = useCdsGroupsList();
+  const { data: allActiveQrSessions } = useAllActiveQr();
+  const { data: attendanceStats } = useDashboardStats();
+  const meetingDate = new Date().toISOString().split("T")[0];
   
   // Get first active session (sessions are now independent and not tied to groups)
   const activeQrSession = allActiveQrSessions?.[0];

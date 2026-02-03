@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,10 +32,7 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
   const [submitted, setSubmitted] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const link = useQuery(api.documentation.validateLink, {
-    token: params.token,
-    type: "employer",
-  });
+  const { data: link } = useDocumentationValidateLink(params.token, "employer");
   const submitEmployer = useMutation(api.documentation.submitEmployer);
 
   const disabled =

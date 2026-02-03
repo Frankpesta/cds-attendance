@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getSessionAction } from "@/app/actions/session";
 
 export default function DocumentationLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "denied">("loading");
 
   useEffect(() => {
@@ -11,14 +13,12 @@ export default function DocumentationLayout({ children }: { children: React.Reac
       const session = await getSessionAction();
       if (!session || !["admin", "super_admin"].includes(session.user.role)) {
         setStatus("denied");
-        if (typeof window !== "undefined") {
-          window.location.href = "/dashboard";
-        }
+        router.replace("/dashboard");
         return;
       }
       setStatus("ready");
     })();
-  }, []);
+  }, [router]);
 
   if (status === "loading") {
     return (

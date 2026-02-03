@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { Pagination } from "@/components/ui/pagination";
 import { exportMonthlyCsv, exportMonthlyPdf, fetchMonthlyReport } from "@/app/actions/reports";
-import { useQuery } from "convex/react";
+import { useCdsGroupsList } from "@/hooks/useConvexQueries";
 import { api } from "@/convex/_generated/api";
 import { extractErrorMessage } from "@/lib/utils";
 import { Download, FileText, Filter, BarChart3, Users, Calendar } from "lucide-react";
@@ -30,8 +30,7 @@ export default function ReportsPage() {
   
   const { push } = useToast();
   
-  // Fetch CDS groups for filtering
-  const cdsGroups = useQuery(api.cds_groups.list, {});
+  const { data: cdsGroups } = useCdsGroupsList();
 
   const load = async () => {
     setLoading(true);

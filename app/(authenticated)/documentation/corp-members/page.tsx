@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationListLinks, useDocumentationListCorpMembers, useCdsGroupsList } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,28 +62,21 @@ export default function CorpMembersDocumentationPage() {
   const [linksPage, setLinksPage] = useState(1);
   const linksItemsPerPage = 80;
 
-  const listLinks = useQuery(
-    api.documentation.listLinks,
-    sessionToken
-      ? {
-          sessionToken,
-          type: "corp_member",
-        }
-      : "skip",
-  );
-  const corpMembers = useQuery(
-    api.documentation.listCorpMembers,
-    sessionToken ? { sessionToken } : "skip",
-  );
-  
-  // Fetch CDS groups for dropdown
-  const cdsGroups = useQuery(api.cds_groups.list, {});
+  const queryClient = useQueryClient();
+  const { data: listLinks } = useDocumentationListLinks(sessionToken, "corp_member");
+  const { data: corpMembers } = useDocumentationListCorpMembers(sessionToken);
+  const { data: cdsGroups } = useCdsGroupsList();
 
   const createLink = useMutation(api.documentation.createLink);
   const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
   const updateCorpMember = useMutation(api.documentation.updateCorpMember);
   const deleteCorpMember = useMutation(api.documentation.deleteCorpMember);
   const getFileUrl = useMutation(api.documentation.getFileUrl);
+
+  const invalidateDocQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
+    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listCorpMembers] });
+  };
 
   useEffect(() => {
     (async () => {
@@ -175,6 +170,7 @@ export default function CorpMembersDocumentationPage() {
     }
     try {
       const result = await createLink({ sessionToken: token, type: "corp_member" });
+      invalidateDocQueries();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const url = `${origin}/documentation/corp-members/${result.token}`;
       await navigator.clipboard.writeText(url);
@@ -196,6 +192,7 @@ export default function CorpMembersDocumentationPage() {
         linkId: link._id,
         status: link.status === "active" ? "inactive" : "active",
       });
+      invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
@@ -208,6 +205,7 @@ export default function CorpMembersDocumentationPage() {
     }
     try {
       await deleteCorpMember({ sessionToken, id: recordId });
+      invalidateDocQueries();
       if (selectedRecord?._id === recordId) {
         setSelectedRecord(null);
         setEditMode(false);
@@ -247,6 +245,7 @@ export default function CorpMembersDocumentationPage() {
             ? (selectedRecord.medical_files as MedicalFile[])
             : [],
       });
+      invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
     } catch (error: any) {

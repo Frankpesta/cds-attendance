@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
+import { useDashboardStats, useUsersList } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,9 +36,9 @@ export default function UsersPage() {
     })();
   }, []);
 
-  // Fetch users data
-  const users = useQuery(api.dashboard.getStats, {});
-  const allUsers = useQuery(api.users.list, {});
+  const queryClient = useQueryClient();
+  const { data: users } = useDashboardStats();
+  const { data: allUsers } = useUsersList();
 
   const filteredUsers = allUsers?.filter((user: any) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,7 +233,9 @@ export default function UsersPage() {
                           return;
                         }
                         push({ variant: "success", title: "Attendance marked", description: `Attendance has been marked for ${user.name}` });
-                        // The query will automatically refresh
+                        queryClient.invalidateQueries({ queryKey: ["convexQuery", api.attendance.getTodayAttendance] });
+                        queryClient.invalidateQueries({ queryKey: ["convexQuery", api.dashboard.getStats] });
+                        queryClient.invalidateQueries({ queryKey: ["convexQuery", api.dashboard.getRecentActivity] });
                       } catch (err: any) {
                         push({ variant: "error", title: "Failed to mark attendance", description: extractErrorMessage(err, "Failed to mark attendance") });
                       } finally {

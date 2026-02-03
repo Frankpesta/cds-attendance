@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useUserAttendanceHistory, useCdsGroupsList } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -23,12 +22,8 @@ export default function AttendanceHistoryPage() {
     })();
   }, []);
 
-  // Get current user's attendance history
-  const attendanceHistory = useQuery(
-    api.attendance.getUserHistory, 
-    session?.user?._id ? { userId: session.user._id } : "skip"
-  );
-  const cdsGroups = useQuery(api.cds_groups.list, {});
+  const { data: attendanceHistory } = useUserAttendanceHistory(session?.user?._id ?? null);
+  const { data: cdsGroups } = useCdsGroupsList();
 
   // Generate month options for current year
   const currentYear = new Date().getFullYear();

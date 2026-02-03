@@ -176,14 +176,17 @@ export const submitScan = mutation({
 });
 
 export const getUserHistory = query({
-  args: { userId: v.id("users") },
-  handler: async (ctx, { userId }) => {
-    const attendance = await ctx.db.query("attendance")
-      .filter(q => q.eq(q.field("user_id"), userId))
+  args: {
+    userId: v.id("users"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, limit = 100 }) => {
+    const attendance = await ctx.db
+      .query("attendance")
+      .withIndex("by_user_date", (q) => q.eq("user_id", userId))
       .order("desc")
-      .collect();
-    
-    return attendance.map(record => ({
+      .take(limit);
+    return attendance.map((record) => ({
       _id: record._id,
       user_id: record.user_id,
       cds_group_id: record.cds_group_id,

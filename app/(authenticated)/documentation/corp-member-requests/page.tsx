@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationListLinks, useDocumentationListCorpMemberRequests } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,24 +41,19 @@ export default function CorpMemberRequestsDocumentationPage() {
   const linksItemsPerPage = 80;
   const [exporting, setExporting] = useState(false);
 
-  const listLinks = useQuery(
-    api.documentation.listLinks,
-    sessionToken
-      ? {
-          sessionToken,
-          type: "corp_member_request",
-        }
-      : "skip",
-  );
-  const records = useQuery(
-    api.documentation.listCorpMemberRequests,
-    sessionToken ? { sessionToken } : "skip",
-  );
+  const queryClient = useQueryClient();
+  const { data: listLinks } = useDocumentationListLinks(sessionToken, "corp_member_request");
+  const { data: records } = useDocumentationListCorpMemberRequests(sessionToken);
 
   const createLink = useMutation(api.documentation.createLink);
   const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
   const updateRecord = useMutation(api.documentation.updateCorpMemberRequest);
   const deleteRecord = useMutation(api.documentation.deleteCorpMemberRequest);
+
+  const invalidateDocQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
+    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listCorpMemberRequests] });
+  };
 
   useEffect(() => {
     (async () => {
@@ -121,6 +118,7 @@ export default function CorpMemberRequestsDocumentationPage() {
     }
     try {
       const result = await createLink({ sessionToken: token, type: "corp_member_request" });
+      invalidateDocQueries();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
       const url = `${origin}/documentation/corp-member-requests/${result.token}`;
       await navigator.clipboard.writeText(url);
@@ -142,6 +140,7 @@ export default function CorpMemberRequestsDocumentationPage() {
         linkId: link._id,
         status: link.status === "active" ? "inactive" : "active",
       });
+      invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
@@ -154,6 +153,7 @@ export default function CorpMemberRequestsDocumentationPage() {
     }
     try {
       await deleteRecord({ sessionToken, id: recordId });
+      invalidateDocQueries();
       if (selectedRecord?._id === recordId) {
         setSelectedRecord(null);
         setEditMode(false);
@@ -181,6 +181,7 @@ export default function CorpMemberRequestsDocumentationPage() {
           available_accommodation: editDraft.available_accommodation !== undefined ? Boolean(editDraft.available_accommodation) : undefined,
         },
       });
+      invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
     } catch (error: any) {

@@ -1,8 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { startQrAction, stopQrAction } from "@/app/actions/qr";
+import {
+  useDashboardStats,
+  useRecentActivity,
+  useTopGroups,
+  useTodayGroups,
+  useAllActiveQr,
+  useMyActiveSessions,
+  useUserStats,
+} from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSessionAction } from "@/app/actions/session";
@@ -26,11 +35,13 @@ export default function Dashboard() {
     })();
   }, []);
 
+  const router = useRouter();
+  useEffect(() => {
+    if (session === null) router.replace("/login");
+  }, [session, router]);
+
   if (session === undefined) return <div className="p-6">Loading...</div>;
-  if (!session) {
-    if (typeof window !== "undefined") window.location.href = "/login";
-    return null;
-  }
+  if (!session) return null;
 
   const role = session.user.role;
 
@@ -57,11 +68,11 @@ export default function Dashboard() {
 }
 
 function SuperAdminHome() {
-  const stats = useQuery(api.dashboard.getStats, {});
-  const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 5 });
-  const topGroups = useQuery(api.dashboard.getTopGroups, { limit: 5 });
+  const { data: stats, isPending: statsPending } = useDashboardStats();
+  const { data: recentActivity } = useRecentActivity(5);
+  const { data: topGroups } = useTopGroups(5);
 
-  if (!stats) {
+  if (statsPending || !stats) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -137,7 +148,7 @@ function SuperAdminHome() {
         <DataTable
           title="Recent Activity"
           description="Latest attendance records"
-          data={recentActivity || []}
+          data={recentActivity ?? []}
           columns={[
             { key: "user", label: "User" },
             { key: "group", label: "CDS Group" },
@@ -161,7 +172,7 @@ function SuperAdminHome() {
         <DataTable
           title="Top CDS Groups"
           description="Groups by attendance count"
-          data={topGroups || []}
+          data={topGroups ?? []}
           columns={[
             { key: "name", label: "Group Name" },
             { key: "attendanceCount", label: "Attendance" },
@@ -209,20 +220,21 @@ function SuperAdminHome() {
 }
 
 function AdminHome({ sessionToken }: { sessionToken: string }) {
+  const router = useRouter();
   const { push } = useToast();
-  const getToday = useQuery(api.qr.getTodayGroups, { sessionToken });
-  const stats = useQuery(api.dashboard.getStats, {});
-  const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 5 });
+  const { data: getToday } = useTodayGroups(sessionToken || null);
+  const { data: stats, isPending: statsPending } = useDashboardStats();
+  const { data: recentActivity } = useRecentActivity(5);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [stoppingMeetingId, setStoppingMeetingId] = useState<string | null>(null);
-  
-  const allActiveSessions = useQuery(api.qr.getAllActiveQr, {}); // backend uses Nigeria date so stop/start match
-  const myActiveSessions = useQuery(api.qr.getMyActiveSessions, sessionToken ? { sessionToken } : "skip");
-  
-  const todayGroups = Array.isArray(getToday) ? getToday : (getToday?.meetingToday || []);
 
-  if (!stats) {
+  const { data: allActiveSessions } = useAllActiveQr();
+  const { data: myActiveSessions } = useMyActiveSessions(sessionToken || null);
+
+  const todayGroups = Array.isArray(getToday) ? getToday : (getToday as { meetingToday?: unknown[] } | undefined)?.meetingToday ?? [];
+
+  if (statsPending || !stats) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -242,7 +254,7 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
         />
         <MetricCard
           title="Groups Meeting Today"
-          value={getToday ? (Array.isArray(getToday) ? getToday.length : getToday.meetingToday.length) : 0}
+          value={getToday ? (Array.isArray(getToday) ? getToday.length : (getToday as { meetingToday?: unknown[] }).meetingToday?.length ?? 0) : 0}
           icon={Calendar}
           description="CDS groups with meetings"
         />
@@ -332,10 +344,9 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
                       if (!res.ok) throw new Error(res.error);
                       // Redirect to QR display page with the newly created meeting ID
                       if (res.data?.meetingId) {
-                        window.location.href = `/qr?meetingId=${res.data.meetingId}`;
+                        router.push(`/qr?meetingId=${res.data.meetingId}`);
                       } else {
-                        // Fallback: redirect to QR page without meetingId
-                        window.location.href = "/qr";
+                        router.push("/qr");
                       }
                     } catch (e: unknown) {
                       setError(e instanceof Error ? e.message : "Failed to start QR");
@@ -405,10 +416,10 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
 }
 
 function MemberHome({ userId }: { userId: any }) {
-  const stats = useQuery(api.dashboard.getUserStats, { userId });
-  const recentActivity = useQuery(api.dashboard.getRecentActivity, { limit: 10, userId });
+  const { data: stats, isPending: statsPending } = useUserStats(userId ?? null);
+  const { data: recentActivity } = useRecentActivity(10, userId ?? undefined);
 
-  if (!stats) {
+  if (statsPending || !stats) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -468,7 +479,7 @@ function MemberHome({ userId }: { userId: any }) {
       <DataTable
         title="My Recent Attendance"
         description="Your latest attendance records"
-        data={recentActivity || []}
+        data={recentActivity ?? []}
         columns={[
           { key: "group", label: "CDS Group" },
           { 

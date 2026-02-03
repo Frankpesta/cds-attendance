@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useBatchAttendanceSettings } from "@/hooks/useConvexQueries";
 import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ export default function SettingsPage() {
   const [batchC, setBatchC] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   
-  const batchSettings = useQuery(api.settings.getBatchAttendanceSettings, {});
+  const { data: batchSettings } = useBatchAttendanceSettings();
   const setBatchRequirements = useMutation(api.settings.setBatchAttendanceRequirements);
   
   // Initialize values when settings are loaded

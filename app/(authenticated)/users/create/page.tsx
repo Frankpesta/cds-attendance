@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useCdsGroupsList } from "@/hooks/useConvexQueries";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,12 +16,12 @@ import { ArrowLeft, Save, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function CreateUserPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
   const { validateForm, getFieldError, clearFieldError, hasErrors } = useFormValidation();
   
-  // Fetch CDS groups for the select dropdown
-  const cdsGroups = useQuery(api.cds_groups.list, {});
+  const { data: cdsGroups } = useCdsGroupsList();
 
   const [form, setForm] = useState({
     name: "",
@@ -66,7 +67,7 @@ export default function CreateUserPage() {
       }
       
       push({ variant: "success", title: "User created", description: "User has been created successfully" });
-      window.location.href = "/users";
+      router.push("/users");
     } catch (e: any) {
       push({ variant: "error", title: "Failed", description: extractErrorMessage(e, "Failed to create user") });
     } finally {

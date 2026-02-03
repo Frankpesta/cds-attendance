@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useCdsGroup, useRequiredAttendanceCount } from "@/hooks/useConvexQueries";
 import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,16 +22,9 @@ export default function ClearancePage() {
   
   const { push } = useToast();
   
-  // Fetch CDS group data if user has a cds_group_id
-  const cdsGroup = useQuery(
-    api.cds_groups.get, 
-    session?.user?.cds_group_id ? { id: session.user.cds_group_id } : "skip"
-  );
-  
-  // Fetch required attendance count based on user's batch
-  const requiredAttendanceCount = useQuery(
-    api.settings.getRequiredAttendanceCount, 
-    session?.user?.state_code ? { stateCode: session.user.state_code } : "skip"
+  const { data: cdsGroup } = useCdsGroup(session?.user?.cds_group_id ?? null);
+  const { data: requiredAttendanceCount } = useRequiredAttendanceCount(
+    session?.user?.state_code ? { stateCode: session.user.state_code } : undefined
   );
 
   useEffect(() => {

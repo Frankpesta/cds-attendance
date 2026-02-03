@@ -1,15 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useQuery } from "convex/react";
+import { useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
+import { useAllActiveQr, useTodayMeetingDate, useActiveQr, useDashboardStats } from "@/hooks/useConvexQueries";
 import QRCode from "qrcode";
 import { stopQrAction } from "@/app/actions/qr";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { QrCode as QrIcon, Clock, Users, Shield, RotateCcw } from "lucide-react";
 import { useQrSession } from "@/hooks/useQrSession";
 
@@ -21,6 +21,8 @@ export default function QrDisplay() {
   const [selectedMeetingId, setSelectedMeetingId] = useState<string>("");
   const { push } = useToast();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const routerNav = useRouter();
 
   useEffect(() => {
     const token = document.cookie.split(";").map((s) => s.trim()).find((s) => s.startsWith("session_token="))?.split("=")[1] || "";
@@ -30,30 +32,24 @@ export default function QrDisplay() {
     const meetingIdFromUrl = searchParams.get("meetingId");
     if (meetingIdFromUrl && meetingIdFromUrl.trim() !== "") {
       setSelectedMeetingId(meetingIdFromUrl);
-      // Clean up URL by removing query parameter
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("meetingId");
-        window.history.replaceState({}, "", url.toString());
-      }
+      // Clean up URL by removing query parameter (client-side, no full reload)
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.delete("meetingId");
+      const search = nextParams.toString();
+      routerNav.replace(search ? `${pathname}?${search}` : pathname, { scroll: false });
     }
-  }, [searchParams]);
+  }, [searchParams, pathname, routerNav]);
 
   const queryClient = useQueryClient();
-  const allActiveSessions = useQuery(api.qr.getAllActiveQr, {}); // backend uses Nigeria date
-  const todayMeetingDate = useQuery(api.qr.getTodayMeetingDate, {}); // for display only
-  
-  // Use client-side token generation hook
-  const qrSession = useQrSession(selectedMeetingId && selectedMeetingId.trim() !== "" ? selectedMeetingId : null);
-  
-  // Get attendance count and session metadata (cached)
-  const active = useQuery(
-    api.qr.getActiveQr, 
-    selectedMeetingId && selectedMeetingId.trim() !== ""
-      ? { meetingId: selectedMeetingId as any } 
-      : "skip"
+  const meetingIdArg = useMemo(
+    () => (selectedMeetingId && selectedMeetingId.trim() !== "" ? selectedMeetingId : null),
+    [selectedMeetingId]
   );
-  const attendanceStats = useQuery(api.dashboard.getStats, {});
+  const { data: allActiveSessions } = useAllActiveQr();
+  const { data: todayMeetingDate } = useTodayMeetingDate();
+  const qrSession = useQrSession(meetingIdArg);
+  const { data: active } = useActiveQr(meetingIdArg);
+  const { data: attendanceStats } = useDashboardStats();
 
   // Auto-select first active session if available (only if no meetingId was set from URL)
   useEffect(() => {
@@ -261,9 +257,9 @@ export default function QrDisplay() {
                       push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
                       setSelectedMeetingId("");
                       // Invalidate queries instead of reloading
-                      queryClient.invalidateQueries({ queryKey: [api.qr.getAllActiveQr] });
-                      queryClient.invalidateQueries({ queryKey: [api.qr.getActiveQr] });
-                      queryClient.invalidateQueries({ queryKey: [api.qr.getSessionSecret] });
+                      queryClient.invalidateQueries({ queryKey: ["convexQuery", api.qr.getAllActiveQr] });
+                      queryClient.invalidateQueries({ queryKey: ["convexQuery", api.qr.getActiveQr] });
+                      queryClient.invalidateQueries({ queryKey: ["convexQuery", api.qr.getSessionSecret] });
                     } else {
                       throw new Error(res.error || "Failed to stop session");
                     }

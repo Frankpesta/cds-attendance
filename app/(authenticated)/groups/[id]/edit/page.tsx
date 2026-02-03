@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useParams, useRouter } from "next/navigation";
+import { useCdsGroup } from "@/hooks/useConvexQueries";
 import { api } from "@/convex/_generated/api";
 import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -11,19 +12,18 @@ import { useToast } from "@/components/ui/toast";
 import { ConvexHttpClient } from "convex/browser";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
 
 export default function EditGroupPage() {
   const params = useParams();
+  const router = useRouter();
   const groupId = params.id as string;
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
 
-  // Fetch group data
-  const group = useQuery(api.cds_groups.get, { id: groupId as any });
+  const { data: group } = useCdsGroup(groupId as any);
 
   const [form, setForm] = useState({
     name: "",
@@ -83,7 +83,7 @@ export default function EditGroupPage() {
       });
       
       push({ variant: "success", title: "Group updated", description: "CDS group has been updated successfully" });
-      window.location.href = "/groups";
+      router.push("/groups");
     } catch (e: any) {
       push({ variant: "error", title: "Update failed", description: extractErrorMessage(e, "Failed to update group") });
     } finally {

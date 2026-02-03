@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useAdminAssignments, useUsersList, useCdsGroupsList } from "@/hooks/useConvexQueries";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,9 @@ export default function AdminAssignmentsPage() {
   const { push } = useToast();
 
   // Fetch data
-  const admins = useQuery(api.users.list, {});
-  const groups = useQuery(api.cds_groups.list, {});
-  const assignments = useQuery(api.admin_assignments.list, {});
+  const { data: admins } = useUsersList();
+  const { data: groups } = useCdsGroupsList();
+  const { data: assignments } = useAdminAssignments();
 
   const adminOptions = admins?.filter((user: { role: string }) => user.role === "admin").map((admin: { _id: string; name: string; email: string }) => ({
     value: admin._id,

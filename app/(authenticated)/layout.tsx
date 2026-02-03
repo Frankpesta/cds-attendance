@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSessionAction } from "../actions/session";
 import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield, FileText } from "lucide-react";
@@ -10,6 +11,7 @@ export default function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const [session, setSession] = useState<any | null | undefined>(undefined);
+  const router = useRouter();
 
   useEffect(() => {
     (async () => {
@@ -17,6 +19,12 @@ export default function AuthenticatedLayout({
       setSession(s);
     })();
   }, []);
+
+  useEffect(() => {
+    if (session === null) {
+      router.replace("/login");
+    }
+  }, [session, router]);
 
   if (session === undefined) {
     return (
@@ -27,7 +35,6 @@ export default function AuthenticatedLayout({
   }
 
   if (!session) {
-    if (typeof window !== "undefined") window.location.href = "/login";
     return null;
   }
 
@@ -57,5 +64,11 @@ export default function AuthenticatedLayout({
           { label: "CDS Clearance", href: "/clearance", icon: FileText },
         ];
 
-  return <AppShell nav={nav} user={session.user}>{children}</AppShell>;
+  return (
+    <AppShell nav={nav} user={session.user}>
+      <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" /></div>}>
+        {children}
+      </Suspense>
+    </AppShell>
+  );
 }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationListLinks, useDocumentationListEmployers } from "@/hooks/useConvexQueries";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,24 +49,19 @@ export default function EmployersDocumentationPage() {
   const [linksPage, setLinksPage] = useState(1);
   const linksItemsPerPage = 80;
 
-  const links = useQuery(
-    api.documentation.listLinks,
-    sessionToken
-      ? {
-          sessionToken,
-          type: "employer",
-        }
-      : "skip",
-  );
-  const employers = useQuery(
-    api.documentation.listEmployers,
-    sessionToken ? { sessionToken } : "skip",
-  );
+  const queryClient = useQueryClient();
+  const { data: links } = useDocumentationListLinks(sessionToken, "employer");
+  const { data: employers } = useDocumentationListEmployers(sessionToken);
 
   const createLink = useMutation(api.documentation.createLink);
   const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
   const updateEmployer = useMutation(api.documentation.updateEmployer);
   const deleteEmployer = useMutation(api.documentation.deleteEmployer);
+
+  const invalidateDocQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
+    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listEmployers] });
+  };
 
   useEffect(() => {
     (async () => {
@@ -171,6 +168,7 @@ export default function EmployersDocumentationPage() {
         linkId: link._id,
         status: link.status === "active" ? "inactive" : "active",
       });
+      invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
@@ -181,6 +179,7 @@ export default function EmployersDocumentationPage() {
     if (!confirm("Delete this employer record?")) return;
     try {
       await deleteEmployer({ sessionToken, id: recordId });
+      invalidateDocQueries();
       if (selectedRecord?._id === recordId) {
         setSelectedRecord(null);
         setEditMode(false);
@@ -213,6 +212,7 @@ export default function EmployersDocumentationPage() {
           nearest_landmark: String(editDraft.nearest_landmark || ""),
         },
       });
+      invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
     } catch (error: any) {

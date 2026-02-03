@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
 const client = new ConvexHttpClient(convexUrl);
 
 export default function CreateGroupPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
 
@@ -63,7 +65,7 @@ export default function CreateGroupPage() {
       });
       
       push({ variant: "success", title: "Group created", description: "CDS group has been created successfully" });
-      window.location.href = "/groups";
+      router.push("/groups");
     } catch (e: any) {
       push({ variant: "error", title: "Create failed", description: extractErrorMessage(e, "Failed to create group") });
     } finally {

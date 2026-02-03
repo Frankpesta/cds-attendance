@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { loginAction } from "../actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { extractErrorMessage, generateDeviceFingerprint } from "@/lib/utils";
 import Link from "next/link";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [stateCode, setStateCode] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export default function LoginPage() {
         push({ variant: "error", title: "Login failed", description: res.error || "Invalid credentials" });
         return;
       }
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch (err: any) {
       const errorMsg = extractErrorMessage(err, "Login failed");
       setError(errorMsg);

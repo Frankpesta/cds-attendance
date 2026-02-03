@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationCorpMemberByLinkToken } from "@/hooks/useConvexQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +26,7 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const corpMemberDoc = useQuery(api.documentation.getCorpMemberByLinkToken, {
-    linkToken: params.token,
-  });
+  const { data: corpMemberDoc } = useDocumentationCorpMemberByLinkToken(params.token);
 
   const saveSAEDData = useMutation(api.documentation.saveSAEDData);
 

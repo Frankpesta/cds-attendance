@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useQuery } from "convex/react";
+import { useUser, useCdsGroupsList } from "@/hooks/useConvexQueries";
 import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,8 @@ export default function EditUserPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const { push } = useToast();
   
-  // Fetch user data and CDS groups
-  const user = useQuery(api.users.get, { id: userId as any });
-  const cdsGroups = useQuery(api.cds_groups.list, {});
+  const { data: user } = useUser(userId as any);
+  const { data: cdsGroups } = useCdsGroupsList();
 
   const [form, setForm] = useState({
     name: "",

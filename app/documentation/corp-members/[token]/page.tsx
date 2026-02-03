@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,16 +41,14 @@ const initialForm = {
 };
 
 export default function CorpMemberRegistrationPage({ params }: { params: { token: string } }) {
+  const router = useRouter();
   const { push } = useToast();
   const [form, setForm] = useState(initialForm);
   const [medicalFiles, setMedicalFiles] = useState<MedicalFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const link = useQuery(api.documentation.validateLink, {
-    token: params.token,
-    type: "corp_member",
-  });
+  const { data: link } = useDocumentationValidateLink(params.token, "corp_member");
 
   const submitCorpMember = useMutation(api.documentation.submitCorpMember);
   const generateUploadUrl = useMutation(api.documentation.generateUploadUrl);
@@ -129,7 +129,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
       push({ variant: "success", title: "Documentation submitted", description: "Redirecting to SAED selection..." });
       // Redirect to SAED page using the link token
       setTimeout(() => {
-        window.location.href = `/documentation/corp-members/${link.token}/saed`;
+        router.push(`/documentation/corp-members/${link.token}/saed`);
       }, 1000);
     } catch (error: any) {
       push({ variant: "error", title: "Submission failed", description: extractErrorMessage(error, "Failed to submit documentation") });

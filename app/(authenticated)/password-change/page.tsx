@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { changePasswordAction } from "@/app/actions/auth";
 import { extractErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 
 export default function PasswordChangePage() {
+  const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -34,7 +36,7 @@ export default function PasswordChangePage() {
       }
       setOk(true);
       push({ variant: "success", title: "Password updated" });
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch (err: any) {
       setError(extractErrorMessage(err, "Failed to change password"));
     }
