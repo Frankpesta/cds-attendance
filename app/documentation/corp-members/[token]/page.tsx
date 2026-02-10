@@ -23,6 +23,12 @@ interface MedicalFile {
 
 const STATE_CODE_PREFIX = "OD/26A/";
 
+const REQUIRED_FIELDS = new Set([
+  "surname", "first_name", "state_code_digits", "phone_number", "residential_address",
+  "next_of_kin", "next_of_kin_phone", "gender", "ppa", "course_of_study", "call_up_number",
+  "email", "nysc_account_number", "bank_name", "nin", "medical_history",
+]);
+
 const initialForm = {
   surname: "",
   first_name: "",
@@ -61,18 +67,18 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
       !form.surname?.trim() ||
       !form.first_name?.trim() ||
       form.state_code_digits.length !== 4 ||
-      !form.phone_number ||
-      !form.residential_address ||
-      !form.next_of_kin ||
-      !form.next_of_kin_phone ||
-      !form.gender ||
-      !form.ppa ||
-      !form.course_of_study ||
-      !form.call_up_number ||
-      !form.email ||
-      !form.nysc_account_number ||
-      !form.bank_name ||
-      !form.nin ||
+      !form.phone_number?.trim() ||
+      !form.residential_address?.trim() ||
+      !form.next_of_kin?.trim() ||
+      !form.next_of_kin_phone?.trim() ||
+      !form.gender?.trim() ||
+      !form.ppa?.trim() ||
+      !form.course_of_study?.trim() ||
+      !form.call_up_number?.trim() ||
+      !form.email?.trim() ||
+      !form.nysc_account_number?.trim() ||
+      !form.bank_name?.trim() ||
+      !form.nin?.trim() ||
       (form.medical_history === "yes" && medicalFiles.length === 0) ||
       !acceptedTerms,
     [form, medicalFiles, acceptedTerms],
@@ -225,7 +231,9 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                 if (key === "medical_history") {
                   return (
                     <div key={key} className="sm:col-span-1 md:col-span-2">
-                      <label className="mb-2 block text-sm font-medium">Medical History</label>
+                      <label className="mb-2 block text-sm font-medium">
+                        Medical History <span className="text-destructive">*</span>
+                      </label>
                       <Select
                         value={value}
                         onChange={(event) =>
@@ -245,7 +253,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                 if (key === "gender") {
                   return (
                     <div key={key}>
-                      <label className="mb-2 block text-sm font-medium">Gender</label>
+                      <label className="mb-2 block text-sm font-medium">Gender <span className="text-destructive">*</span></label>
                       <Select
                         value={value}
                         onChange={(event) =>
@@ -286,10 +294,12 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                     .replace(/_/g, " ")
                     .replace(/\b\w/g, (c) => c.toUpperCase());
                 };
+                const isRequired = REQUIRED_FIELDS.has(key);
                 return (
                   <div key={key}>
                     <label className="mb-2 block text-sm font-medium">
                       {getLabel(key)}
+                      {isRequired && <span className="text-destructive"> *</span>}
                     </label>
                     <Input
                       value={value}
