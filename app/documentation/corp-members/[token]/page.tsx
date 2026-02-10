@@ -21,10 +21,13 @@ interface MedicalFile {
   contentType: string;
 }
 
-const STATE_CODE_PREFIX = "OD/26A/";
+const STATE_CODE_PREFIX_OPTIONS = [
+  { value: "OD/26A/", label: "OD/26A/" },
+  { value: "OD/25C/", label: "OD/25C/" },
+] as const;
 
 const REQUIRED_FIELDS = new Set([
-  "surname", "first_name", "state_code_digits", "phone_number", "residential_address",
+  "surname", "first_name", "state_code_prefix", "state_code_digits", "phone_number", "residential_address",
   "next_of_kin", "next_of_kin_phone", "gender", "ppa", "course_of_study", "call_up_number",
   "email", "nysc_account_number", "bank_name", "nin", "medical_history",
 ]);
@@ -32,6 +35,7 @@ const REQUIRED_FIELDS = new Set([
 const initialForm = {
   surname: "",
   first_name: "",
+  state_code_prefix: "OD/26A/" as (typeof STATE_CODE_PREFIX_OPTIONS)[number]["value"],
   state_code_digits: "",
   phone_number: "",
   residential_address: "",
@@ -66,6 +70,7 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
     () =>
       !form.surname?.trim() ||
       !form.first_name?.trim() ||
+      !form.state_code_prefix ||
       form.state_code_digits.length !== 4 ||
       !form.phone_number?.trim() ||
       !form.residential_address?.trim() ||
@@ -128,9 +133,9 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
     if (!link || !link.token) return;
     setSubmitting(true);
     try {
-      const { surname, first_name, state_code_digits, ...rest } = form;
+      const { surname, first_name, state_code_prefix, state_code_digits, ...rest } = form;
       const full_name = `${(surname || "").trim()} ${(first_name || "").trim()}`.trim();
-      const state_code = STATE_CODE_PREFIX + (state_code_digits || "").replace(/\D/g, "").slice(0, 4);
+      const state_code = (state_code_prefix || "OD/26A/") + (state_code_digits || "").replace(/\D/g, "").slice(0, 4);
       const result = await submitCorpMember({
         token: link.token,
         payload: {
@@ -204,13 +209,19 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                   placeholder="e.g. Chidi"
                 />
               </div>
-              {/* State code: fixed prefix OD/26A/ + 4 digits only */}
+              {/* State code: selectable prefix (OD/26A/ or OD/25C/) + 4 digits */}
               <div className="sm:col-span-1 md:col-span-2">
                 <label className="mb-2 block text-sm font-medium">State code <span className="text-destructive">*</span></label>
                 <div className="flex items-center gap-0 rounded-md border border-input bg-background overflow-hidden">
-                  <span className="inline-flex items-center px-3 py-2 text-sm bg-muted border-r border-input select-none text-muted-foreground font-mono">
-                    {STATE_CODE_PREFIX}
-                  </span>
+                  <select
+                    value={form.state_code_prefix}
+                    onChange={(e) => setForm((prev) => ({ ...prev, state_code_prefix: e.target.value as typeof form.state_code_prefix }))}
+                    className="h-10 w-[120px] rounded-none border-0 border-r border-input bg-muted/50 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset"
+                  >
+                    {STATE_CODE_PREFIX_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -224,10 +235,10 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                     className="rounded-none border-0 focus-visible:ring-2 focus-visible:ring-ring w-24 font-mono"
                   />
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">Enter only the 4 digits after {STATE_CODE_PREFIX}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Select batch (OD/26A/ or OD/25C/) and enter the 4 digits.</p>
               </div>
               {Object.entries(form).map(([key, value]) => {
-                if (key === "surname" || key === "first_name" || key === "state_code_digits") return null;
+                if (key === "surname" || key === "first_name" || key === "state_code_prefix" || key === "state_code_digits") return null;
                 if (key === "medical_history") {
                   return (
                     <div key={key} className="sm:col-span-1 md:col-span-2">

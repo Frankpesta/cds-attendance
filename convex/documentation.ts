@@ -159,9 +159,9 @@ export const submitCorpMember = mutation({
       throw new Error("Full name must include both Surname and First name");
     }
 
-    // State code must be OD/26A/ + exactly 4 digits
-    if (!/^OD\/26A\/\d{4}$/.test(payload.state_code)) {
-      throw new Error("State code must be in format OD/26A/ followed by 4 digits (e.g. OD/26A/1234)");
+    // State code must be OD/26A/ or OD/25C/ + exactly 4 digits
+    if (!/^OD\/(26A|25C)\/\d{4}$/.test(payload.state_code)) {
+      throw new Error("State code must be OD/26A/ or OD/25C/ followed by 4 digits (e.g. OD/26A/1234 or OD/25C/5678)");
     }
     
     // Check for duplicate state_code
