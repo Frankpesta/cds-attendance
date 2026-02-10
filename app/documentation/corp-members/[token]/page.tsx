@@ -21,9 +21,12 @@ interface MedicalFile {
   contentType: string;
 }
 
+const STATE_CODE_PREFIX = "OD/26A/";
+
 const initialForm = {
-  full_name: "",
-  state_code: "",
+  surname: "",
+  first_name: "",
+  state_code_digits: "",
   phone_number: "",
   residential_address: "",
   next_of_kin: "",
@@ -55,8 +58,9 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
 
   const disabled = useMemo(
     () =>
-      !form.full_name ||
-      !form.state_code ||
+      !form.surname?.trim() ||
+      !form.first_name?.trim() ||
+      form.state_code_digits.length !== 4 ||
       !form.phone_number ||
       !form.residential_address ||
       !form.next_of_kin ||
@@ -118,10 +122,15 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
     if (!link || !link.token) return;
     setSubmitting(true);
     try {
+      const { surname, first_name, state_code_digits, ...rest } = form;
+      const full_name = `${(surname || "").trim()} ${(first_name || "").trim()}`.trim();
+      const state_code = STATE_CODE_PREFIX + (state_code_digits || "").replace(/\D/g, "").slice(0, 4);
       const result = await submitCorpMember({
         token: link.token,
         payload: {
-          ...form,
+          ...rest,
+          full_name,
+          state_code,
           medical_history: form.medical_history === "yes",
         },
         medical_files: form.medical_history === "yes" ? medicalFiles : [],
@@ -172,7 +181,47 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
+              {/* Surname and First name — both required */}
+              <div>
+                <label className="mb-2 block text-sm font-medium">Surname <span className="text-destructive">*</span></label>
+                <Input
+                  value={form.surname}
+                  onChange={(e) => setForm((prev) => ({ ...prev, surname: e.target.value }))}
+                  placeholder="e.g. Okonkwo"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">First name <span className="text-destructive">*</span></label>
+                <Input
+                  value={form.first_name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, first_name: e.target.value }))}
+                  placeholder="e.g. Chidi"
+                />
+              </div>
+              {/* State code: fixed prefix OD/26A/ + 4 digits only */}
+              <div className="sm:col-span-1 md:col-span-2">
+                <label className="mb-2 block text-sm font-medium">State code <span className="text-destructive">*</span></label>
+                <div className="flex items-center gap-0 rounded-md border border-input bg-background overflow-hidden">
+                  <span className="inline-flex items-center px-3 py-2 text-sm bg-muted border-r border-input select-none text-muted-foreground font-mono">
+                    {STATE_CODE_PREFIX}
+                  </span>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={form.state_code_digits}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      setForm((prev) => ({ ...prev, state_code_digits: digits }));
+                    }}
+                    placeholder="1234"
+                    className="rounded-none border-0 focus-visible:ring-2 focus-visible:ring-ring w-24 font-mono"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Enter only the 4 digits after {STATE_CODE_PREFIX}</p>
+              </div>
               {Object.entries(form).map(([key, value]) => {
+                if (key === "surname" || key === "first_name" || key === "state_code_digits") return null;
                 if (key === "medical_history") {
                   return (
                     <div key={key} className="sm:col-span-1 md:col-span-2">
