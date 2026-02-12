@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import ExcelJS from "exceljs";
@@ -8,7 +9,14 @@ const client = new ConvexHttpClient(convexUrl);
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionToken, type } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    let sessionToken = body.sessionToken;
+    const type = body.type;
+
+    if (!sessionToken) {
+      const c = await cookies();
+      sessionToken = c.get("session_token")?.value || "";
+    }
 
     if (!sessionToken || !type) {
       return NextResponse.json(
@@ -114,7 +122,7 @@ export async function POST(request: NextRequest) {
     const sheetName = 
       type === "corp_member" ? "Corp Members" : 
       type === "employer" ? "Employers" : 
-      type === "rejected_reposting" ? "Rejected/Reposting" :
+      type === "rejected_reposting" ? "Rejected Reposting" :
       "Corp Member Requests";
     const worksheet = workbook.addWorksheet(sheetName);
 
@@ -136,29 +144,30 @@ export async function POST(request: NextRequest) {
     data.forEach((item) => {
       if (type === "corp_member") {
         worksheet.addRow([
-          item.full_name || "",
-          item.state_code || "",
-          item.phone_number || "",
-          item.residential_address || "",
-          item.next_of_kin || "",
-          item.next_of_kin_phone || "",
-          item.gender || "",
-          item.ppa || "",
-          item.course_of_study || "",
-          item.call_up_number || "",
-          item.email || "",
-          item.nysc_account_number || "",
-          item.bank_name || "",
-          item.nin || "",
-          item.cds || "",
+          item.full_name ?? "",
+          item.state_code ?? "",
+          item.phone_number ?? "",
+          item.residential_address ?? "",
+          item.next_of_kin ?? "",
+          item.next_of_kin_phone ?? "",
+          item.gender ?? "",
+          item.ppa ?? "",
+          item.course_of_study ?? "",
+          item.call_up_number ?? "",
+          item.email ?? "",
+          item.nysc_account_number ?? "",
+          item.bank_name ?? "",
+          item.nin ?? "",
+          item.cds ?? "",
           item.medical_history ? "Yes" : "No",
-          item.personal_skill || "",
-          item.saed_camp_skill || "",
-          item.proposed_post_camp_saed_skill || "",
-          item.selected_trainer_name || "",
-          item.selected_trainer_business || "",
-          item.selected_trainer_phone || "",
-          item.selected_trainer_email || "",
+          // SAED fields - ensure they appear even when stored as empty
+          String(item.personal_skill ?? ""),
+          String(item.saed_camp_skill ?? ""),
+          String(item.proposed_post_camp_saed_skill ?? ""),
+          String(item.selected_trainer_name ?? ""),
+          String(item.selected_trainer_business ?? ""),
+          String(item.selected_trainer_phone ?? ""),
+          String(item.selected_trainer_email ?? ""),
           item.created_at ? new Date(item.created_at).toLocaleString() : "",
         ]);
       } else if (type === "employer") {

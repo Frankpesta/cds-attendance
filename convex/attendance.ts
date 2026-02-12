@@ -324,14 +324,12 @@ export const markAttendanceManually = mutation({
       }
     }
 
-    // If no active QR token found, create a manual one
+    // If no active QR token found, create a manual one (omit meeting_id for manual tokens)
     if (!qrTokenId) {
-      // Create a manual QR token for this attendance record
       const manualToken = generateRandomTokenHex(32);
       const qrToken = await ctx.db.insert("qr_tokens", {
         token: manualToken,
         meeting_date: today,
-        meeting_id: undefined, // Manual token, not tied to a meeting
         cds_group_id: group._id,
         generated_by_admin_id: currentUser._id,
         generated_at: now,

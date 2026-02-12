@@ -198,19 +198,25 @@ export default function RejectedRepostingDocumentationPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionToken, type: "rejected_reposting" }),
+        credentials: "same-origin",
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Export failed");
+        let errorMessage = "Export failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          errorMessage = `Export failed (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const dateSuffix = selectedDate ? `-${selectedDate.replace(/\//g, "-")}` : "";
-      a.download = `rejected-reposting-documentation${dateSuffix}-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.download = `rejected-reposting-documentation-${new Date().toISOString().split("T")[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

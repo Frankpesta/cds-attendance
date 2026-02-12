@@ -32,6 +32,9 @@ export async function markAttendanceManuallyAction(userId: string, meetingDate?:
   if (!sessionToken) {
     return { ok: false, error: "Unauthorized" } as const;
   }
+  if (!convexUrl) {
+    return { ok: false, error: "Server not configured" } as const;
+  }
 
   try {
     const res = await client.mutation(api.attendance.markAttendanceManually, {

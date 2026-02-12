@@ -106,6 +106,7 @@ export default function CorpMembersDocumentationPage() {
       const response = await fetch("/api/export-documentation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ sessionToken, type: "corp_member" }),
       });
 
