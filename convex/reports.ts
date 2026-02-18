@@ -14,30 +14,31 @@ export const monthlyReport = query({
 		const start = `${year}-${monthStr}-01`;
 		const end = `${year}-${monthStr}-31`;
 
-		const groups = cdsGroupId
-			? [await ctx.db.get(cdsGroupId)].filter(Boolean)
-			: await ctx.db.query("cds_groups").collect();
+    const groups = cdsGroupId
+      ? [await ctx.db.get(cdsGroupId)].filter(Boolean)
+      : await ctx.db.query("cds_groups").collect();
 
 		const groupIds = new Set(groups.map((g) => g!._id));
 
-		let attendance;
-		if (userId) {
-			// Get user-specific attendance
-			attendance = await ctx.db
-				.query("attendance")
-				.filter((q) => q.and(
-					q.eq(q.field("user_id"), userId),
-					q.gte(q.field("meeting_date"), start), 
-					q.lte(q.field("meeting_date"), end)
-				))
-				.collect();
-		} else {
-			// Get all attendance for the groups
-			attendance = await ctx.db
-				.query("attendance")
-				.filter((q) => q.and(q.gte(q.field("meeting_date"), start), q.lte(q.field("meeting_date"), end)))
-				.collect();
-		}
+    let attendance;
+    if (userId) {
+      // Get user-specific attendance, using the user/date index to avoid a full-table scan
+      attendance = await ctx.db
+        .query("attendance")
+        .withIndex("by_user_date", q => q.eq("user_id", userId))
+        .filter((q) => q.and(
+          q.gte(q.field("meeting_date"), start), 
+          q.lte(q.field("meeting_date"), end)
+        ))
+        .collect();
+    } else {
+      // Get all attendance within the month window using the date index
+      attendance = await ctx.db
+        .query("attendance")
+        .withIndex("by_date", q => q.gte("meeting_date", start))
+        .filter((q) => q.lte(q.field("meeting_date"), end))
+        .collect();
+    }
 
 		// Map user -> count and dates (include ALL attendance: scanned and manually marked)
 		const byUser = new Map<string, { count: number; dates: string[]; groupId: string }>();

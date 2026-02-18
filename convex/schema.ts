@@ -86,7 +86,8 @@ export default defineSchema({
   })
     .index("by_user_date", ["user_id", "meeting_date"]) // prevent duplicate same day
     .index("by_group_date", ["cds_group_id", "meeting_date"]) // reports
-    .index("by_date", ["meeting_date"]),
+    .index("by_date", ["meeting_date"])
+    .index("by_scanned_at", ["scanned_at"]),
 
   user_cds_assignment_history: defineTable({
     user_id: v.id("users"),

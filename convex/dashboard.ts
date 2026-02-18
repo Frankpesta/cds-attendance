@@ -2,6 +2,10 @@ import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { toNigeriaYYYYMMDD } from "./utils";
 
+// Limit expensive attendance stats to a rolling window to reduce document reads.
+// This keeps Convex resource usage bounded even as historical data grows.
+const ATTENDANCE_STATS_LOOKBACK_DAYS = 365;
+
 export const getStats = query({
   args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, { userId }) => {
@@ -10,7 +14,7 @@ export const getStats = query({
     const startOfWeek = now - (7 * 24 * 60 * 60 * 1000);
     const startOfDay = new Date().setHours(0, 0, 0, 0);
 
-    // Get all users
+    // Get all users (typically much smaller than attendance)
     const users = await ctx.db.query("users").collect();
     const totalUsers = users.length;
     const newUsersThisMonth = users.filter(u => u.created_at >= startOfMonth).length;
@@ -20,8 +24,13 @@ export const getStats = query({
     const groups = await ctx.db.query("cds_groups").collect();
     const totalGroups = groups.length;
 
-    // Get all attendance records
-    const attendance = await ctx.db.query("attendance").collect();
+    // Get attendance records within a rolling window to avoid scanning unbounded history
+    const lookbackStart = now - ATTENDANCE_STATS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+    const attendance = await ctx.db
+      .query("attendance")
+      .withIndex("by_scanned_at", q => q.gte("scanned_at", lookbackStart))
+      .collect();
+
     const totalAttendance = attendance.length;
     const attendanceThisMonth = attendance.filter(a => a.scanned_at >= startOfMonth).length;
     const attendanceToday = attendance.filter(a => a.scanned_at >= startOfDay).length;
@@ -167,7 +176,14 @@ export const getTopGroups = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 5 }) => {
     const groups = await ctx.db.query("cds_groups").collect();
-    const attendance = await ctx.db.query("attendance").collect();
+    const now = Date.now();
+    const lookbackStart = now - ATTENDANCE_STATS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+
+    // Only consider attendance within the same rolling window as getStats
+    const attendance = await ctx.db
+      .query("attendance")
+      .withIndex("by_scanned_at", q => q.gte("scanned_at", lookbackStart))
+      .collect();
 
     const groupStats = groups.map(group => {
       const groupAttendance = attendance.filter(a => a.cds_group_id === group._id);
