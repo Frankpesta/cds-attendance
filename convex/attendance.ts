@@ -18,10 +18,11 @@ export const submitScan = mutation({
 
     const todayDate = toNigeriaYYYYMMDD(new Date());
 
-    // Already scanned today?
+    // Already scanned today? Use user/date index to avoid scanning full attendance table.
     const existing = await ctx.db
       .query("attendance")
-      .filter((q) => q.and(q.eq(q.field("user_id"), user._id), q.eq(q.field("meeting_date"), todayDate)))
+      .withIndex("by_user_date", (q) => q.eq("user_id", user._id))
+      .filter((q) => q.eq(q.field("meeting_date"), todayDate))
       .unique();
     if (existing) {
       throw new Error(`You already marked attendance today.`);
@@ -204,10 +205,8 @@ export const getUserTodayAttendance = query({
     const today = toNigeriaYYYYMMDD(new Date());
     const attendance = await ctx.db
       .query("attendance")
-      .filter((q) => q.and(
-        q.eq(q.field("user_id"), userId),
-        q.eq(q.field("meeting_date"), today)
-      ))
+      .withIndex("by_user_date", (q) => q.eq("user_id", userId))
+      .filter((q) => q.eq(q.field("meeting_date"), today))
       .collect();
     
     return attendance.map(record => ({
@@ -228,7 +227,7 @@ export const getTodayAttendance = query({
     const today = toNigeriaYYYYMMDD(new Date());
     const attendance = await ctx.db
       .query("attendance")
-      .filter((q) => q.eq(q.field("meeting_date"), today))
+      .withIndex("by_date", (q) => q.eq("meeting_date", today))
       .collect();
     
     return attendance.map(record => ({
@@ -286,13 +285,11 @@ export const markAttendanceManually = mutation({
     const today = meetingDate || toNigeriaYYYYMMDD(new Date());
     const now = nowMs();
 
-    // Check if already marked for this date
+    // Check if already marked for this date using user/date index
     const existing = await ctx.db
       .query("attendance")
-      .filter((q) => q.and(
-        q.eq(q.field("user_id"), userId),
-        q.eq(q.field("meeting_date"), today)
-      ))
+      .withIndex("by_user_date", (q) => q.eq("user_id", userId))
+      .filter((q) => q.eq(q.field("meeting_date"), today))
       .unique();
     
     if (existing) {
