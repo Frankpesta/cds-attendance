@@ -40,6 +40,17 @@ export default function UsersPage() {
   const { data: users } = useDashboardStats();
   const { data: allUsers } = useUsersList();
 
+  const invalidateConvexQuery = (fn: unknown) => {
+    // convexQuery() uses a key shaped like: ["convexQuery", api.someFunction, args]
+    // Invalidate by function reference so we don't have to match args exactly.
+    queryClient.invalidateQueries({
+      predicate: (q) =>
+        Array.isArray(q.queryKey) &&
+        q.queryKey[0] === "convexQuery" &&
+        q.queryKey[1] === fn,
+    });
+  };
+
   const filteredUsers = allUsers?.filter((user: any) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -233,9 +244,9 @@ export default function UsersPage() {
                           return;
                         }
                         push({ variant: "success", title: "Attendance marked", description: `Attendance has been marked for ${user.name}` });
-                        queryClient.invalidateQueries({ queryKey: ["convexQuery", api.attendance.getTodayAttendance] });
-                        queryClient.invalidateQueries({ queryKey: ["convexQuery", api.dashboard.getStats] });
-                        queryClient.invalidateQueries({ queryKey: ["convexQuery", api.dashboard.getRecentActivity] });
+                        invalidateConvexQuery(api.attendance.getTodayAttendance);
+                        invalidateConvexQuery(api.dashboard.getStats);
+                        invalidateConvexQuery(api.dashboard.getRecentActivity);
                       } catch (err: any) {
                         push({ variant: "error", title: "Failed to mark attendance", description: extractErrorMessage(err, "Failed to mark attendance") });
                       } finally {
