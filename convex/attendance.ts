@@ -10,7 +10,7 @@ export const submitScan = mutation({
   handler: async (ctx, { sessionToken, token }) => {
     const session = await ctx.db
       .query("sessions")
-      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .withIndex("by_token", (q) => q.eq("session_token", sessionToken))
       .unique();
     if (!session) throw new Error("Unauthorized");
     const user = await ctx.db.get(session.user_id);
@@ -47,10 +47,8 @@ export const submitScan = mutation({
     // First, try to validate as client-generated token (new system)
     const activeMeetings = await ctx.db
       .query("meetings")
-      .filter((q) => q.and(
-        q.eq(q.field("meeting_date"), todayDate),
-        q.eq(q.field("is_active"), true)
-      ))
+      .withIndex("by_date", (q) => q.eq("meeting_date", todayDate))
+      .filter((q) => q.eq(q.field("is_active"), true))
       .collect();
     
     // Optimize: Only check meetings with session_secret (new system)
@@ -104,13 +102,15 @@ export const submitScan = mutation({
     }
     
     // If not found as client-generated, try legacy token validation
+    let legacyQrToken: any = null;
     if (!validToken) {
       const qr = await ctx.db
         .query("qr_tokens")
-        .filter((q) => q.eq(q.field("token"), token))
+        .withIndex("by_token", (q) => q.eq("token", token))
         .unique();
       
       if (qr) {
+        legacyQrToken = qr;
         if (qr.expires_at < now) {
           throw new Error("QR code expired. Please scan the current code.");
         }
@@ -153,14 +153,16 @@ export const submitScan = mutation({
       });
     } else {
       // Legacy system - use existing qr token
-      const qr = await ctx.db
-        .query("qr_tokens")
-        .filter((q) => q.eq(q.field("token"), token))
-        .unique();
-      if (!qr) {
+      if (!legacyQrToken) {
+        legacyQrToken = await ctx.db
+          .query("qr_tokens")
+          .withIndex("by_token", (q) => q.eq("token", token))
+          .unique();
+      }
+      if (!legacyQrToken) {
         throw new Error("QR token not found for legacy session.");
       }
-      qrTokenId = qr._id;
+      qrTokenId = legacyQrToken._id;
     }
 
     const attendanceId = await ctx.db.insert("attendance", {
@@ -253,7 +255,7 @@ export const markAttendanceManually = mutation({
     // Require super_admin authorization
     const session = await ctx.db
       .query("sessions")
-      .filter((q) => q.eq(q.field("session_token"), sessionToken))
+      .withIndex("by_token", (q) => q.eq("session_token", sessionToken))
       .unique();
     if (!session) {
       throw new Error("Unauthorized");
@@ -302,19 +304,18 @@ export const markAttendanceManually = mutation({
     // Try to find an active QR token for today
     const activeMeetings = await ctx.db
       .query("meetings")
-      .filter((q) => q.and(
-        q.eq(q.field("is_active"), true),
-        q.eq(q.field("meeting_date"), today)
-      ))
-      .collect();
+      .withIndex("by_date", (q) => q.eq("meeting_date", today))
+      .filter((q) => q.eq(q.field("is_active"), true))
+      .take(1);
     
     if (activeMeetings.length > 0) {
       // Find a QR token for one of the active meetings
       const meeting = activeMeetings[0];
       const qrTokens = await ctx.db
         .query("qr_tokens")
-        .filter((q) => q.eq(q.field("meeting_id"), meeting._id))
-        .collect();
+        .withIndex("by_meeting_id", (q) => q.eq("meeting_id", meeting._id))
+        .order("desc")
+        .take(1);
       
       if (qrTokens.length > 0) {
         qrTokenId = qrTokens[0]._id;
