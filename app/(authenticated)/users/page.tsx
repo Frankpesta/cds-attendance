@@ -51,6 +51,20 @@ export default function UsersPage() {
     });
   };
 
+  const getManualAttendanceErrorMessage = (error: unknown) => {
+    const message = extractErrorMessage(error, "Manual attendance marking failed.");
+    if (message.includes("already marked")) {
+      return "Attendance already exists for this member today.";
+    }
+    if (message.includes("CDS group")) {
+      return "This member has no valid CDS group assignment. Update the profile and try again.";
+    }
+    if (message.includes("Unauthorized") || message.includes("Forbidden")) {
+      return "You do not have permission to perform manual attendance marking.";
+    }
+    return `Reason: ${message}`;
+  };
+
   const filteredUsers = allUsers?.filter((user: any) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -240,7 +254,11 @@ export default function UsersPage() {
                       try {
                         const res = await markAttendanceManuallyAction(user._id);
                         if (!res.ok) {
-                          push({ variant: "error", title: "Failed to mark attendance", description: res.error || "Failed to mark attendance" });
+                          push({
+                            variant: "error",
+                            title: `Manual mark failed for ${user.name}`,
+                            description: getManualAttendanceErrorMessage(res.error || "Manual attendance marking failed."),
+                          });
                           return;
                         }
                         push({ variant: "success", title: "Attendance marked", description: `Attendance has been marked for ${user.name}` });
@@ -248,7 +266,11 @@ export default function UsersPage() {
                         invalidateConvexQuery(api.dashboard.getStats);
                         invalidateConvexQuery(api.dashboard.getRecentActivity);
                       } catch (err: any) {
-                        push({ variant: "error", title: "Failed to mark attendance", description: extractErrorMessage(err, "Failed to mark attendance") });
+                        push({
+                          variant: "error",
+                          title: `Manual mark failed for ${user.name}`,
+                          description: getManualAttendanceErrorMessage(err),
+                        });
                       } finally {
                         setMarkingAttendance(null);
                       }
