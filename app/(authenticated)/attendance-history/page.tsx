@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useUserAttendanceHistory, useCdsGroupsList } from "@/hooks/useConvexQueries";
+import { useUserAttendanceHistory, useCdsGroupsList } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";

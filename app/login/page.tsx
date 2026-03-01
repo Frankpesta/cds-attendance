@@ -1,45 +1,39 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { loginAction } from "../actions/auth";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/toast";
-import { extractErrorMessage, generateDeviceFingerprint } from "@/lib/utils";
+import { generateDeviceFingerprint } from "@/lib/utils";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [stateCode, setStateCode] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { push } = useToast();
+  const searchParams = useSearchParams();
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const err = searchParams.get("error");
+    if (err) setError(decodeURIComponent(err.replace(/\+/g, " ")));
+  }, [searchParams]);
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     setError(null);
     setLoading(true);
-    try {
-      const deviceFingerprint = generateDeviceFingerprint();
-      const fd = new FormData();
-      fd.set("stateCode", stateCode);
-      fd.set("password", password);
-      fd.set("deviceFingerprint", deviceFingerprint);
-      const res = await loginAction(fd);
-      if (!res.ok) {
-        setError(res.error || "Login failed");
-        push({ variant: "error", title: "Login failed", description: res.error || "Invalid credentials" });
-        return;
-      }
-      router.push("/dashboard");
-    } catch (err: any) {
-      const errorMsg = extractErrorMessage(err, "Login failed");
-      setError(errorMsg);
-      push({ variant: "error", title: "Login failed", description: errorMsg });
-    } finally {
-      setLoading(false);
-    }
+    const form = e.currentTarget;
+    const next = searchParams.get("next") || "/dashboard";
+    const fingerprintInput = document.createElement("input");
+    fingerprintInput.type = "hidden";
+    fingerprintInput.name = "deviceFingerprint";
+    fingerprintInput.value = generateDeviceFingerprint();
+    form.appendChild(fingerprintInput);
+    const nextInput = document.createElement("input");
+    nextInput.type = "hidden";
+    nextInput.name = "next";
+    nextInput.value = next;
+    form.appendChild(nextInput);
+    // Form POST triggers full page navigation; browser follows 302, URL updates
   };
 
   return (
@@ -51,10 +45,11 @@ export default function LoginPage() {
         </div>
         <div className="rounded-lg border bg-white shadow-sm p-6">
           <h1 className="text-xl font-semibold mb-4">Sign in</h1>
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form action="/api/auth/login" method="POST" onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="block text-sm mb-1">State Code</label>
           <Input
+            name="stateCode"
             value={stateCode}
             onChange={(e) => setStateCode(e.target.value)}
             placeholder="AK/24A/1234"
@@ -64,6 +59,7 @@ export default function LoginPage() {
         <div>
           <label className="block text-sm mb-1">Password</label>
           <Input
+            name="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

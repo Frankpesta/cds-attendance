@@ -1,20 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useCdsGroup } from "@/hooks/useConvexQueries";
-import { api } from "@/convex/_generated/api";
+import { useCdsGroup } from "@/hooks/useApiQueries";
 import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiSelect } from "@/components/ui/multiselect";
 import { useToast } from "@/components/ui/toast";
-import { ConvexHttpClient } from "convex/browser";
+import { updateCdsGroupAction } from "@/app/actions/cds_groups";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-const client = new ConvexHttpClient(convexUrl);
 
 export default function EditGroupPage() {
   const params = useParams();
@@ -23,7 +19,7 @@ export default function EditGroupPage() {
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
 
-  const { data: group } = useCdsGroup(groupId as any);
+  const { data: group } = useCdsGroup(groupId);
 
   const [form, setForm] = useState({
     name: "",
@@ -34,13 +30,14 @@ export default function EditGroupPage() {
   });
 
   useEffect(() => {
-    if (group) {
+    if (group && typeof group === "object" && "name" in group) {
+      const g = group as { name?: string; meeting_days?: string[]; meeting_time?: string; meeting_duration?: number; venue_name?: string };
       setForm({
-        name: group.name || "",
-        meeting_days: group.meeting_days || ["Monday", "Wednesday", "Friday"],
-        meeting_time: group.meeting_time || "14:00",
-        meeting_duration: group.meeting_duration || 60,
-        venue_name: group.venue_name || "",
+        name: g.name || "",
+        meeting_days: Array.isArray(g.meeting_days) ? g.meeting_days : ["Monday", "Wednesday", "Friday"],
+        meeting_time: g.meeting_time || "14:00",
+        meeting_duration: g.meeting_duration || 60,
+        venue_name: g.venue_name || "",
       });
     }
   }, [group]);
@@ -73,18 +70,20 @@ export default function EditGroupPage() {
 
     setLoading(true);
     try {
-      const res = await client.mutation(api.cds_groups.update, {
-        id: groupId as any,
+      const res = await updateCdsGroupAction(groupId, {
         name: form.name,
         meeting_days: form.meeting_days,
         meeting_time: form.meeting_time,
-        meeting_duration: Number(form.meeting_duration),
+        meeting_duration: form.meeting_duration,
         venue_name: form.venue_name,
       });
-      
-      push({ variant: "success", title: "Group updated", description: "CDS group has been updated successfully" });
-      router.push("/groups");
-    } catch (e: any) {
+      if (res.ok) {
+        push({ variant: "success", title: "Group updated", description: "CDS group has been updated successfully" });
+        router.push("/groups");
+      } else {
+        push({ variant: "error", title: "Update failed", description: res.error });
+      }
+    } catch (e: unknown) {
       push({ variant: "error", title: "Update failed", description: extractErrorMessage(e, "Failed to update group") });
     } finally {
       setLoading(false);
@@ -174,7 +173,7 @@ export default function EditGroupPage() {
 
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" loading={loading}>
+              <Button type="submit" disabled={loading}>
                 <Save className="w-4 h-4 mr-2" />
                 Update Group
               </Button>

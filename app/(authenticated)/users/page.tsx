@@ -1,25 +1,33 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/convex/_generated/api";
-import { useDashboardStats, useUsersList } from "@/hooks/useConvexQueries";
+import { useDashboardStats, useUsersList } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
-import { Users, Plus, Edit, Trash2, Search, Unlock, AlertCircle, CheckCircle } from "lucide-react";
-import { deleteUserAction, unblockUserAction } from "@/app/actions/users";
+import { Plus, Edit, Trash2, Search, Unlock, AlertCircle, CheckCircle } from "lucide-react";
+import { deleteUserAction, unblockUserAction, batchDeleteUsersAction } from "@/app/actions/users";
 import { markAttendanceManuallyAction } from "@/app/actions/attendance";
 import { extractErrorMessage } from "@/lib/utils";
 import { getSessionAction } from "@/app/actions/session";
 import Link from "next/link";
 
+function extractBatchFromStateCode(stateCode: string): string {
+  const parts = String(stateCode || "").split("/");
+  return parts.length >= 2 ? parts[1] : "";
+}
+
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState(""); // "blocked", "active", or ""
+  const [statusFilter, setStatusFilter] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [unblocking, setUnblocking] = useState<string | null>(null);
   const [markingAttendance, setMarkingAttendance] = useState<string | null>(null);
@@ -37,18 +45,13 @@ export default function UsersPage() {
   }, []);
 
   const queryClient = useQueryClient();
-  const { data: users } = useDashboardStats();
+  useDashboardStats(); // Keep for cache warming
   const { data: allUsers } = useUsersList();
 
-  const invalidateConvexQuery = (fn: unknown) => {
-    // convexQuery() uses a key shaped like: ["convexQuery", api.someFunction, args]
-    // Invalidate by function reference so we don't have to match args exactly.
-    queryClient.invalidateQueries({
-      predicate: (q) =>
-        Array.isArray(q.queryKey) &&
-        q.queryKey[0] === "convexQuery" &&
-        q.queryKey[1] === fn,
-    });
+  const invalidateAfterManualMark = () => {
+    queryClient.invalidateQueries({ queryKey: ["today-attendance"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
   };
 
   const getManualAttendanceErrorMessage = (error: unknown) => {
@@ -70,13 +73,26 @@ export default function UsersPage() {
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.state_code.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = !roleFilter || user.role === roleFilter;
-    // Handle is_blocked as boolean or string "true"
     const isBlocked = user.is_blocked === true || user.is_blocked === "true";
-    const matchesStatus = !statusFilter || 
+    const matchesStatus = !statusFilter ||
       (statusFilter === "blocked" && isBlocked) ||
       (statusFilter === "active" && !isBlocked);
-    return matchesSearch && matchesRole && matchesStatus;
+    const userBatch = extractBatchFromStateCode(user.state_code || "");
+    const matchesBatch = !batchFilter || userBatch === batchFilter;
+    return matchesSearch && matchesRole && matchesStatus && matchesBatch;
   }) || [];
+
+  const batchOptions = useMemo(() => {
+    const batches = new Set<string>();
+    allUsers?.forEach((u: any) => {
+      const b = extractBatchFromStateCode(u.state_code || "");
+      if (b) batches.add(b);
+    });
+    return [
+      { value: "", label: "All Batches" },
+      ...Array.from(batches).sort().map((b) => ({ value: b, label: b })),
+    ];
+  }, [allUsers]);
 
   const blockedUsersCount = allUsers?.filter((user: any) => {
     const isBlocked = user.is_blocked === true || user.is_blocked === "true";
@@ -171,13 +187,25 @@ export default function UsersPage() {
                 ]}
               />
             </div>
-            <div className="flex items-end">
-              <Button 
-                variant="secondary" 
+            {currentUserRole === "super_admin" && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Batch</label>
+                <Select
+                  value={batchFilter}
+                  onChange={(e) => setBatchFilter(e.target.value)}
+                  options={batchOptions}
+                />
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setSearchTerm("");
                   setRoleFilter("");
                   setStatusFilter("");
+                  setBatchFilter("");
+                  setSelectedIds([]);
                 }}
               >
                 Clear Filters
@@ -190,8 +218,40 @@ export default function UsersPage() {
       {/* Users Table */}
       <DataTable
         title="Users"
-        description={`${filteredUsers.length} users found`}
+        description={`${filteredUsers.length} users found${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
         data={filteredUsers}
+        selectable={currentUserRole === "super_admin"}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        toolbar={
+          currentUserRole === "super_admin" ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(filteredUsers.map((u: any) => u._id))}
+              >
+                Select all filtered
+              </Button>
+              {selectedIds.length > 0 && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                    Clear selection
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => setBatchDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete selected ({selectedIds.length})
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : undefined
+        }
         columns={[
           { key: "name", label: "Name" },
           { key: "email", label: "Email" },
@@ -262,9 +322,7 @@ export default function UsersPage() {
                           return;
                         }
                         push({ variant: "success", title: "Attendance marked", description: `Attendance has been marked for ${user.name}` });
-                        invalidateConvexQuery(api.attendance.getTodayAttendance);
-                        invalidateConvexQuery(api.dashboard.getStats);
-                        invalidateConvexQuery(api.dashboard.getRecentActivity);
+                        invalidateAfterManualMark();
                       } catch (err: any) {
                         push({
                           variant: "error",
@@ -342,6 +400,64 @@ export default function UsersPage() {
           }
         ]}
       />
+
+      {/* Batch Delete Confirmation Dialog */}
+      {batchDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 max-w-md w-full">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Confirm Batch Delete</h3>
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete {selectedIds.length} user(s)? This will permanently remove all users and their associated data (sessions, attendance, admin assignments, audit logs, clearance verifications). This action cannot be undone.
+              </p>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => setBatchDeleteDialogOpen(false)}
+                disabled={batchDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                disabled={batchDeleting}
+                onClick={async () => {
+                  setBatchDeleting(true);
+                  try {
+                    const res = await batchDeleteUsersAction(selectedIds);
+                    if (!res.ok) {
+                      push({ variant: "error", title: "Batch delete failed", description: res.error || "Failed to delete users" });
+                      return;
+                    }
+                    const { deleted, errors } = res.data!;
+                    if (errors.length > 0) {
+                      push({
+                        variant: "error",
+                        title: `Deleted ${deleted}, ${errors.length} failed`,
+                        description: errors.slice(0, 3).join("; "),
+                      });
+                    } else {
+                      push({ variant: "success", title: "Users deleted", description: `${deleted} user(s) and their data have been permanently deleted.` });
+                    }
+                    setSelectedIds([]);
+                    setBatchDeleteDialogOpen(false);
+                    queryClient.invalidateQueries({ queryKey: ["users"] });
+                    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+                  } catch (err: any) {
+                    push({ variant: "error", title: "Batch delete failed", description: extractErrorMessage(err, "Failed to delete users") });
+                  } finally {
+                    setBatchDeleting(false);
+                  }
+                }}
+              >
+                {batchDeleting ? "Deleting..." : "Yes, delete all"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

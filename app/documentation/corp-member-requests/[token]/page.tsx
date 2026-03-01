@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
+import { submitCorpMemberRequestAction } from "@/app/actions/documentation";
+import { useDocumentationValidateLink } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,6 @@ export default function CorpMemberRequestRegistrationPage({ params }: { params: 
 
   const { data: link } = useDocumentationValidateLink(params.token, "corp_member_request");
 
-  const submitCorpMemberRequest = useMutation(api.documentation.submitCorpMemberRequest);
 
   const disabled = useMemo(
     () =>
@@ -49,40 +47,19 @@ export default function CorpMemberRequestRegistrationPage({ params }: { params: 
     if (!link || !link.token) return;
     setSubmitting(true);
     try {
-      const result = await submitCorpMemberRequest({
-        token: link.token,
-        payload: {
-          ppa_name: form.ppa_name.trim(),
-          ppa_address: form.ppa_address.trim(),
-          ppa_phone_number: form.ppa_phone_number.trim(),
-          number_of_corp_members_requested: parseInt(form.number_of_corp_members_requested) || 0,
-          discipline_needed: form.discipline_needed.trim(),
-          gender_needed: form.gender_needed,
-          monthly_stipend: parseFloat(form.monthly_stipend) || 0,
-          available_accommodation: form.available_accommodation === "yes",
-        },
+      const result = await submitCorpMemberRequestAction(link.token, {
+        ppa_name: form.ppa_name.trim(),
+        ppa_address: form.ppa_address.trim(),
+        ppa_phone_number: form.ppa_phone_number.trim(),
+        number_of_corp_members_requested: parseInt(form.number_of_corp_members_requested) || 0,
+        discipline_needed: form.discipline_needed.trim(),
+        gender_needed: form.gender_needed,
+        monthly_stipend: parseFloat(form.monthly_stipend) || 0,
+        available_accommodation: form.available_accommodation === "yes",
       });
+      if (!result.ok) throw new Error(result.error);
 
-      // Trigger Pusher notification
-      try {
-        await fetch("/api/pusher/notify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            channel: "admin-notifications",
-            event: "corp-member-request",
-            data: {
-              message: "A new corp member request has been submitted",
-              ppa_name: form.ppa_name.trim(),
-              number_requested: parseInt(form.number_of_corp_members_requested) || 0,
-              timestamp: Date.now(),
-            },
-          }),
-        });
-      } catch (notifError) {
-        // Don't fail the submission if notification fails
-        console.error("Failed to send notification:", notifError);
-      }
+      // Admins see new requests via React Query polling (useDocumentationListCorpMemberRequests)
 
       push({ variant: "success", title: "Request submitted successfully", description: "Redirecting to success page..." });
       setTimeout(() => {

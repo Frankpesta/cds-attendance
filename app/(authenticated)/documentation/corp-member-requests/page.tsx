@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "convex/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationListLinks, useDocumentationListCorpMemberRequests } from "@/hooks/useConvexQueries";
+import {
+  createLinkAction,
+  toggleLinkStatusAction,
+  updateCorpMemberRequestAction,
+  deleteCorpMemberRequestAction,
+  batchDeleteCorpMemberRequestsAction,
+} from "@/app/actions/documentation";
+import { useDocumentationListLinks, useDocumentationListCorpMemberRequests } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +21,6 @@ import { extractErrorMessage } from "@/lib/utils";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Download, Printer, Edit } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
-import type { Id } from "@/convex/_generated/dataModel";
-
 function formatDate(ms?: number) {
   if (!ms) return "-";
   return new Date(ms).toLocaleString();
@@ -33,6 +36,9 @@ export default function CorpMemberRequestsDocumentationPage() {
   const { push } = useToast();
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<Record<string, string | number | boolean>>({});
@@ -45,14 +51,9 @@ export default function CorpMemberRequestsDocumentationPage() {
   const { data: listLinks } = useDocumentationListLinks(sessionToken, "corp_member_request");
   const { data: records } = useDocumentationListCorpMemberRequests(sessionToken);
 
-  const createLink = useMutation(api.documentation.createLink);
-  const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
-  const updateRecord = useMutation(api.documentation.updateCorpMemberRequest);
-  const deleteRecord = useMutation(api.documentation.deleteCorpMemberRequest);
-
   const invalidateDocQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listCorpMemberRequests] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-links", "corp_member_request"] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-corp-member-requests"] });
   };
 
   useEffect(() => {
@@ -117,10 +118,11 @@ export default function CorpMemberRequestsDocumentationPage() {
       return;
     }
     try {
-      const result = await createLink({ sessionToken: token, type: "corp_member_request" });
+      const result = await createLinkAction("corp_member_request");
+      if (!result.ok) throw new Error(result.error);
       invalidateDocQueries();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const url = `${origin}/documentation/corp-member-requests/${result.token}`;
+      const url = `${origin}/documentation/corp-member-requests/${result.data.token}`;
       await navigator.clipboard.writeText(url);
       push({
         variant: "success",
@@ -135,26 +137,27 @@ export default function CorpMemberRequestsDocumentationPage() {
   const handleToggleLink = async (link: any) => {
     if (!sessionToken) return;
     try {
-      await toggleLinkStatus({
-        sessionToken,
-        linkId: link._id,
-        status: link.status === "active" ? "inactive" : "active",
-      });
+      const res = await toggleLinkStatusAction(
+        link.id ?? link._id,
+        link.status === "active" ? "inactive" : "active",
+      );
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
   };
 
-  const handleDelete = async (recordId: Id<"corp_member_requests">) => {
+  const handleDelete = async (recordId: string) => {
     if (!sessionToken) return;
     if (!confirm("Delete this record? This action cannot be undone.")) {
       return;
     }
     try {
-      await deleteRecord({ sessionToken, id: recordId });
+      const res = await deleteCorpMemberRequestAction(recordId);
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
-      if (selectedRecord?._id === recordId) {
+      if ((selectedRecord?.id ?? selectedRecord?._id) === recordId) {
         setSelectedRecord(null);
         setEditMode(false);
       }
@@ -167,10 +170,7 @@ export default function CorpMemberRequestsDocumentationPage() {
   const handleSave = async () => {
     if (!sessionToken || !selectedRecord) return;
     try {
-      await updateRecord({
-        sessionToken,
-        id: selectedRecord._id,
-        updates: {
+      const res = await updateCorpMemberRequestAction(selectedRecord.id ?? selectedRecord._id, {
           ppa_name: editDraft.ppa_name ? String(editDraft.ppa_name) : undefined,
           ppa_address: editDraft.ppa_address ? String(editDraft.ppa_address) : undefined,
           ppa_phone_number: editDraft.ppa_phone_number ? String(editDraft.ppa_phone_number) : undefined,
@@ -179,8 +179,8 @@ export default function CorpMemberRequestsDocumentationPage() {
           gender_needed: editDraft.gender_needed ? String(editDraft.gender_needed) : undefined,
           monthly_stipend: editDraft.monthly_stipend ? Number(editDraft.monthly_stipend) : undefined,
           available_accommodation: editDraft.available_accommodation !== undefined ? Boolean(editDraft.available_accommodation) : undefined,
-        },
-      });
+        });
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
@@ -402,7 +402,7 @@ export default function CorpMemberRequestsDocumentationPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(item._id)}>
+          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(item.id ?? item._id)}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -555,9 +555,26 @@ export default function CorpMemberRequestsDocumentationPage() {
         <div className="min-w-0">
           <DataTable
             title="Submitted Requests"
-            description={`${filteredRecords.length} requests`}
+            description={`${filteredRecords.length} requests${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
             data={filteredRecords}
             columns={columns as any}
+            selectable
+            rowIdKey="_id"
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            toolbar={
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(filteredRecords.map((r: any) => r._id))}>Select all filtered</Button>
+                {selectedIds.length > 0 && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Clear selection</Button>
+                    <Button variant="secondary" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setBatchDeleteDialogOpen(true)}>
+                      <Trash2 className="w-4 h-4 mr-1" />Delete selected ({selectedIds.length})
+                    </Button>
+                  </>
+                )}
+              </div>
+            }
           />
         </div>
 
@@ -764,6 +781,40 @@ export default function CorpMemberRequestsDocumentationPage() {
           </CardContent>
         </Card>
       </div>
+
+      {batchDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 max-w-md w-full">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Confirm Batch Delete</h3>
+              <p className="text-sm text-muted-foreground">Delete {selectedIds.length} request(s)? This action cannot be undone.</p>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setBatchDeleteDialogOpen(false)} disabled={batchDeleting}>Cancel</Button>
+              <Button variant="primary" className="bg-red-600 hover:bg-red-700" disabled={batchDeleting}
+                onClick={async () => {
+                  setBatchDeleting(true);
+                  try {
+                    const res = await batchDeleteCorpMemberRequestsAction(selectedIds);
+                    if (!res.ok) throw new Error(res.error);
+                    const { deleted, errors } = res.data!;
+                    setSelectedIds([]);
+                    setBatchDeleteDialogOpen(false);
+                    invalidateDocQueries();
+                    if (selectedRecord && selectedIds.includes(selectedRecord._id)) setSelectedRecord(null);
+                    push({ variant: errors.length > 0 ? "error" : "success", title: errors.length > 0 ? `Deleted ${deleted}, ${errors.length} failed` : "Requests deleted", description: errors.length > 0 ? errors.slice(0, 2).join("; ") : `${deleted} request(s) deleted.` });
+                  } catch (e: any) {
+                    push({ variant: "error", title: "Delete failed", description: extractErrorMessage(e, "Failed to delete") });
+                  } finally {
+                    setBatchDeleting(false);
+                  }
+                }}>
+                {batchDeleting ? "Deleting..." : "Yes, delete"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

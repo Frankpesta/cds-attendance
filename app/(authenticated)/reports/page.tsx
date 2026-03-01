@@ -7,8 +7,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { Pagination } from "@/components/ui/pagination";
 import { exportMonthlyCsv, exportMonthlyPdf, fetchMonthlyReport } from "@/app/actions/reports";
-import { useCdsGroupsList } from "@/hooks/useConvexQueries";
-import { api } from "@/convex/_generated/api";
+import { useCdsGroupsList } from "@/hooks/useApiQueries";
 import { extractErrorMessage } from "@/lib/utils";
 import { Download, FileText, Filter, BarChart3, Users, Calendar } from "lucide-react";
 
@@ -112,12 +111,12 @@ export default function ReportsPage() {
   // Filter data based on attendance count
   const filteredData = useMemo(() => {
     return data?.filter((row) => {
-    const count = row.count;
-    const minCheck = !minAttendance || count >= Number(minAttendance);
-    const maxCheck = !maxAttendance || count <= Number(maxAttendance);
-      const stateCodeCheck = !stateCode || row.state_code.toLowerCase().includes(stateCode.toLowerCase());
+      const count = row.count ?? 0;
+      const minCheck = !minAttendance || count >= Number(minAttendance);
+      const maxCheck = !maxAttendance || count <= Number(maxAttendance);
+      const stateCodeCheck = !stateCode || (row.state_code ?? "").toLowerCase().includes(stateCode.toLowerCase());
       return minCheck && maxCheck && stateCodeCheck;
-  }) || [];
+    }) || [];
   }, [data, minAttendance, maxAttendance, stateCode]);
 
   // Paginate filtered data
@@ -136,7 +135,7 @@ export default function ReportsPage() {
 
   // Calculate statistics
   const totalRecords = filteredData.length;
-  const totalAttendance = filteredData.reduce((sum, row) => sum + row.count, 0);
+  const totalAttendance = filteredData.reduce((sum, row) => sum + (row.count ?? 0), 0);
   const averageAttendance = totalRecords > 0 ? (totalAttendance / totalRecords).toFixed(2) : 0;
 
   const monthNames = ["January", "February", "March", "April", "May", "June",
@@ -340,9 +339,9 @@ export default function ReportsPage() {
                 </thead>
                 <tbody>
                   {paginatedData.map((row, idx) => {
-                    // Get group name from the groups data
-                    const groupName = cdsGroups?.find((g: any) => g._id === row.cds_group_id)?.name || "Unknown Group";
-                    
+                    const groupName = row.cds_group_name ?? cdsGroups?.find((g: any) => g._id === row.cds_group_id || g.id === row.cds_group_id)?.name ?? "Unknown Group";
+                    const count = row.count ?? 0;
+                    const dates = row.dates ?? [];
                     return (
                       <tr key={idx} className="border-b last:border-none hover:bg-gray-50">
                         <td className="py-2 font-mono text-sm">{row.state_code}</td>
@@ -350,15 +349,15 @@ export default function ReportsPage() {
                         <td className="py-2 text-gray-600">{groupName}</td>
                         <td className="py-2">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            row.count >= 15 ? 'bg-green-100 text-green-800' :
-                            row.count >= 10 ? 'bg-yellow-100 text-yellow-800' :
+                            count >= 15 ? 'bg-green-100 text-green-800' :
+                            count >= 10 ? 'bg-yellow-100 text-yellow-800' :
                             'bg-red-100 text-red-800'
                           }`}>
-                            {row.count}
+                            {count}
                           </span>
                         </td>
                         <td className="py-2 text-gray-600 text-xs">
-                          {row.dates.length > 0 ? row.dates.join(", ") : "No attendance"}
+                          {dates.length > 0 ? dates.join(", ") : "No attendance"}
                         </td>
                       </tr>
                     );

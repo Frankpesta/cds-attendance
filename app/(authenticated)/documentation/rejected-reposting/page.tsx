@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "convex/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationListLinks, useDocumentationListRejectedReposting } from "@/hooks/useConvexQueries";
+import {
+  createLinkAction,
+  toggleLinkStatusAction,
+  updateRejectedRepostingAction,
+  deleteRejectedRepostingAction,
+  batchDeleteRejectedRepostingAction,
+} from "@/app/actions/documentation";
+import { useDocumentationListLinks, useDocumentationListRejectedReposting } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +21,6 @@ import { extractErrorMessage } from "@/lib/utils";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Download, Printer, Edit } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
-import type { Id } from "@/convex/_generated/dataModel";
-
 function formatDate(ms?: number) {
   if (!ms) return "-";
   return new Date(ms).toLocaleString();
@@ -28,11 +31,20 @@ function formatDateOnly(ms?: number) {
   return new Date(ms).toLocaleDateString();
 }
 
+function extractBatchFromStateCode(stateCode: string): string {
+  const parts = String(stateCode || "").split("/");
+  return parts.length >= 2 ? parts[1] : "";
+}
+
 export default function RejectedRepostingDocumentationPage() {
   const sessionToken = useSessionToken();
   const { push } = useToast();
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<Record<string, string>>({});
@@ -45,14 +57,9 @@ export default function RejectedRepostingDocumentationPage() {
   const { data: listLinks } = useDocumentationListLinks(sessionToken, "rejected_reposting");
   const { data: records } = useDocumentationListRejectedReposting(sessionToken);
 
-  const createLink = useMutation(api.documentation.createLink);
-  const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
-  const updateRecord = useMutation(api.documentation.updateRejectedReposting);
-  const deleteRecord = useMutation(api.documentation.deleteRejectedReposting);
-
   const invalidateDocQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listRejectedReposting] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-links", "rejected_reposting"] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-rejected-reposting"] });
   };
 
   useEffect(() => {
@@ -83,17 +90,25 @@ export default function RejectedRepostingDocumentationPage() {
     return records.filter((record: any) => {
       const haystack = `${record.name} ${record.state_code} ${record.discipline} ${record.previous_ppa} ${record.new_ppa || ""}`.toLowerCase();
       const matchesSearch = haystack.includes(search.toLowerCase());
-      
-      // Date filtering - filter by date only (not time)
       let matchesDate = true;
       if (selectedDate) {
         const recordDate = formatDateOnly(record.created_at);
         matchesDate = recordDate === selectedDate;
       }
-      
-      return matchesSearch && matchesDate;
+      const userBatch = extractBatchFromStateCode(record.state_code || "");
+      const matchesBatch = !batchFilter || userBatch === batchFilter;
+      return matchesSearch && matchesDate && matchesBatch;
     });
-  }, [records, search, selectedDate]);
+  }, [records, search, selectedDate, batchFilter]);
+
+  const batchOptions = useMemo(() => {
+    const batches = new Set<string>();
+    records?.forEach((r: any) => {
+      const b = extractBatchFromStateCode(r.state_code || "");
+      if (b) batches.add(b);
+    });
+    return [{ value: "", label: "All Batches" }, ...Array.from(batches).sort().map((b) => ({ value: b, label: b }))];
+  }, [records]);
 
   const paginatedLinks = useMemo(() => {
     if (!listLinks) return [];
@@ -116,10 +131,11 @@ export default function RejectedRepostingDocumentationPage() {
       return;
     }
     try {
-      const result = await createLink({ sessionToken: token, type: "rejected_reposting" });
+      const result = await createLinkAction("rejected_reposting");
+      if (!result.ok) throw new Error(result.error);
       invalidateDocQueries();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const url = `${origin}/documentation/rejected-reposting/${result.token}`;
+      const url = `${origin}/documentation/rejected-reposting/${result.data.token}`;
       await navigator.clipboard.writeText(url);
       push({
         variant: "success",
@@ -134,26 +150,27 @@ export default function RejectedRepostingDocumentationPage() {
   const handleToggleLink = async (link: any) => {
     if (!sessionToken) return;
     try {
-      await toggleLinkStatus({
-        sessionToken,
-        linkId: link._id,
-        status: link.status === "active" ? "inactive" : "active",
-      });
+      const res = await toggleLinkStatusAction(
+        link.id ?? link._id,
+        link.status === "active" ? "inactive" : "active",
+      );
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
   };
 
-  const handleDelete = async (recordId: Id<"rejected_reposting_docs">) => {
+  const handleDelete = async (recordId: string) => {
     if (!sessionToken) return;
     if (!confirm("Delete this record? This action cannot be undone.")) {
       return;
     }
     try {
-      await deleteRecord({ sessionToken, id: recordId });
+      const res = await deleteRejectedRepostingAction(recordId);
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
-      if (selectedRecord?._id === recordId) {
+      if ((selectedRecord?.id ?? selectedRecord?._id) === recordId) {
         setSelectedRecord(null);
         setEditMode(false);
       }
@@ -166,10 +183,7 @@ export default function RejectedRepostingDocumentationPage() {
   const handleSave = async () => {
     if (!sessionToken || !selectedRecord) return;
     try {
-      await updateRecord({
-        sessionToken,
-        id: selectedRecord._id,
-        updates: {
+      const res = await updateRejectedRepostingAction(selectedRecord.id ?? selectedRecord._id, {
           name: editDraft.name || "",
           state_code: editDraft.state_code || "",
           sex: editDraft.sex || "",
@@ -177,8 +191,8 @@ export default function RejectedRepostingDocumentationPage() {
           previous_ppa: editDraft.previous_ppa || "",
           new_ppa: editDraft.new_ppa || undefined,
           recommendation: editDraft.recommendation || undefined,
-        },
-      });
+        });
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
@@ -389,7 +403,7 @@ export default function RejectedRepostingDocumentationPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(item._id)}>
+          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(item.id ?? item._id)}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -508,7 +522,7 @@ export default function RejectedRepostingDocumentationPage() {
           <h2 className="text-lg font-semibold">Filters</h2>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className="mb-2 block text-sm font-medium">Search</label>
               <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, state code, discipline..." />
@@ -523,6 +537,10 @@ export default function RejectedRepostingDocumentationPage() {
                   ...availableDates.map((date) => ({ value: date, label: date })),
                 ]}
               />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Batch</label>
+              <Select value={batchFilter} onChange={(event) => setBatchFilter(event.target.value)} options={batchOptions} />
             </div>
           </div>
           <div className="mt-4 flex gap-2">
@@ -542,9 +560,26 @@ export default function RejectedRepostingDocumentationPage() {
         <div className="min-w-0">
           <DataTable
             title="Submitted Records"
-            description={`${filteredRecords.length} records`}
+            description={`${filteredRecords.length} records${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
             data={filteredRecords}
             columns={columns as any}
+            selectable
+            rowIdKey="_id"
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            toolbar={
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(filteredRecords.map((r: any) => r._id))}>Select all filtered</Button>
+                {selectedIds.length > 0 && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Clear selection</Button>
+                    <Button variant="secondary" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setBatchDeleteDialogOpen(true)}>
+                      <Trash2 className="w-4 h-4 mr-1" />Delete selected ({selectedIds.length})
+                    </Button>
+                  </>
+                )}
+              </div>
+            }
           />
         </div>
 
@@ -724,6 +759,40 @@ export default function RejectedRepostingDocumentationPage() {
           </CardContent>
         </Card>
       </div>
+
+      {batchDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 max-w-md w-full">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Confirm Batch Delete</h3>
+              <p className="text-sm text-muted-foreground">Delete {selectedIds.length} record(s)? This action cannot be undone.</p>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setBatchDeleteDialogOpen(false)} disabled={batchDeleting}>Cancel</Button>
+              <Button variant="primary" className="bg-red-600 hover:bg-red-700" disabled={batchDeleting}
+                onClick={async () => {
+                  setBatchDeleting(true);
+                  try {
+                    const res = await batchDeleteRejectedRepostingAction(selectedIds);
+                    if (!res.ok) throw new Error(res.error);
+                    const { deleted, errors } = res.data!;
+                    setSelectedIds([]);
+                    setBatchDeleteDialogOpen(false);
+                    invalidateDocQueries();
+                    if (selectedRecord && selectedIds.includes(selectedRecord._id)) setSelectedRecord(null);
+                    push({ variant: errors.length > 0 ? "error" : "success", title: errors.length > 0 ? `Deleted ${deleted}, ${errors.length} failed` : "Records deleted", description: errors.length > 0 ? errors.slice(0, 2).join("; ") : `${deleted} record(s) deleted.` });
+                  } catch (e: any) {
+                    push({ variant: "error", title: "Delete failed", description: extractErrorMessage(e, "Failed to delete") });
+                  } finally {
+                    setBatchDeleting(false);
+                  }
+                }}>
+                {batchDeleting ? "Deleting..." : "Yes, delete"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

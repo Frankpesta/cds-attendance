@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+### TiDB / Performance (Optional)
+
+For TiDB Cloud free tier optimization, add to your `DATABASE_URL`:
+
+- `?connection_limit=5` — limits connections per serverless instance to avoid exhaustion
+
+Example: `mysql://user:pass@host/db?connection_limit=5`
+
+### Clearance Certificate Verification
+
+For QR code verification links on printed clearance slips to work correctly, set:
+
+- `NEXT_PUBLIC_APP_URL` — your app's public URL (e.g. `https://your-domain.vercel.app`)
+
+Without this, verification links may use relative paths that work only when the PDF is viewed in-browser.

@@ -1,78 +1,81 @@
 "use server";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
+import * as reportsRepo from "@/lib/repositories/reports";
 
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-const client = new ConvexHttpClient(convexUrl);
-
-export async function fetchMonthlyReport(year: number, month: number, cdsGroupId?: string, userId?: string) {
-  const res = await client.query(api.reports.monthlyReport, { 
-    year, 
-    month, 
-    cdsGroupId: cdsGroupId as any,
-    userId: userId as any 
+export async function fetchMonthlyReport(
+  year: number,
+  month: number,
+  cdsGroupId?: string,
+  userId?: string,
+) {
+  return reportsRepo.monthlyReport({
+    year,
+    month,
+    cdsGroupId,
+    userId,
   });
-  return res;
 }
 
-export async function fetchUserMonthlyReport(year: number, month: number, userId: string) {
-  const res = await client.query(api.reports.monthlyReport, { 
-    year, 
-    month, 
-    userId: userId as any 
+export async function fetchUserMonthlyReport(
+  year: number,
+  month: number,
+  userId: string,
+) {
+  return reportsRepo.monthlyReport({
+    year,
+    month,
+    userId,
   });
-  return res;
 }
 
 export async function exportMonthlyCsv(
-  year: number, 
-  month: number, 
-  cdsGroupId?: string, 
-  minAttendance?: number, 
+  year: number,
+  month: number,
+  cdsGroupId?: string,
+  minAttendance?: number,
   maxAttendance?: number,
-  stateCode?: string
+  stateCode?: string,
 ) {
-  const res = await client.action(api.reports.exportCsv, { 
-    year, 
-    month, 
-    cdsGroupId: cdsGroupId as any,
+  const csv = await reportsRepo.exportCsv({
+    year,
+    month,
+    cdsGroupId,
     minAttendance,
     maxAttendance,
-    stateCode
+    stateCode,
   });
-  return res.csv as string;
+  return csv;
 }
 
 export async function exportMonthlyPdf(
-  year: number, 
-  month: number, 
-  cdsGroupId?: string, 
-  minAttendance?: number, 
+  year: number,
+  month: number,
+  cdsGroupId?: string,
+  minAttendance?: number,
   maxAttendance?: number,
-  stateCode?: string
+  stateCode?: string,
 ) {
-  const res = await client.action(api.reports.exportPdf, { 
-    year, 
-    month, 
-    cdsGroupId: cdsGroupId as any,
+  const html = await reportsRepo.exportPdf({
+    year,
+    month,
+    cdsGroupId,
     minAttendance,
     maxAttendance,
-    stateCode
+    stateCode,
   });
-  return res.html as string;
+  return html;
 }
 
 export async function exportUserMonthlyPdf(
   userId: string,
-  year: number, 
-  month: number
+  year: number,
+  month: number,
+  baseUrl?: string,
 ) {
-  const res = await client.action(api.reports.exportUserPdf, { 
-    userId: userId as any,
-    year, 
-    month
+  const html = await reportsRepo.exportUserPdf({
+    userId,
+    year,
+    month,
+    baseUrl: baseUrl || process.env.NEXT_PUBLIC_APP_URL || "",
   });
-  return res.html as string;
+  return html;
 }
-
-

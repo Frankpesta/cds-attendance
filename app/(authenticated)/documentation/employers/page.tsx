@@ -1,11 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "convex/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationListLinks, useDocumentationListEmployers } from "@/hooks/useConvexQueries";
-import type { Id } from "@/convex/_generated/dataModel";
+import {
+  createLinkAction,
+  toggleLinkStatusAction,
+  updateEmployerAction,
+  deleteEmployerAction,
+  batchDeleteEmployersAction,
+} from "@/app/actions/documentation";
+import { useDocumentationListLinks, useDocumentationListEmployers } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +45,9 @@ export default function EmployersDocumentationPage() {
   const { push } = useToast();
   const [search, setSearch] = useState("");
   const [accommodationFilter, setAccommodationFilter] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<Record<string, string | number | boolean | undefined>>({});
@@ -53,14 +60,9 @@ export default function EmployersDocumentationPage() {
   const { data: links } = useDocumentationListLinks(sessionToken, "employer");
   const { data: employers } = useDocumentationListEmployers(sessionToken);
 
-  const createLink = useMutation(api.documentation.createLink);
-  const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
-  const updateEmployer = useMutation(api.documentation.updateEmployer);
-  const deleteEmployer = useMutation(api.documentation.deleteEmployer);
-
   const invalidateDocQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listEmployers] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-links", "employer"] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-employers"] });
   };
 
   useEffect(() => {
@@ -150,9 +152,11 @@ export default function EmployersDocumentationPage() {
       return;
     }
     try {
-      const result = await createLink({ sessionToken: token, type: "employer" });
+      const result = await createLinkAction("employer");
+      if (!result.ok) throw new Error(result.error);
+      invalidateDocQueries();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const url = `${origin}/documentation/employers/${result.token}`;
+      const url = `${origin}/documentation/employers/${result.data.token}`;
       await navigator.clipboard.writeText(url);
       push({ variant: "success", title: "Link created", description: "Link copied to clipboard." });
     } catch (error: any) {
@@ -163,24 +167,25 @@ export default function EmployersDocumentationPage() {
   const handleToggleLink = async (link: any) => {
     if (!sessionToken) return;
     try {
-      await toggleLinkStatus({
-        sessionToken,
-        linkId: link._id,
-        status: link.status === "active" ? "inactive" : "active",
-      });
+      const res = await toggleLinkStatusAction(
+        link.id ?? link._id,
+        link.status === "active" ? "inactive" : "active",
+      );
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
   };
 
-  const handleDelete = async (recordId: Id<"employer_docs">) => {
+  const handleDelete = async (recordId: string) => {
     if (!sessionToken) return;
     if (!confirm("Delete this employer record?")) return;
     try {
-      await deleteEmployer({ sessionToken, id: recordId });
+      const res = await deleteEmployerAction(recordId);
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
-      if (selectedRecord?._id === recordId) {
+      if ((selectedRecord?.id ?? selectedRecord?._id) === recordId) {
         setSelectedRecord(null);
         setEditMode(false);
       }
@@ -193,10 +198,7 @@ export default function EmployersDocumentationPage() {
   const handleSave = async () => {
     if (!sessionToken || !selectedRecord) return;
     try {
-      await updateEmployer({
-        sessionToken,
-        id: selectedRecord._id,
-        updates: {
+      const res = await updateEmployerAction(selectedRecord.id ?? selectedRecord._id, {
           organization_name: String(editDraft.organization_name || ""),
           organization_address: String(editDraft.organization_address || ""),
           organization_phone: String(editDraft.organization_phone || ""),
@@ -210,8 +212,8 @@ export default function EmployersDocumentationPage() {
           monthly_stipend: Number(editDraft.monthly_stipend || 0),
           email: String(editDraft.email || ""),
           nearest_landmark: String(editDraft.nearest_landmark || ""),
-        },
-      });
+        });
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
@@ -262,7 +264,7 @@ export default function EmployersDocumentationPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(item._id)}>
+          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(item.id ?? item._id)}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -414,9 +416,28 @@ export default function EmployersDocumentationPage() {
         <div className="min-w-0">
           <DataTable
             title="Employer Records"
-            description={`${filteredEmployers.length} submissions`}
+            description={`${filteredEmployers.length} submissions${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
             data={filteredEmployers}
             columns={columns as any}
+            selectable
+            rowIdKey="_id"
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            toolbar={
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(filteredEmployers.map((e: any) => e._id))}>
+                  Select all filtered
+                </Button>
+                {selectedIds.length > 0 && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>Clear selection</Button>
+                    <Button variant="secondary" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setBatchDeleteDialogOpen(true)}>
+                      <Trash2 className="w-4 h-4 mr-1" />Delete selected ({selectedIds.length})
+                    </Button>
+                  </>
+                )}
+              </div>
+            }
           />
         </div>
 
@@ -530,6 +551,40 @@ export default function EmployersDocumentationPage() {
           </CardContent>
         </Card>
       </div>
+
+      {batchDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 max-w-md w-full">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Confirm Batch Delete</h3>
+              <p className="text-sm text-muted-foreground">Delete {selectedIds.length} employer record(s)? This action cannot be undone.</p>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setBatchDeleteDialogOpen(false)} disabled={batchDeleting}>Cancel</Button>
+              <Button variant="primary" className="bg-red-600 hover:bg-red-700" disabled={batchDeleting}
+                onClick={async () => {
+                  setBatchDeleting(true);
+                  try {
+                    const res = await batchDeleteEmployersAction(selectedIds);
+                    if (!res.ok) throw new Error(res.error);
+                    const { deleted, errors } = res.data!;
+                    setSelectedIds([]);
+                    setBatchDeleteDialogOpen(false);
+                    invalidateDocQueries();
+                    if (selectedRecord && selectedIds.includes(selectedRecord._id)) setSelectedRecord(null);
+                    push({ variant: errors.length > 0 ? "error" : "success", title: errors.length > 0 ? `Deleted ${deleted}, ${errors.length} failed` : "Records deleted", description: errors.length > 0 ? errors.slice(0, 2).join("; ") : `${deleted} record(s) deleted.` });
+                  } catch (e: any) {
+                    push({ variant: "error", title: "Delete failed", description: extractErrorMessage(e, "Failed to delete") });
+                  } finally {
+                    setBatchDeleting(false);
+                  }
+                }}>
+                {batchDeleting ? "Deleting..." : "Yes, delete"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

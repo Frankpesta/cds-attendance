@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useQuery } from "@tanstack/react-query";
 import { generateQrToken, getNextRotationTime } from "@/lib/qr-token-generator";
 
 interface SessionData {
@@ -12,12 +11,20 @@ interface SessionData {
   isActive: boolean;
 }
 
+async function fetchSessionSecret(meetingId: string): Promise<SessionData | null> {
+  const res = await fetch(`/api/qr/session-secret?meetingId=${meetingId}`, {
+    credentials: "include",
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
 /**
  * Hook to manage QR session with client-side token generation
- * 
+ *
  * Fetches session secret once (cached), then generates tokens locally
  * Rotates tokens automatically based on rotation interval
- * 
+ *
  * @param meetingId - Meeting ID to get session for
  * @returns Current token, rotation count, and session data
  */
@@ -28,15 +35,14 @@ export function useQrSession(meetingId: string | null) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastWindowRef = useRef<number | null>(null);
 
-  // Fetch session secret (cached by Convex, only fetched once per session)
-  const sessionData = useQuery(
-    api.qr.getSessionSecret,
-    meetingId ? { meetingId: meetingId as any } : "skip"
-  ) as SessionData | undefined | null;
+  const { data: sessionData } = useQuery({
+    queryKey: ["qr-session-secret", meetingId],
+    queryFn: () => fetchSessionSecret(meetingId!),
+    enabled: !!meetingId,
+  });
 
   useEffect(() => {
     if (!sessionData?.secret || !sessionData.isActive) {
-      // Clear token if session is invalid
       setCurrentToken(null);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -46,24 +52,23 @@ export function useQrSession(meetingId: string | null) {
     }
 
     const rotationInterval = sessionData.rotationInterval || 50;
-    
+
     const generateAndRotate = async () => {
       const now = Date.now();
-      const currentWindow = Math.floor(now / 1000 / rotationInterval) * rotationInterval;
-      
-      // Only generate new token if we've moved to a new time window
+      const currentWindow =
+        Math.floor(now / 1000 / rotationInterval) * rotationInterval;
+
       if (lastWindowRef.current !== currentWindow) {
         try {
           const token = await generateQrToken(
             sessionData.secret,
             now,
-            rotationInterval
+            rotationInterval,
           );
           setCurrentToken(token);
-          setRotationCount(prev => prev + 1);
+          setRotationCount((prev) => prev + 1);
           lastWindowRef.current = currentWindow;
-          
-          // Calculate next rotation time
+
           const nextRotation = getNextRotationTime(now, rotationInterval);
           setNextRotationTime(nextRotation);
         } catch (error) {
@@ -72,13 +77,11 @@ export function useQrSession(meetingId: string | null) {
       }
     };
 
-    // Generate immediately
     generateAndRotate();
 
-    // Set up interval to check for rotation (check every second to catch window changes)
     intervalRef.current = setInterval(() => {
       generateAndRotate();
-    }, 1000); // Check every second
+    }, 1000);
 
     return () => {
       if (intervalRef.current) {
@@ -92,11 +95,13 @@ export function useQrSession(meetingId: string | null) {
     currentToken,
     rotationCount,
     nextRotationTime,
-    sessionData: sessionData ? {
-      meetingDate: sessionData.meetingDate,
-      isActive: sessionData.isActive,
-      rotationInterval: sessionData.rotationInterval || 50,
-    } : null,
-    isLoading: sessionData === undefined,
+    sessionData: sessionData
+      ? {
+          meetingDate: sessionData.meetingDate,
+          isActive: sessionData.isActive,
+          rotationInterval: sessionData.rotationInterval || 50,
+        }
+      : null,
+    isLoading: sessionData === undefined && !!meetingId,
   };
 }

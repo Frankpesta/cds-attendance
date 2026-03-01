@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useCdsGroup, useRequiredAttendanceCount } from "@/hooks/useConvexQueries";
+import { useCdsGroup, useRequiredAttendanceCount } from "@/hooks/useApiQueries";
 import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,14 +34,14 @@ export default function ClearancePage() {
   }, []);
 
   const load = async () => {
-    if (!session?.user?._id) return;
+    if (!session?.user?.id) return;
     
     setLoading(true);
     try {
       const res = await fetchUserMonthlyReport(
         year, 
         month,
-        session.user._id
+        session.user.id
       );
       setData(res.data);
       setExpectedSessionsInMonth(res.expectedSessionsInMonth);
@@ -55,13 +53,13 @@ export default function ClearancePage() {
   };
 
   useEffect(() => {
-    if (session?.user?._id) {
+    if (session?.user?.id) {
       load();
     }
-  }, [year, month, session?.user?._id]);
+  }, [year, month, session?.user?.id]);
 
   const exportPdf = async () => {
-    if (!session?.user?._id) return;
+    if (!session?.user?.id) return;
     
     // Check attendance requirement before allowing export
     const requiredCount = requiredAttendanceCount ?? 3;
@@ -77,9 +75,10 @@ export default function ClearancePage() {
     setExporting(true);
     try {
       const html = await exportUserMonthlyPdf(
-        session.user._id,
-        year, 
-        month
+        session.user.id,
+        year,
+        month,
+        typeof window !== "undefined" ? window.location.origin : undefined,
       );
       
       // Create a new window and print the HTML

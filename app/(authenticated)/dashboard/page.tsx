@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/convex/_generated/api";
 import { startQrAction, stopQrAction } from "@/app/actions/qr";
 import {
   useDashboardStats,
@@ -11,7 +10,7 @@ import {
   useAllActiveQr,
   useMyActiveSessions,
   useUserStats,
-} from "@/hooks/useConvexQueries";
+} from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSessionAction } from "@/app/actions/session";
@@ -62,7 +61,7 @@ export default function Dashboard() {
 
       {role === "super_admin" && <SuperAdminHome />}
       {role === "admin" && <AdminHome sessionToken={sessionToken} />}
-      {role === "corps_member" && <MemberHome userId={session.user._id} />}
+      {role === "corps_member" && <MemberHome userId={session.user.id} />}
     </div>
   );
 }

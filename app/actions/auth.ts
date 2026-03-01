@@ -1,25 +1,18 @@
 "use server";
 import { cookies } from "next/headers";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
 import { extractErrorMessage } from "@/lib/utils";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-const client = new ConvexHttpClient(convexUrl);
+import * as authRepo from "@/lib/repositories/auth";
 
 export async function loginAction(formData: FormData) {
   const stateCode = String(formData.get("stateCode") || "").trim();
   const password = String(formData.get("password") || "");
   const deviceFingerprint = String(formData.get("deviceFingerprint") || "").trim();
+  const nextPath = String(formData.get("next") || "/dashboard").trim() || "/dashboard";
   if (!stateCode || !password) {
     return { ok: false, error: "Missing credentials" } as const;
   }
   try {
-    const res = await client.mutation(api.auth.login, { 
-      stateCode, 
-      password,
-      deviceFingerprint: deviceFingerprint || undefined,
-    });
+    const res = await authRepo.login(stateCode, password, deviceFingerprint || undefined);
     const c = await cookies();
     c.set("session_token", res.sessionToken, {
       httpOnly: true,
@@ -28,8 +21,8 @@ export async function loginAction(formData: FormData) {
       path: "/",
       maxAge: 60 * 60 * 24, // 1 day
     });
-    return { ok: true } as const;
-  } catch (e: any) {
+    return { ok: true, redirect: nextPath } as const;
+  } catch (e: unknown) {
     const errorMsg = extractErrorMessage(e, "Login failed");
     return { ok: false, error: errorMsg } as const;
   }
@@ -40,8 +33,8 @@ export async function logoutAction() {
   const token = c.get("session_token")?.value || "";
   if (token) {
     try {
-      await client.mutation(api.auth.logout, { sessionToken: token });
-    } catch (e) {
+      await authRepo.logout(token);
+    } catch {
       // Ignore errors on logout
     }
   }
@@ -65,14 +58,8 @@ export async function signupAction(formData: FormData) {
   }
 
   try {
-    const res = await client.mutation(api.auth.signup, {
-      name,
-      email,
-      state_code,
-      password,
-      cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
-    });
-    
+    const res = await authRepo.signup(name, email, state_code, password, cds_group_id || undefined);
+
     const c = await cookies();
     c.set("session_token", res.sessionToken, {
       httpOnly: true,
@@ -81,10 +68,13 @@ export async function signupAction(formData: FormData) {
       path: "/",
       maxAge: 60 * 60 * 24, // 1 day
     });
-    
+
     return { ok: true } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to sign up") } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to sign up"),
+    } as const;
   }
 }
 
@@ -94,22 +84,21 @@ export async function changePasswordAction(formData: FormData) {
   if (!sessionToken) {
     return { ok: false, error: "Unauthorized" } as const;
   }
-  
+
   const currentPassword = String(formData.get("currentPassword") || "");
   const newPassword = String(formData.get("newPassword") || "");
-  
+
   if (!currentPassword || !newPassword) {
     return { ok: false, error: "Missing password fields" } as const;
   }
-  
+
   try {
-    await client.mutation(api.auth.changePassword, { 
-      sessionToken, 
-      currentPassword, 
-      newPassword 
-    });
+    await authRepo.changePassword(sessionToken, currentPassword, newPassword);
     return { ok: true } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to change password") } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to change password"),
+    } as const;
   }
 }

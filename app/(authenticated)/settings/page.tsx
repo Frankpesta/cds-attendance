@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useBatchAttendanceSettings } from "@/hooks/useConvexQueries";
+import { useBatchAttendanceSettings } from "@/hooks/useApiQueries";
+import { setBatchAttendanceRequirementsAction } from "@/app/actions/settings";
 import { extractErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   
   const { data: batchSettings } = useBatchAttendanceSettings();
-  const setBatchRequirements = useMutation(api.settings.setBatchAttendanceRequirements);
   
   // Initialize values when settings are loaded
   useEffect(() => {
@@ -55,15 +53,18 @@ export default function SettingsPage() {
     
     setSaving(true);
     try {
-      await setBatchRequirements({ 
-        sessionToken, 
+      const res = await setBatchAttendanceRequirementsAction({
         default: defaultCount,
         batchA: batchA ?? undefined,
         batchB: batchB ?? undefined,
         batchC: batchC ?? undefined,
       });
-      push({ variant: "success", title: "Settings Updated", description: "Batch attendance requirements updated successfully" });
-    } catch (error: any) {
+      if (res.ok) {
+        push({ variant: "success", title: "Settings Updated", description: "Batch attendance requirements updated successfully" });
+      } else {
+        push({ variant: "error", title: "Failed to Update", description: res.error });
+      }
+    } catch (error: unknown) {
       push({ variant: "error", title: "Failed to Update", description: extractErrorMessage(error, "Could not update settings") });
     } finally {
       setSaving(false);
@@ -169,9 +170,9 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <Button onClick={handleSave} loading={saving} disabled={defaultCount === null || defaultCount < 1}>
+          <Button onClick={handleSave} disabled={saving || defaultCount === null || defaultCount < 1}>
             <Save className="w-4 h-4 mr-2" />
-            Save Settings
+            {saving ? "Saving..." : "Save Settings"}
           </Button>
         </CardContent>
       </Card>

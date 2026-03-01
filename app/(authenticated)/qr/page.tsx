@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/convex/_generated/api";
-import { useAllActiveQr, useTodayMeetingDate, useActiveQr, useDashboardStats } from "@/hooks/useConvexQueries";
+import { useAllActiveQr, useTodayMeetingDate, useActiveQr, useDashboardStats } from "@/hooks/useApiQueries";
 import QRCode from "qrcode";
 import { stopQrAction } from "@/app/actions/qr";
 import { Button } from "@/components/ui/button";
@@ -257,9 +256,9 @@ export default function QrDisplay() {
                       push({ variant: "success", title: "Session Stopped", description: "QR session has been stopped" });
                       setSelectedMeetingId("");
                       // Invalidate queries instead of reloading
-                      queryClient.invalidateQueries({ queryKey: ["convexQuery", api.qr.getAllActiveQr] });
-                      queryClient.invalidateQueries({ queryKey: ["convexQuery", api.qr.getActiveQr] });
-                      queryClient.invalidateQueries({ queryKey: ["convexQuery", api.qr.getSessionSecret] });
+                      queryClient.invalidateQueries({ queryKey: ["all-active-qr"] });
+                      queryClient.invalidateQueries({ queryKey: ["active-qr"] });
+                      queryClient.invalidateQueries({ queryKey: ["qr-session-secret"] });
                     } else {
                       throw new Error(res.error || "Failed to stop session");
                     }

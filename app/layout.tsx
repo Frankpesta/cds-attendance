@@ -4,7 +4,8 @@ import "./globals.css";
 import Providers from "./providers";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
-
+// Force Node.js runtime - Prisma does not run on Edge
+export const runtime = "nodejs";
 
 const manrope = Manrope({
   variable: "--font-manrope",

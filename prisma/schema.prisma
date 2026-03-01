@@ -1,0 +1,371 @@
+// CDS Attendance - MySQL schema (mirrors Convex)
+// Use String IDs for Convex migration compatibility
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url         = env("DATABASE_URL")
+  relationMode = "prisma"  // TiDB Serverless / PlanetScale: Prisma enforces relations in-app
+}
+
+model User {
+  id                       String    @id @db.VarChar(64)
+  name                     String    @db.VarChar(255)
+  email                    String    @db.VarChar(255)
+  state_code               String    @db.VarChar(64)
+  password                 String    @db.VarChar(255)
+  role                     String    @db.VarChar(32) // super_admin | admin | corps_member
+  cds_group_id             String?   @db.VarChar(64)
+  created_at               BigInt
+  updated_at               BigInt
+  is_blocked               Boolean?  @default(false)
+  blocked_at               BigInt?
+  blocked_reason           String?   @db.VarChar(512)
+  allowed_device_fingerprint String? @db.VarChar(255)
+
+  cds_group       CdsGroup?   @relation(fields: [cds_group_id], references: [id])
+  sessions        Session[]
+  attendance      Attendance[]
+  qr_tokens       QrToken[]
+  admin_assignments AdminGroupAssignment[]
+  meetings        Meeting[]
+  documentation_links DocumentationLink[]
+  corp_member_docs CorpMemberDoc[]
+  employer_docs   EmployerDoc[]
+  rejected_reposting_docs RejectedRepostingDoc[]
+  corp_member_requests CorpMemberRequest[]
+  settings        Setting[]
+  audit_logs      AuditLog[]
+  password_reset_tokens PasswordResetToken[]
+
+  @@index([email])
+  @@index([state_code])
+  @@index([role])
+  @@index([cds_group_id])
+}
+
+model CdsGroup {
+  id               String   @id @db.VarChar(64)
+  name             String   @db.VarChar(255)
+  meeting_days     Json     // JSON array of strings
+  meeting_time     String   @db.VarChar(16)  // HH:mm 24h
+  meeting_duration Int      // minutes
+  venue_name       String   @db.VarChar(255)
+  admin_ids        Json     // JSON array of user IDs
+  created_at       BigInt
+  updated_at       BigInt
+
+  users           User[]
+  admin_assignments AdminGroupAssignment[]
+  meetings        Meeting[]
+  qr_tokens       QrToken[]
+  attendance      Attendance[]
+  user_cds_assignment_history UserCdsAssignmentHistory[]
+
+  @@index([name])
+}
+
+model AdminGroupAssignment {
+  id           String   @id @db.VarChar(64)
+  admin_id     String   @db.VarChar(64)
+  cds_group_id String   @db.VarChar(64)
+  created_at   BigInt
+
+  admin  User     @relation(fields: [admin_id], references: [id])
+  group  CdsGroup @relation(fields: [cds_group_id], references: [id])
+
+  @@index([admin_id])
+  @@index([cds_group_id])
+}
+
+model Meeting {
+  id                     String   @id @db.VarChar(64)
+  meeting_date           String   @db.VarChar(16)  // YYYY-MM-DD
+  cds_group_ids          Json?    // Legacy: JSON array
+  cds_group_id           String?  @db.VarChar(64)
+  session_id             String?  @db.VarChar(64)
+  is_active              Boolean
+  activated_by_admin_id  String?  @db.VarChar(64)
+  activated_at           BigInt?
+  deactivated_at         BigInt?
+  session_secret         String?  @db.VarChar(128)
+  rotation_interval_sec  Int?
+  token_algorithm        String?  @db.VarChar(64)
+
+  cds_group         CdsGroup? @relation(fields: [cds_group_id], references: [id])
+  activated_by_admin User?   @relation(fields: [activated_by_admin_id], references: [id])
+  qr_tokens          QrToken[]
+
+  @@index([meeting_date])
+  @@index([meeting_date, is_active])  // Composite: active-meetings query (submitScan, markAttendanceManually)
+  @@index([cds_group_id, meeting_date])
+  @@index([is_active])
+  @@index([session_id])
+}
+
+model QrToken {
+  id                    String   @id @db.VarChar(64)
+  token                 String   @db.VarChar(255)
+  meeting_date          String   @db.VarChar(16)
+  meeting_id            String?  @db.VarChar(64)
+  cds_group_id          String?  @db.VarChar(64)
+  generated_by_admin_id String   @db.VarChar(64)
+  generated_at          BigInt
+  expires_at            BigInt
+  rotation_sequence     Int
+  is_consumed            Boolean
+
+  meeting       Meeting?  @relation(fields: [meeting_id], references: [id])
+  cds_group     CdsGroup? @relation(fields: [cds_group_id], references: [id])
+  generated_by  User     @relation(fields: [generated_by_admin_id], references: [id])
+  attendance    Attendance[]
+
+  @@index([token])
+  @@index([meeting_date])
+  @@index([meeting_id])
+  @@index([cds_group_id, meeting_date])
+  @@index([meeting_id, rotation_sequence])
+}
+
+model Attendance {
+  id           String   @id @db.VarChar(64)
+  user_id      String   @db.VarChar(64)
+  cds_group_id String   @db.VarChar(64)
+  meeting_date String   @db.VarChar(16)
+  scanned_at   BigInt
+  qr_token_id  String   @db.VarChar(64)
+  status       String   @db.VarChar(16)  // present | absent
+
+  user User   @relation(fields: [user_id], references: [id])
+  cds_group CdsGroup @relation(fields: [cds_group_id], references: [id])
+  qr_token QrToken @relation(fields: [qr_token_id], references: [id])
+
+  @@index([user_id, meeting_date])
+  @@index([cds_group_id, meeting_date])
+  @@index([meeting_date])
+  @@index([scanned_at])
+}
+
+model UserCdsAssignmentHistory {
+  id                  String   @id @db.VarChar(64)
+  user_id             String   @db.VarChar(64)
+  cds_group_id        String   @db.VarChar(64)
+  start_date          String   @db.VarChar(16)
+  end_date            String?  @db.VarChar(16)
+  changed_by_admin_id String   @db.VarChar(64)
+  reason              String?  @db.VarChar(512)
+
+  cds_group CdsGroup @relation(fields: [cds_group_id], references: [id])
+
+  @@index([user_id])
+  @@index([cds_group_id])
+}
+
+model Session {
+  id                 String   @id @db.VarChar(64)
+  user_id            String   @db.VarChar(64)
+  session_token      String   @db.VarChar(255)
+  created_at         BigInt
+  last_active_at     BigInt
+  expires_at         BigInt
+  device_fingerprint String?  @db.VarChar(255)
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@unique([session_token])
+  @@index([session_token])
+  @@index([user_id])
+}
+
+model AuditLog {
+  id              String   @id @db.VarChar(64)
+  actor_user_id   String   @db.VarChar(64)
+  action          String   @db.VarChar(255)
+  details         String?  @db.Text
+  created_at      BigInt
+
+  actor User @relation(fields: [actor_user_id], references: [id])
+
+  @@index([actor_user_id])
+  @@index([created_at])
+}
+
+model DocumentationLink {
+  id                   String   @id @db.VarChar(64)
+  token                String   @db.VarChar(64)
+  type                 String   @db.VarChar(32)  // corp_member | employer | rejected_reposting | corp_member_request
+  status               String   @db.VarChar(16)  // active | inactive
+  created_by_admin_id  String   @db.VarChar(64)
+  created_at           BigInt
+  uses_count           Int
+  deactivated_at       BigInt?
+
+  created_by_admin User @relation(fields: [created_by_admin_id], references: [id])
+  corp_member_docs CorpMemberDoc[]
+  employer_docs    EmployerDoc[]
+  rejected_reposting_docs RejectedRepostingDoc[]
+  corp_member_requests CorpMemberRequest[]
+
+  @@index([token])
+  @@index([type])
+}
+
+model CorpMemberDoc {
+  id                           String   @id @db.VarChar(64)
+  link_id                      String   @db.VarChar(64)
+  link_token                   String   @db.VarChar(64)
+  created_at                   BigInt
+  updated_at                   BigInt
+  created_by_admin_id          String   @db.VarChar(64)
+  is_deleted                   Boolean
+  deleted_at                   BigInt?
+  full_name                    String   @db.VarChar(255)
+  state_code                   String   @db.VarChar(64)
+  phone_number                 String   @db.VarChar(64)
+  residential_address          String   @db.Text
+  next_of_kin                  String   @db.VarChar(255)
+  next_of_kin_phone            String   @db.VarChar(64)
+  gender                       String   @db.VarChar(32)
+  ppa                          String   @db.VarChar(255)
+  course_of_study               String   @db.VarChar(255)
+  call_up_number               String   @db.VarChar(64)
+  email                        String   @db.VarChar(255)
+  nysc_account_number          String   @db.VarChar(64)
+  bank_name                    String   @db.VarChar(255)
+  nin                          String   @db.VarChar(64)
+  cds                          String?  @db.VarChar(255)
+  medical_history              Boolean
+  medical_files                Json     // JSON array: { file_path, fileName, fileSize, contentType }
+  personal_skill               String?  @db.VarChar(255)
+  saed_camp_skill              String?  @db.VarChar(255)
+  proposed_post_camp_saed_skill String? @db.VarChar(255)
+  selected_trainer_name       String?  @db.VarChar(255)
+  selected_trainer_business   String?  @db.VarChar(255)
+  selected_trainer_phone      String?  @db.VarChar(64)
+  selected_trainer_email      String?  @db.VarChar(255)
+
+  link             DocumentationLink @relation(fields: [link_id], references: [id])
+  created_by_admin User             @relation(fields: [created_by_admin_id], references: [id])
+
+  @@index([link_token])
+  @@index([created_at])
+}
+
+model EmployerDoc {
+  id                           String   @id @db.VarChar(64)
+  link_id                      String   @db.VarChar(64)
+  link_token                   String   @db.VarChar(64)
+  created_at                   BigInt
+  updated_at                   BigInt
+  created_by_admin_id          String   @db.VarChar(64)
+  is_deleted                   Boolean
+  deleted_at                   BigInt?
+  organization_name            String   @db.VarChar(255)
+  organization_address         String   @db.Text
+  organization_phone           String   @db.VarChar(64)
+  contact_person_name          String   @db.VarChar(255)
+  contact_person_phone         String   @db.VarChar(64)
+  cms_required_per_year        Int
+  accommodation                Boolean
+  accommodation_type          String?  @db.VarChar(64)
+  monthly_stipend             Int
+  email                        String   @db.VarChar(255)
+  nearest_landmark             String   @db.VarChar(255)
+
+  link             DocumentationLink @relation(fields: [link_id], references: [id])
+  created_by_admin User              @relation(fields: [created_by_admin_id], references: [id])
+
+  @@index([link_token])
+  @@index([created_at])
+}
+
+model RejectedRepostingDoc {
+  id                   String   @id @db.VarChar(64)
+  link_id              String   @db.VarChar(64)
+  link_token           String   @db.VarChar(64)
+  created_at           BigInt
+  updated_at           BigInt
+  created_by_admin_id  String   @db.VarChar(64)
+  is_deleted           Boolean
+  deleted_at           BigInt?
+  name                 String   @db.VarChar(255)
+  state_code           String   @db.VarChar(64)
+  sex                  String   @db.VarChar(32)
+  discipline           String   @db.VarChar(255)
+  previous_ppa         String   @db.VarChar(255)
+  new_ppa              String?  @db.VarChar(255)
+  recommendation       String?  @db.Text
+
+  link             DocumentationLink @relation(fields: [link_id], references: [id])
+  created_by_admin User               @relation(fields: [created_by_admin_id], references: [id])
+
+  @@index([link_token])
+  @@index([created_at])
+}
+
+model CorpMemberRequest {
+  id                           String   @id @db.VarChar(64)
+  link_id                      String   @db.VarChar(64)
+  link_token                   String   @db.VarChar(64)
+  created_at                   BigInt
+  updated_at                   BigInt
+  created_by_admin_id          String   @db.VarChar(64)
+  is_deleted                   Boolean
+  deleted_at                   BigInt?
+  ppa_name                     String   @db.VarChar(255)
+  ppa_address                  String   @db.Text
+  ppa_phone_number             String   @db.VarChar(64)
+  number_of_corp_members_requested Int
+  discipline_needed            String   @db.VarChar(255)
+  gender_needed                String   @db.VarChar(32)
+  monthly_stipend              Int
+  available_accommodation      Boolean
+
+  link             DocumentationLink @relation(fields: [link_id], references: [id])
+  created_by_admin User               @relation(fields: [created_by_admin_id], references: [id])
+
+  @@index([link_token])
+  @@index([created_at])
+}
+
+model Setting {
+  id         String   @id @db.VarChar(64)
+  key        String   @db.VarChar(64)
+  value      String   @db.Text
+  updated_by String   @db.VarChar(64)
+  updated_at BigInt
+
+  updated_by_user User @relation(fields: [updated_by], references: [id])
+
+  @@index([key])
+}
+
+model PasswordResetToken {
+  id         String   @id @db.VarChar(64)
+  user_id    String   @db.VarChar(64)
+  token      String   @db.VarChar(255)
+  created_at BigInt
+  expires_at BigInt
+  used_at    BigInt?
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([token])
+  @@index([user_id])
+}
+
+model ClearanceVerification {
+  id         String   @id @db.VarChar(64)
+  token      String   @db.VarChar(64)
+  user_id    String   @db.VarChar(64)
+  year       Int
+  month      Int
+  created_at BigInt
+
+  @@unique([token])
+  @@index([token])
+  @@index([user_id, year, month])
+}

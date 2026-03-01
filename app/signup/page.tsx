@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { useCdsGroupsList } from "@/hooks/useConvexQueries";
+import { useCdsGroupsList } from "@/hooks/useApiQueries";
 import { validateEmail, validatePassword, validateStateCode, validateName } from "@/lib/validation";
 import { extractErrorMessage } from "@/lib/utils";
 import Link from "next/link";

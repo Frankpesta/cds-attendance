@@ -20,9 +20,14 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   className?: string;
   itemsPerPage?: number;
+  selectable?: boolean;
+  rowIdKey?: keyof T | ((item: T) => string);
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  toolbar?: React.ReactNode;
 }
 
-export function DataTable<T>({
+export function DataTable<T extends Record<string, unknown>>({
   data,
   columns,
   title,
@@ -30,8 +35,18 @@ export function DataTable<T>({
   emptyMessage = "No data available",
   className,
   itemsPerPage = 80,
+  selectable,
+  rowIdKey = "_id" as keyof T,
+  selectedIds = [],
+  onSelectionChange,
+  toolbar,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
+
+  const getRowId = (item: T): string => {
+    if (typeof rowIdKey === "function") return rowIdKey(item);
+    return String(item[rowIdKey] ?? "");
+  };
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -48,12 +63,29 @@ export function DataTable<T>({
     }
   }, [data.length, currentPage, totalPages]);
 
+  const selectedSet = new Set(selectedIds);
+  const allPaginatedIds = paginatedData.map((item) => getRowId(item));
+  const allPaginatedSelected = allPaginatedIds.every((id) => selectedSet.has(id));
+  const toggleSelectAll = () => {
+    if (!onSelectionChange) return;
+    if (allPaginatedSelected) {
+      const next = selectedIds.filter((id) => !allPaginatedIds.includes(id));
+      onSelectionChange(next);
+    } else {
+      const next = [...new Set([...selectedIds, ...allPaginatedIds])];
+      onSelectionChange(next);
+    }
+  };
+
   return (
     <Card className={cn("", className)}>
-      {(title || description) && (
-        <CardHeader>
-          {title && <h3 className="text-lg font-semibold">{title}</h3>}
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      {(title || description || toolbar) && (
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            {title && <h3 className="text-lg font-semibold">{title}</h3>}
+            {description && <p className="text-sm text-muted-foreground">{description}</p>}
+          </div>
+          {toolbar}
         </CardHeader>
       )}
       <CardContent className="p-0">
@@ -67,6 +99,16 @@ export function DataTable<T>({
             <table className="w-full">
               <thead>
                 <tr className="border-b">
+                  {selectable && (
+                    <th className="w-12 py-3 px-4">
+                      <input
+                        type="checkbox"
+                        checked={allPaginatedSelected && allPaginatedIds.length > 0}
+                        onChange={toggleSelectAll}
+                        className="rounded border-gray-300"
+                      />
+                    </th>
+                  )}
                   {columns.map((column) => (
                     <th
                       key={String(column.key)}
@@ -81,8 +123,27 @@ export function DataTable<T>({
                 </tr>
               </thead>
               <tbody>
-                  {paginatedData.map((item, index) => (
-                  <tr key={index} className="border-b hover:bg-muted/50">
+                  {paginatedData.map((item, index) => {
+                    const id = getRowId(item);
+                    const rowKey = id || `row-${index}`;
+                    return (
+                  <tr key={rowKey} className={cn("border-b hover:bg-muted/50", selectedSet.has(id) && "bg-primary/5")}>
+                    {selectable && (
+                      <td className="py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedSet.has(id)}
+                          onChange={() => {
+                            if (!onSelectionChange) return;
+                            const next = selectedSet.has(id)
+                              ? selectedIds.filter((x) => x !== id)
+                              : [...selectedIds, id];
+                            onSelectionChange(next);
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                      </td>
+                    )}
                     {columns.map((column) => (
                       <td
                         key={String(column.key)}
@@ -97,7 +158,8 @@ export function DataTable<T>({
                       </td>
                     ))}
                   </tr>
-                ))}
+                    );
+                  })}
               </tbody>
             </table>
           </div>

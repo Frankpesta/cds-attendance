@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationCorpMemberByLinkToken } from "@/hooks/useConvexQueries";
+import { saveSAEDDataAction } from "@/app/actions/documentation";
+import { useDocumentationCorpMemberByLinkToken } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +27,6 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
 
   const { data: corpMemberDoc } = useDocumentationCorpMemberByLinkToken(params.token);
 
-  const saveSAEDData = useMutation(api.documentation.saveSAEDData);
 
   // Get available trainers for selected skill
   const availableTrainers = useMemo(() => {
@@ -98,8 +96,7 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
 
     setSubmitting(true);
     try {
-      await saveSAEDData({
-        linkToken: params.token,
+      const result = await saveSAEDDataAction(params.token, {
         personalSkill: form.personal_skill.trim(),
         saedCampSkill: form.saed_camp_skill.trim(),
         proposedPostCampSAEDSkill: form.proposed_post_camp_saed_skill.trim(),
@@ -108,6 +105,7 @@ export default function SAEDSelectionPage({ params }: { params: { token: string 
         selectedTrainerPhone: form.selected_trainer?.phone,
         selectedTrainerEmail: form.selected_trainer?.email,
       });
+      if (!result.ok) throw new Error(result.error);
       setSubmitted(true);
       push({ variant: "success", title: "SAED information saved successfully" });
       

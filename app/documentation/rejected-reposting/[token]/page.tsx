@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
+import { submitRejectedRepostingAction } from "@/app/actions/documentation";
+import { useDocumentationValidateLink } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +29,6 @@ export default function RejectedRepostingRegistrationPage({ params }: { params: 
 
   const { data: link } = useDocumentationValidateLink(params.token, "rejected_reposting");
 
-  const submitRejectedReposting = useMutation(api.documentation.submitRejectedReposting);
 
   const disabled = useMemo(
     () =>
@@ -46,18 +44,16 @@ export default function RejectedRepostingRegistrationPage({ params }: { params: 
     if (!link || !link.token) return;
     setSubmitting(true);
     try {
-      await submitRejectedReposting({
-        token: link.token,
-        payload: {
-          name: form.name.trim(),
-          state_code: form.state_code.trim().toUpperCase(),
-          sex: form.sex,
-          discipline: form.discipline.trim(),
-          previous_ppa: form.previous_ppa.trim().toUpperCase(),
-          new_ppa: form.new_ppa?.trim() || undefined,
-          recommendation: form.recommendation?.trim() || undefined,
-        },
+      const result = await submitRejectedRepostingAction(link.token, {
+        name: form.name.trim(),
+        state_code: form.state_code.trim().toUpperCase(),
+        sex: form.sex,
+        discipline: form.discipline.trim(),
+        previous_ppa: form.previous_ppa.trim().toUpperCase(),
+        new_ppa: form.new_ppa?.trim() || undefined,
+        recommendation: form.recommendation?.trim() || undefined,
       });
+      if (!result.ok) throw new Error(result.error);
       push({ variant: "success", title: "Form submitted successfully", description: "Redirecting to success page..." });
       setTimeout(() => {
         router.push(`/documentation/rejected-reposting/${link.token}/success`);
