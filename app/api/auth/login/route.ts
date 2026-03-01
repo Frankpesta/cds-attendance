@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
     const stateCode = String(formData.get("stateCode") || "").trim();
     const password = String(formData.get("password") || "");
     const deviceFingerprint = String(formData.get("deviceFingerprint") || "").trim();
-    const nextPath = String(formData.get("next") || "/dashboard").trim() || "/dashboard";
+    let nextPath = String(formData.get("next") || "/dashboard").trim() || "/dashboard";
+    if (nextPath === "/") nextPath = "/dashboard";
 
     if (!stateCode || !password) {
       return NextResponse.redirect(new URL("/login?error=Missing+credentials", request.url));

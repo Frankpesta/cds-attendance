@@ -30,8 +30,12 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("session_token")?.value || "";
   if (!token) {
     const url = new URL("/login", req.url);
-    url.searchParams.set("next", pathname);
+    url.searchParams.set("next", pathname === "/" ? "/dashboard" : pathname);
     return NextResponse.redirect(url);
+  }
+
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();
