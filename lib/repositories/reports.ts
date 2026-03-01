@@ -278,8 +278,9 @@ export async function exportUserPdf(args: {
   const verifyUrl = baseUrl ? `${baseUrl}/verify/clearance/${verificationToken}` : `/verify/clearance/${verificationToken}`;
 
   const QRCode = (await import("qrcode")).default;
+  const qrSize = 72;
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-    width: 120,
+    width: qrSize,
     margin: 1,
     color: { dark: "#000000", light: "#ffffff" },
   });
@@ -325,34 +326,34 @@ export async function exportUserPdf(args: {
 <meta charset="utf-8">
 <title>CDS Clearance Slip - ${user.name}</title>
 <style>
-@media print { body { margin: 0; } .page-break { page-break-before: always; } }
-body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #000; background: white; }
-.header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #000; padding-bottom: 20px; }
-.header h1 { color: #000; margin: 0; font-size: 24px; font-weight: bold; }
-.header p { color: #000; margin: 10px 0 0 0; font-size: 16px; }
-.certificate { border: 2px solid #000; padding: 20px; margin: 20px 0; }
-.user-info { padding: 15px; margin: 15px 0; border: 1px solid #000; }
-.user-info h3 { color: #000; margin: 0 0 15px 0; font-size: 16px; font-weight: bold; }
-.info-row { margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #ccc; overflow: hidden; }
-.info-label { font-weight: bold; color: #000; width: 150px; float: left; }
-.info-value { color: #000; margin-left: 160px; }
-.stats { margin: 20px 0; overflow: hidden; }
-.stat-card { padding: 15px; text-align: center; border: 1px solid #000; width: 30%; float: left; margin-right: 3%; }
+@media print { body { margin: 0; padding: 8px; } }
+body { font-family: Arial, sans-serif; margin: 0; padding: 10px; line-height: 1.25; font-size: 11px; color: #000; background: white; }
+.header { text-align: center; margin-bottom: 6px; border-bottom: 2px solid #000; padding-bottom: 4px; }
+.header h1 { margin: 0; font-size: 14px; font-weight: bold; }
+.header p { margin: 1px 0 0 0; font-size: 11px; }
+.certificate { border: 1px solid #000; padding: 8px; margin: 6px 0; }
+.user-info { padding: 5px 6px; margin: 0 0 6px 0; border: 1px solid #000; }
+.user-info h3 { margin: 0 0 4px 0; font-size: 10px; font-weight: bold; }
+.info-row { margin: 1px 0; padding: 1px 0; border-bottom: 1px solid #eee; overflow: hidden; }
+.info-label { font-weight: bold; width: 80px; float: left; }
+.info-value { margin-left: 90px; }
+.stats { margin: 6px 0; overflow: hidden; }
+.stat-card { padding: 5px; text-align: center; border: 1px solid #000; width: 30%; float: left; margin-right: 3%; }
 .stat-card:last-child { margin-right: 0; }
-.stat-number { font-size: 20px; font-weight: bold; color: #000; margin-bottom: 5px; }
-.stat-label { color: #000; font-size: 12px; }
-.status { text-align: center; margin: 30px 0; padding: 20px; border: 2px solid #000; background: ${isCleared ? "#f0f0f0" : "#f5f5f5"}; }
-.status-icon { font-size: 20px; margin-bottom: 10px; }
-.status-text { font-size: 16px; font-weight: bold; color: #000; }
-.footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #000; color: #000; font-size: 12px; }
-.attendance-dates { padding: 15px; margin: 15px 0; border: 1px solid #000; }
-.attendance-dates h4 { color: #000; margin: 0 0 10px 0; font-size: 14px; font-weight: bold; }
-.date-list { line-height: 1.8; }
-.date-tag { background: #f0f0f0; color: #000; padding: 2px 6px; border: 1px solid #000; font-size: 10px; font-weight: normal; margin-right: 5px; display: inline-block; margin-bottom: 3px; }
+.stat-number { font-size: 14px; font-weight: bold; margin-bottom: 1px; }
+.stat-label { font-size: 9px; }
+.status { text-align: center; margin: 6px 0; padding: 6px; border: 1px solid #000; background: ${isCleared ? "#f0f0f0" : "#f5f5f5"}; }
+.status-icon { font-size: 12px; margin-bottom: 2px; }
+.status-text { font-size: 11px; font-weight: bold; }
+.footer { text-align: center; margin-top: 6px; padding-top: 4px; border-top: 1px solid #000; font-size: 8px; }
+.attendance-dates { padding: 5px 6px; margin: 6px 0; border: 1px solid #000; }
+.attendance-dates h4 { margin: 0 0 3px 0; font-size: 9px; font-weight: bold; }
+.date-list { line-height: 1.3; font-size: 8px; }
+.date-tag { background: #f5f5f5; padding: 1px 3px; border: 1px solid #ccc; font-size: 7px; margin-right: 2px; display: inline-block; margin-bottom: 1px; }
 .clearfix::after { content: ""; display: table; clear: both; }
-.verification { text-align: center; margin: 20px 0; padding: 15px; border: 2px dashed #333; }
-.verification-qr { display: inline-block; margin: 10px 0; }
-.verification-id { font-size: 10px; font-family: monospace; color: #666; word-break: break-all; margin-top: 8px; }
+.verification { text-align: center; margin: 6px 0; padding: 6px; border: 1px dashed #333; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.verification-qr { display: block; }
+.verification-id { font-size: 7px; font-family: monospace; color: #666; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -364,12 +365,12 @@ body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #0
 <div class="user-info">
 <h3>Personal Information</h3>
 <div class="info-row"><span class="info-label">Full Name:</span><span class="info-value">${user.name}</span></div>
-<div class="info-row"><span class="info-label">Email Address:</span><span class="info-value">${user.email}</span></div>
+<div class="info-row"><span class="info-label">Email:</span><span class="info-value">${user.email}</span></div>
 <div class="info-row"><span class="info-label">State Code:</span><span class="info-value">${user.state_code}</span></div>
 <div class="info-row"><span class="info-label">CDS Group:</span><span class="info-value">${cdsGroupName}</span></div>
 </div>
 <div class="stats clearfix">
-<div class="stat-card"><div class="stat-number">${totalRecords}</div><div class="stat-label">Total CDS Sessions</div></div>
+<div class="stat-card"><div class="stat-number">${totalRecords}</div><div class="stat-label">Total Sessions</div></div>
 <div class="stat-card"><div class="stat-number">${totalAttendance}</div><div class="stat-label">Times Attended</div></div>
 <div class="stat-card"><div class="stat-number">${averageAttendance}%</div><div class="stat-label">Attendance Rate</div></div>
 </div>
@@ -386,15 +387,13 @@ ${rep.data.map((row) => row.dates.map((d) => `<span class="date-tag">${d}</span>
 <div class="status-text">${isCleared ? "CLEARED - Attendance requirement met (100%)" : "PENDING - Attendance requirement not met"}</div>
 </div>
 <div class="verification">
-<p style="font-weight: bold; margin: 0 0 8px 0;">Verify authenticity: Scan QR code or visit the verification link</p>
-<img class="verification-qr" src="${qrDataUrl}" alt="Verification QR" width="120" height="120" />
-<p class="verification-id">Verification ID: ${verificationToken}</p>
+<p style="font-weight: bold; margin: 0 0 4px 0; font-size: 9px;">Verify: Scan QR or visit link</p>
+<img class="verification-qr" src="${qrDataUrl}" alt="QR" width="${qrSize}" height="${qrSize}" />
+<p class="verification-id">ID: ${verificationToken}</p>
 </div>
 </div>
 <div class="footer">
-<p><strong>CDS Attendance Management System</strong></p>
-<p>This slip is uniquely signed. Scan the QR code above to verify authenticity.</p>
-<p>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
+<strong>CDS Attendance Management System</strong> · Signed & verifiable · ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
 </div>
 </body>
 </html>
