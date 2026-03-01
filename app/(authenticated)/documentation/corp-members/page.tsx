@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "convex/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationListLinks, useDocumentationListCorpMembers, useCdsGroupsList } from "@/hooks/useConvexQueries";
+import {
+  createLinkAction,
+  toggleLinkStatusAction,
+  updateCorpMemberAction,
+  deleteCorpMemberAction,
+  batchDeleteCorpMembersAction,
+  getFileUrlAction,
+} from "@/app/actions/documentation";
+import { useDocumentationListLinks, useDocumentationListCorpMembers, useCdsGroupsList } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,10 +22,8 @@ import { extractErrorMessage } from "@/lib/utils";
 import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield, Download } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
-import type { Id } from "@/convex/_generated/dataModel";
-
 interface MedicalFile {
-  storageId: Id<"_storage">;
+  file_path: string;
   fileName: string;
   fileSize: number;
   contentType: string;
@@ -48,12 +52,21 @@ function formatDate(ms?: number) {
   return new Date(ms).toLocaleString();
 }
 
+function extractBatchFromStateCode(stateCode: string): string {
+  const parts = String(stateCode || "").split("/");
+  return parts.length >= 2 ? parts[1] : "";
+}
+
 export default function CorpMembersDocumentationPage() {
   const sessionToken = useSessionToken();
   const { push } = useToast();
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
   const [medicalFilter, setMedicalFilter] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<Record<string, string | boolean>>({});
@@ -67,15 +80,9 @@ export default function CorpMembersDocumentationPage() {
   const { data: corpMembers } = useDocumentationListCorpMembers(sessionToken);
   const { data: cdsGroups } = useCdsGroupsList();
 
-  const createLink = useMutation(api.documentation.createLink);
-  const toggleLinkStatus = useMutation(api.documentation.toggleLinkStatus);
-  const updateCorpMember = useMutation(api.documentation.updateCorpMember);
-  const deleteCorpMember = useMutation(api.documentation.deleteCorpMember);
-  const getFileUrl = useMutation(api.documentation.getFileUrl);
-
   const invalidateDocQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listLinks] });
-    queryClient.invalidateQueries({ queryKey: ["convexQuery", api.documentation.listCorpMembers] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-links", "corp_member"] });
+    queryClient.invalidateQueries({ queryKey: ["documentation-corp-members"] });
   };
 
   useEffect(() => {
@@ -144,9 +151,23 @@ export default function CorpMembersDocumentationPage() {
           : medicalFilter === "yes"
           ? member.medical_history
           : !member.medical_history;
-      return matchesSearch && matchesGender && matchesMedical;
+      const userBatch = extractBatchFromStateCode(member.state_code || "");
+      const matchesBatch = !batchFilter || userBatch === batchFilter;
+      return matchesSearch && matchesGender && matchesMedical && matchesBatch;
     });
-  }, [corpMembers, search, genderFilter, medicalFilter]);
+  }, [corpMembers, search, genderFilter, medicalFilter, batchFilter]);
+
+  const batchOptions = useMemo(() => {
+    const batches = new Set<string>();
+    corpMembers?.forEach((m: any) => {
+      const b = extractBatchFromStateCode(m.state_code || "");
+      if (b) batches.add(b);
+    });
+    return [
+      { value: "", label: "All Batches" },
+      ...Array.from(batches).sort().map((b) => ({ value: b, label: b })),
+    ];
+  }, [corpMembers]);
 
   const paginatedLinks = useMemo(() => {
     if (!listLinks) return [];
@@ -170,10 +191,11 @@ export default function CorpMembersDocumentationPage() {
       return;
     }
     try {
-      const result = await createLink({ sessionToken: token, type: "corp_member" });
+      const result = await createLinkAction("corp_member");
+      if (!result.ok) throw new Error(result.error);
       invalidateDocQueries();
       const origin = typeof window !== "undefined" ? window.location.origin : "";
-      const url = `${origin}/documentation/corp-members/${result.token}`;
+      const url = `${origin}/documentation/corp-members/${result.data.token}`;
       await navigator.clipboard.writeText(url);
       push({
         variant: "success",
@@ -188,24 +210,25 @@ export default function CorpMembersDocumentationPage() {
   const handleToggleLink = async (link: any) => {
     if (!sessionToken) return;
     try {
-      await toggleLinkStatus({
-        sessionToken,
-        linkId: link._id,
-        status: link.status === "active" ? "inactive" : "active",
-      });
+      const res = await toggleLinkStatusAction(
+        link.id ?? link._id,
+        link.status === "active" ? "inactive" : "active",
+      );
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
     } catch (error: any) {
       push({ variant: "error", title: "Unable to update link", description: extractErrorMessage(error, "Failed to update link") });
     }
   };
 
-  const handleDelete = async (recordId: Id<"corp_member_docs">) => {
+  const handleDelete = async (recordId: string) => {
     if (!sessionToken) return;
     if (!confirm("Delete this record? This action cannot be undone.")) {
       return;
     }
     try {
-      await deleteCorpMember({ sessionToken, id: recordId });
+      const res = await deleteCorpMemberAction(recordId);
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
       if (selectedRecord?._id === recordId) {
         setSelectedRecord(null);
@@ -220,10 +243,9 @@ export default function CorpMembersDocumentationPage() {
   const handleSave = async () => {
     if (!sessionToken || !selectedRecord) return;
     try {
-      await updateCorpMember({
-        sessionToken,
-        id: selectedRecord._id,
-        updates: {
+      const res = await updateCorpMemberAction(
+        selectedRecord._id ?? selectedRecord.id,
+        {
           full_name: String(editDraft.full_name || ""),
           state_code: String(editDraft.state_code || ""),
           phone_number: String(editDraft.phone_number || ""),
@@ -241,11 +263,11 @@ export default function CorpMembersDocumentationPage() {
           cds: editDraft.cds ? String(editDraft.cds) : undefined,
           medical_history: Boolean(editDraft.medical_history),
         },
-        medical_files:
-          Boolean(editDraft.medical_history) && selectedRecord.medical_files
-            ? (selectedRecord.medical_files as MedicalFile[])
-            : [],
-      });
+        Boolean(editDraft.medical_history) && selectedRecord.medical_files
+          ? (selectedRecord.medical_files as MedicalFile[])
+          : undefined,
+      );
+      if (!res.ok) throw new Error(res.error);
       invalidateDocQueries();
       setEditMode(false);
       push({ variant: "success", title: "Record updated" });
@@ -257,7 +279,7 @@ export default function CorpMembersDocumentationPage() {
   const handleDownload = async (file: MedicalFile) => {
     if (!sessionToken) return;
     try {
-      const signedUrl = await getFileUrl({ sessionToken, fileId: file.storageId });
+      const signedUrl = await getFileUrlAction(file.file_path);
       if (signedUrl) {
         window.open(signedUrl, "_blank");
       } else {
@@ -454,6 +476,14 @@ export default function CorpMembersDocumentationPage() {
                 ]}
               />
             </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium">Batch</label>
+              <Select
+                value={batchFilter}
+                onChange={(event) => setBatchFilter(event.target.value)}
+                options={batchOptions}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -462,9 +492,40 @@ export default function CorpMembersDocumentationPage() {
         <div className="min-w-0">
           <DataTable
             title="Submitted Records"
-            description={`${filteredMembers.length} corps members`}
-            data={filteredMembers}
+            description={`${filteredMembers.length} corps members${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
+            data={filteredMembers as Record<string, unknown>[]}
             columns={columns as any}
+            selectable
+            rowIdKey="_id"
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            toolbar={
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedIds(filteredMembers.map((m: any) => m._id))}
+                >
+                  Select all filtered
+                </Button>
+                {selectedIds.length > 0 && (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                      Clear selection
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setBatchDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete selected ({selectedIds.length})
+                    </Button>
+                  </>
+                )}
+              </div>
+            }
           />
         </div>
 
@@ -619,7 +680,7 @@ export default function CorpMembersDocumentationPage() {
                     <div className="space-y-2">
                       {(selectedRecord.medical_files || []).map((file: MedicalFile) => (
                         <Button
-                          key={file.storageId}
+                          key={file.file_path}
                           variant="ghost"
                           size="sm"
                           className="w-full justify-between"
@@ -648,6 +709,55 @@ export default function CorpMembersDocumentationPage() {
           </CardContent>
         </Card>
       </div>
+
+      {batchDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 max-w-md w-full">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Confirm Batch Delete</h3>
+              <p className="text-sm text-muted-foreground">
+                Delete {selectedIds.length} corp member record(s)? This action cannot be undone.
+              </p>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button variant="secondary" onClick={() => setBatchDeleteDialogOpen(false)} disabled={batchDeleting}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                disabled={batchDeleting}
+                onClick={async () => {
+                  setBatchDeleting(true);
+                  try {
+                    const res = await batchDeleteCorpMembersAction(selectedIds);
+                    if (!res.ok) throw new Error(res.error);
+                    const { deleted, errors } = res.data!;
+                    setSelectedIds([]);
+                    setBatchDeleteDialogOpen(false);
+                    invalidateDocQueries();
+                    if (selectedRecord && selectedIds.includes(selectedRecord._id)) {
+                      setSelectedRecord(null);
+                      setEditMode(false);
+                    }
+                    if (errors.length > 0) {
+                      push({ variant: "error", title: `Deleted ${deleted}, ${errors.length} failed`, description: errors.slice(0, 2).join("; ") });
+                    } else {
+                      push({ variant: "success", title: "Records deleted", description: `${deleted} record(s) deleted.` });
+                    }
+                  } catch (e: any) {
+                    push({ variant: "error", title: "Delete failed", description: extractErrorMessage(e, "Failed to delete") });
+                  } finally {
+                    setBatchDeleting(false);
+                  }
+                }}
+              >
+                {batchDeleting ? "Deleting..." : "Yes, delete"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

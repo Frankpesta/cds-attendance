@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
+import * as authRepo from "@/lib/repositories/auth";
+import * as docRepo from "@/lib/repositories/documentation";
 import ExcelJS from "exceljs";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-const client = new ConvexHttpClient(convexUrl);
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,25 +18,27 @@ export async function POST(request: NextRequest) {
     if (!sessionToken || !type) {
       return NextResponse.json(
         { error: "Session token and type are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Verify session and check if user is admin or super_admin
-    const session = await client.query(api.auth.getSession, { sessionToken });
-    if (!session || (session.user.role !== "super_admin" && session.user.role !== "admin")) {
+    const sessionResult = await authRepo.getSession(sessionToken);
+    if (
+      !sessionResult ||
+      (sessionResult.user.role !== "super_admin" &&
+        sessionResult.user.role !== "admin")
+    ) {
       return NextResponse.json(
         { error: "Unauthorized. Admin access required." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    let data: any[] = [];
+    let data: unknown[] = [];
     let headers: string[] = [];
 
     if (type === "corp_member") {
-      const members = await client.query(api.documentation.listCorpMembers, { sessionToken });
-      data = members || [];
+      data = (await docRepo.listCorpMembers(sessionToken)) || [];
       headers = [
         "Full Name",
         "State Code",
@@ -67,8 +66,7 @@ export async function POST(request: NextRequest) {
         "Created At",
       ];
     } else if (type === "employer") {
-      const employers = await client.query(api.documentation.listEmployers, { sessionToken });
-      data = employers || [];
+      data = (await docRepo.listEmployers(sessionToken)) || [];
       headers = [
         "Organization Name",
         "Organization Address",
@@ -84,8 +82,7 @@ export async function POST(request: NextRequest) {
         "Created At",
       ];
     } else if (type === "rejected_reposting") {
-      const rejectedReposting = await client.query(api.documentation.listRejectedReposting, { sessionToken });
-      data = rejectedReposting || [];
+      data = (await docRepo.listRejectedReposting(sessionToken)) || [];
       headers = [
         "Name",
         "State Code",
@@ -97,8 +94,7 @@ export async function POST(request: NextRequest) {
         "Created At",
       ];
     } else if (type === "corp_member_request") {
-      const requests = await client.query(api.documentation.listCorpMemberRequests, { sessionToken });
-      data = requests || [];
+      data = (await docRepo.listCorpMemberRequests(sessionToken)) || [];
       headers = [
         "PPA Name",
         "PPA Address",
@@ -112,24 +108,27 @@ export async function POST(request: NextRequest) {
       ];
     } else {
       return NextResponse.json(
-        { error: "Invalid type. Must be 'corp_member', 'employer', 'rejected_reposting', or 'corp_member_request'" },
-        { status: 400 }
+        {
+          error:
+            "Invalid type. Must be 'corp_member', 'employer', 'rejected_reposting', or 'corp_member_request'",
+        },
+        { status: 400 },
       );
     }
 
-    // Create Excel workbook
     const workbook = new ExcelJS.Workbook();
-    const sheetName = 
-      type === "corp_member" ? "Corp Members" : 
-      type === "employer" ? "Employers" : 
-      type === "rejected_reposting" ? "Rejected Reposting" :
-      "Corp Member Requests";
+    const sheetName =
+      type === "corp_member"
+        ? "Corp Members"
+        : type === "employer"
+          ? "Employers"
+          : type === "rejected_reposting"
+            ? "Rejected Reposting"
+            : "Corp Member Requests";
     const worksheet = workbook.addWorksheet(sheetName);
 
-    // Add headers
     worksheet.addRow(headers);
 
-    // Style header row
     const headerRow = worksheet.getRow(1);
     headerRow.font = { bold: true };
     headerRow.fill = {
@@ -140,8 +139,8 @@ export async function POST(request: NextRequest) {
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     headerRow.alignment = { vertical: "middle", horizontal: "center" };
 
-    // Add data rows
-    data.forEach((item) => {
+    const items = data as Record<string, unknown>[];
+    items.forEach((item) => {
       if (type === "corp_member") {
         worksheet.addRow([
           item.full_name ?? "",
@@ -160,7 +159,6 @@ export async function POST(request: NextRequest) {
           item.nin ?? "",
           item.cds ?? "",
           item.medical_history ? "Yes" : "No",
-          // SAED fields - ensure they appear even when stored as empty
           String(item.personal_skill ?? ""),
           String(item.saed_camp_skill ?? ""),
           String(item.proposed_post_camp_saed_skill ?? ""),
@@ -168,7 +166,9 @@ export async function POST(request: NextRequest) {
           String(item.selected_trainer_business ?? ""),
           String(item.selected_trainer_phone ?? ""),
           String(item.selected_trainer_email ?? ""),
-          item.created_at ? new Date(item.created_at).toLocaleString() : "",
+          item.created_at
+            ? new Date(Number(item.created_at)).toLocaleString()
+            : "",
         ]);
       } else if (type === "employer") {
         worksheet.addRow([
@@ -183,7 +183,9 @@ export async function POST(request: NextRequest) {
           item.monthly_stipend || 0,
           item.email || "",
           item.nearest_landmark || "",
-          item.created_at ? new Date(item.created_at).toLocaleString() : "",
+          item.created_at
+            ? new Date(Number(item.created_at)).toLocaleString()
+            : "",
         ]);
       } else if (type === "rejected_reposting") {
         worksheet.addRow([
@@ -194,7 +196,9 @@ export async function POST(request: NextRequest) {
           item.previous_ppa || "",
           item.new_ppa || "",
           item.recommendation || "",
-          item.created_at ? new Date(item.created_at).toLocaleString() : "",
+          item.created_at
+            ? new Date(Number(item.created_at)).toLocaleString()
+            : "",
         ]);
       } else if (type === "corp_member_request") {
         worksheet.addRow([
@@ -206,37 +210,41 @@ export async function POST(request: NextRequest) {
           item.gender_needed || "",
           item.monthly_stipend || 0,
           item.available_accommodation ? "Yes" : "No",
-          item.created_at ? new Date(item.created_at).toLocaleString() : "",
+          item.created_at
+            ? new Date(Number(item.created_at)).toLocaleString()
+            : "",
         ]);
       }
     });
 
-    // Auto-fit columns
     worksheet.columns.forEach((column) => {
       if (column.header) {
         column.width = 20;
       }
     });
 
-    // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
 
-    const filename = 
-      type === "corp_member" ? "corp-members" : 
-      type === "employer" ? "employers" : 
-      type === "rejected_reposting" ? "rejected-reposting" :
-      "corp-member-requests";
+    const filename =
+      type === "corp_member"
+        ? "corp-members"
+        : type === "employer"
+          ? "employers"
+          : type === "rejected_reposting"
+            ? "rejected-reposting"
+            : "corp-member-requests";
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="${filename}-documentation-${new Date().toISOString().split("T")[0]}.xlsx"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error exporting documentation:", error);
     return NextResponse.json(
       { error: "Failed to export documentation" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

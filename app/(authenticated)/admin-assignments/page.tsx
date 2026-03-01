@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAdminAssignments, useUsersList, useCdsGroupsList } from "@/hooks/useConvexQueries";
-import { api } from "@/convex/_generated/api";
+import { useAdminAssignments, useUsersList, useCdsGroupsList } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -129,7 +128,7 @@ export default function AdminAssignmentsPage() {
       <DataTable
         title="Current Assignments"
         description={`${assignments?.length || 0} admin assignments`}
-        data={assignments || []}
+        data={(assignments || []) as Record<string, unknown>[]}
         columns={[
           { 
             key: "admin_id", 

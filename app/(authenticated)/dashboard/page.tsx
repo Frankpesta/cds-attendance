@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/convex/_generated/api";
 import { startQrAction, stopQrAction } from "@/app/actions/qr";
 import {
   useDashboardStats,
@@ -11,7 +10,7 @@ import {
   useAllActiveQr,
   useMyActiveSessions,
   useUserStats,
-} from "@/hooks/useConvexQueries";
+} from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { getSessionAction } from "@/app/actions/session";
@@ -62,7 +61,7 @@ export default function Dashboard() {
 
       {role === "super_admin" && <SuperAdminHome />}
       {role === "admin" && <AdminHome sessionToken={sessionToken} />}
-      {role === "corps_member" && <MemberHome userId={session.user._id} />}
+      {role === "corps_member" && <MemberHome userId={session.user.id} />}
     </div>
   );
 }
@@ -148,7 +147,7 @@ function SuperAdminHome() {
         <DataTable
           title="Recent Activity"
           description="Latest attendance records"
-          data={recentActivity ?? []}
+          data={(recentActivity ?? []) as Record<string, unknown>[]}
           columns={[
             { key: "user", label: "User" },
             { key: "group", label: "CDS Group" },
@@ -172,7 +171,7 @@ function SuperAdminHome() {
         <DataTable
           title="Top CDS Groups"
           description="Groups by attendance count"
-          data={topGroups ?? []}
+          data={(topGroups ?? []) as Record<string, unknown>[]}
           columns={[
             { key: "name", label: "Group Name" },
             { key: "attendanceCount", label: "Attendance" },
@@ -391,7 +390,7 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
       <DataTable
         title="Recent Attendance"
         description="Latest attendance records from your sessions"
-        data={recentActivity || []}
+        data={(recentActivity || []) as Record<string, unknown>[]}
         columns={[
           { key: "user", label: "Member" },
           { key: "group", label: "CDS Group" },
@@ -479,7 +478,7 @@ function MemberHome({ userId }: { userId: any }) {
       <DataTable
         title="My Recent Attendance"
         description="Your latest attendance records"
-        data={recentActivity ?? []}
+        data={(recentActivity ?? []) as Record<string, unknown>[]}
         columns={[
           { key: "group", label: "CDS Group" },
           { 

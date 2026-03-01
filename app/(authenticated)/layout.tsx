@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSessionAction } from "../actions/session";
 import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield, FileText } from "lucide-react";
@@ -12,6 +12,7 @@ export default function AuthenticatedLayout({
 }) {
   const [session, setSession] = useState<any | null | undefined>(undefined);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     (async () => {
@@ -23,8 +24,29 @@ export default function AuthenticatedLayout({
   useEffect(() => {
     if (session === null) {
       router.replace("/login");
+      return;
     }
-  }, [session, router]);
+    if (!session?.user) return;
+    const role = session.user.role;
+    // Role-based route guards (moved from middleware - Prisma doesn't run on Edge)
+    if (pathname.startsWith("/qr") && role !== "admin" && role !== "super_admin") {
+      router.replace("/dashboard");
+      return;
+    }
+    if (pathname.startsWith("/attendance-monitor") && role !== "admin" && role !== "super_admin") {
+      router.replace("/dashboard");
+      return;
+    }
+    if ((pathname.startsWith("/groups") || pathname.startsWith("/reports")) && role !== "super_admin") {
+      router.replace("/dashboard");
+      return;
+    }
+    if (pathname.startsWith("/documentation") && !pathname.match(/^\/documentation\/(corp-members|employers|rejected-reposting|corp-member-requests)\//)) {
+      if (role !== "admin" && role !== "super_admin") {
+        router.replace("/dashboard");
+      }
+    }
+  }, [session, router, pathname]);
 
   if (session === undefined) {
     return (

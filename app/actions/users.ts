@@ -1,11 +1,7 @@
 "use server";
 import { cookies } from "next/headers";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "@/convex/_generated/api";
 import { extractErrorMessage } from "@/lib/utils";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || "";
-const client = new ConvexHttpClient(convexUrl);
+import * as usersRepo from "@/lib/repositories/users";
 
 export async function createUserAction(formData: FormData) {
   const c = await cookies();
@@ -22,21 +18,27 @@ export async function createUserAction(formData: FormData) {
   const cds_group_id = String(formData.get("cds_group_id") || "").trim();
 
   if (!name || !email || !state_code || !role || !password) {
-    return { ok: false, error: "Name, email, state code, role, and password are required" } as const;
+    return {
+      ok: false,
+      error: "Name, email, state code, role, and password are required",
+    } as const;
   }
 
   try {
-    const res = await client.mutation(api.users.create, {
+    const res = await usersRepo.createUser({
       name,
       email,
       state_code,
-      role: role as any,
+      role: role as "super_admin" | "admin" | "corps_member",
       password,
-      cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
+      cds_group_id: cds_group_id || undefined,
     });
     return { ok: true, data: res } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to create user") } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to create user"),
+    } as const;
   }
 }
 
@@ -54,21 +56,26 @@ export async function updateUserAction(id: string, formData: FormData) {
   const cds_group_id = String(formData.get("cds_group_id") || "").trim();
 
   if (!name || !email || !state_code || !role) {
-    return { ok: false, error: "Name, email, state code, and role are required" } as const;
+    return {
+      ok: false,
+      error: "Name, email, state code, and role are required",
+    } as const;
   }
 
   try {
-    const res = await client.mutation(api.users.update, {
-      id: id as any,
+    await usersRepo.updateUser(id, {
       name,
       email,
       state_code,
-      role: role as any,
-      cds_group_id: cds_group_id ? (cds_group_id as any) : undefined,
+      role: role as "super_admin" | "admin" | "corps_member",
+      cds_group_id: cds_group_id || undefined,
     });
-    return { ok: true, data: res } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to update user") } as const;
+    return { ok: true, data: id } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to update user"),
+    } as const;
   }
 }
 
@@ -80,13 +87,13 @@ export async function deleteUserAction(id: string) {
   }
 
   try {
-    const res = await client.mutation(api.users.deleteUser, {
-      sessionToken,
-      id: id as any,
-    });
+    const res = await usersRepo.deleteUser(sessionToken, id);
     return { ok: true, data: res } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to delete user") } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to delete user"),
+    } as const;
   }
 }
 
@@ -98,17 +105,42 @@ export async function changeUserPasswordAction(id: string, newPassword: string) 
   }
 
   try {
-    const res = await client.mutation(api.users.changePassword, {
-      id: id as any,
-      newPassword,
-    });
-    return { ok: true, data: res } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to change password") } as const;
+    await usersRepo.changeUserPassword(id, newPassword);
+    return { ok: true, data: id } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to change password"),
+    } as const;
   }
 }
 
-export async function unblockUserAction(userId: string, allowAnyDevice: boolean = false) {
+export async function batchDeleteUsersAction(userIds: string[]) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false, error: "Unauthorized" } as const;
+  }
+
+  if (userIds.length === 0) {
+    return { ok: false, error: "No users selected" } as const;
+  }
+
+  try {
+    const res = await usersRepo.batchDeleteUsers(sessionToken, userIds);
+    return { ok: true, data: res } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to delete users"),
+    } as const;
+  }
+}
+
+export async function unblockUserAction(
+  userId: string,
+  allowAnyDevice: boolean = false,
+) {
   const c = await cookies();
   const sessionToken = c.get("session_token")?.value || "";
   if (!sessionToken) {
@@ -116,13 +148,12 @@ export async function unblockUserAction(userId: string, allowAnyDevice: boolean 
   }
 
   try {
-    const res = await client.mutation(api.users.unblockUser, {
-      sessionToken,
-      userId: userId as any,
-      allowAnyDevice,
-    });
-    return { ok: true, data: res } as const;
-  } catch (e: any) {
-    return { ok: false, error: extractErrorMessage(e, "Failed to unblock user") } as const;
+    await usersRepo.unblockUser(sessionToken, userId, allowAnyDevice);
+    return { ok: true, data: { success: true } } as const;
+  } catch (e: unknown) {
+    return {
+      ok: false,
+      error: extractErrorMessage(e, "Failed to unblock user"),
+    } as const;
   }
 }

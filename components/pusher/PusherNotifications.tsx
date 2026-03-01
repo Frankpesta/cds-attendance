@@ -1,37 +1,51 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePusher } from "@/hooks/usePusher";
+import { useSessionToken } from "@/hooks/useSessionToken";
+import { useDocumentationListCorpMemberRequests } from "@/hooks/useApiQueries";
 import { getSessionAction } from "@/app/actions/session";
 
-export function PusherNotifications() {
+/** Polls corp member requests and shows browser notification when count increases (admin only). */
+export function SocketNotifications() {
   const router = useRouter();
-  const { subscribe, isConnected } = usePusher();
+  const sessionToken = useSessionToken();
   const [isAdmin, setIsAdmin] = useState(false);
+  const prevCountRef = useRef<number | null>(null);
+
+  const { data: requests = [] } = useDocumentationListCorpMemberRequests(
+    isAdmin ? sessionToken : null,
+  );
 
   useEffect(() => {
-    // Check if user is admin
     (async () => {
       try {
         const session = await getSessionAction();
-        if (session && (session.user.role === "admin" || session.user.role === "super_admin")) {
+        if (
+          session &&
+          (session.user.role === "admin" || session.user.role === "super_admin")
+        ) {
           setIsAdmin(true);
         }
-      } catch (error) {
-        // Not logged in or not admin
+      } catch {
         setIsAdmin(false);
       }
     })();
   }, []);
 
   useEffect(() => {
-    if (!isConnected || !isAdmin) return;
+    if (!isAdmin || !Array.isArray(requests)) return;
 
-    const unsubscribe = subscribe("admin-notifications", "corp-member-request", (data: any) => {
-      // Request browser notification permission
+    const count = requests.length;
+    const prev = prevCountRef.current;
+
+    if (prev !== null && count > prev && prev >= 0) {
       if ("Notification" in window && Notification.permission === "granted") {
+        const latest = requests[count - 1] as {
+          ppa_name?: string;
+          number_of_corp_members_requested?: number;
+        } | undefined;
         const notification = new Notification("New Corp Member Request", {
-          body: `${data.ppa_name} has requested ${data.number_requested} corp member(s)`,
+          body: `${latest?.ppa_name || "Unknown"} has requested ${latest?.number_of_corp_members_requested ?? 0} corp member(s)`,
           icon: "/nysc-seeklogo.svg",
           tag: "corp-member-request",
           requireInteraction: false,
@@ -42,32 +56,11 @@ export function PusherNotifications() {
           router.push("/documentation/corp-member-requests");
           notification.close();
         };
-      } else if ("Notification" in window && Notification.permission === "default") {
-        // Request permission
-        Notification.requestPermission().then((permission) => {
-          if (permission === "granted") {
-            const notification = new Notification("New Corp Member Request", {
-              body: `${data.ppa_name} has requested ${data.number_requested} corp member(s)`,
-              icon: "/nysc-seeklogo.svg",
-              tag: "corp-member-request",
-              requireInteraction: false,
-            });
-
-            notification.onclick = () => {
-              window.focus();
-              router.push("/documentation/corp-member-requests");
-              notification.close();
-            };
-          }
-        });
       }
-    });
+    }
 
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, isAdmin]);
+    prevCountRef.current = count;
+  }, [requests, isAdmin, router]);
 
   return null;
 }

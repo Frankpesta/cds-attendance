@@ -2,10 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
-import type { Id } from "@/convex/_generated/dataModel";
+import { submitCorpMemberAction, getUploadUrlAction } from "@/app/actions/documentation";
+import { useDocumentationValidateLink } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +13,7 @@ import { extractErrorMessage } from "@/lib/utils";
 import { Shield } from "lucide-react";
 
 interface MedicalFile {
-  storageId: Id<"_storage">;
+  file_path: string;
   fileName: string;
   fileSize: number;
   contentType: string;
@@ -63,8 +61,6 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
 
   const { data: link } = useDocumentationValidateLink(params.token, "corp_member");
 
-  const submitCorpMember = useMutation(api.documentation.submitCorpMember);
-  const generateUploadUrl = useMutation(api.documentation.generateUploadUrl);
 
   const disabled = useMemo(
     () =>
@@ -108,15 +104,15 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
         continue;
       }
       try {
-        const uploadUrl = await generateUploadUrl({});
-        const res = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-        const { storageId } = await res.json();
+        const { url } = await getUploadUrlAction();
+        if (!url) throw new Error("Upload not configured");
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(url, { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Upload failed");
+        const data = await res.json();
         next.push({
-          storageId: storageId as Id<"_storage">,
+          file_path: data.file_path ?? data.filePath,
           fileName: file.name,
           fileSize: file.size,
           contentType: file.type,
@@ -136,16 +132,17 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
       const { surname, first_name, state_code_prefix, state_code_digits, ...rest } = form;
       const full_name = `${(surname || "").trim()} ${(first_name || "").trim()}`.trim();
       const state_code = (state_code_prefix || "OD/26A/") + (state_code_digits || "").replace(/\D/g, "").slice(0, 4);
-      const result = await submitCorpMember({
-        token: link.token,
-        payload: {
+      const result = await submitCorpMemberAction(
+        link.token,
+        {
           ...rest,
           full_name,
           state_code,
           medical_history: form.medical_history === "yes",
         },
-        medical_files: form.medical_history === "yes" ? medicalFiles : [],
-      });
+        form.medical_history === "yes" ? medicalFiles : undefined,
+      );
+      if (!result.ok) throw new Error(result.error);
       push({ variant: "success", title: "Documentation submitted", description: "Redirecting to SAED selection..." });
       // Redirect to SAED page using the link token
       setTimeout(() => {
@@ -342,13 +339,13 @@ export default function CorpMemberRegistrationPage({ params }: { params: { token
                 <Input type="file" accept="application/pdf,image/*" multiple onChange={handleFileUpload} />
                 <div className="mt-3 space-y-2">
                   {medicalFiles.map((file) => (
-                    <div key={file.storageId} className="flex items-center justify-between rounded border bg-muted/50 px-3 py-2 text-sm">
+                    <div key={file.file_path} className="flex items-center justify-between rounded border bg-muted/50 px-3 py-2 text-sm">
                       <span className="truncate">{file.fileName}</span>
                       <button
                         type="button"
                         className="text-xs text-destructive"
                         onClick={() =>
-                          setMedicalFiles((prev) => prev.filter((item) => item.storageId !== file.storageId))
+                          setMedicalFiles((prev) => prev.filter((item) => item.file_path !== file.file_path))
                         }
                       >
                         Remove

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useDocumentationValidateLink } from "@/hooks/useConvexQueries";
+import { submitEmployerAction } from "@/app/actions/documentation";
+import { useDocumentationValidateLink } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +32,6 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const { data: link } = useDocumentationValidateLink(params.token, "employer");
-  const submitEmployer = useMutation(api.documentation.submitEmployer);
 
   const disabled =
     !form.organization_name ||
@@ -53,9 +51,7 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
     if (!link || !link.token) return;
     setSubmitting(true);
     try {
-      await submitEmployer({
-        token: link.token,
-        payload: {
+      const result = await submitEmployerAction(link.token, {
           organization_name: form.organization_name,
           organization_address: form.organization_address,
           organization_phone: form.organization_phone,
@@ -67,8 +63,8 @@ export default function EmployerRegistrationPage({ params }: { params: { token: 
           monthly_stipend: Number(form.monthly_stipend),
           email: form.email,
           nearest_landmark: form.nearest_landmark,
-        },
-      });
+        });
+      if (!result.ok) throw new Error(result.error);
       setSubmitted(true);
       push({ variant: "success", title: "Submission received" });
     } catch (error: any) {

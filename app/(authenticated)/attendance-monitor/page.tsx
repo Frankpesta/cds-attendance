@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useTodayAttendance, useCdsGroupsList, useAllActiveQr, useDashboardStats } from "@/hooks/useConvexQueries";
-import { api } from "@/convex/_generated/api";
+import { useTodayAttendance, useCdsGroupsList, useAllActiveQr, useDashboardStats } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Button } from "@/components/ui/button";
@@ -243,7 +242,7 @@ export default function AttendanceMonitorPage() {
       <DataTable
         title="Live Attendance Records"
         description={`${filteredAttendance.length} records • Last updated: ${new Date().toLocaleTimeString()}`}
-        data={filteredAttendance}
+        data={filteredAttendance as Record<string, unknown>[]}
         columns={[
           { 
             key: "user_name", 
