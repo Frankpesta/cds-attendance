@@ -219,7 +219,7 @@ export default function UsersPage() {
       <DataTable
         title="Users"
         description={`${filteredUsers.length} users found${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
-        data={filteredUsers}
+        data={filteredUsers as Record<string, unknown>[]}
         selectable={currentUserRole === "super_admin"}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}

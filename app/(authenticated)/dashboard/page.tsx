@@ -147,7 +147,7 @@ function SuperAdminHome() {
         <DataTable
           title="Recent Activity"
           description="Latest attendance records"
-          data={recentActivity ?? []}
+          data={(recentActivity ?? []) as Record<string, unknown>[]}
           columns={[
             { key: "user", label: "User" },
             { key: "group", label: "CDS Group" },
@@ -171,7 +171,7 @@ function SuperAdminHome() {
         <DataTable
           title="Top CDS Groups"
           description="Groups by attendance count"
-          data={topGroups ?? []}
+          data={(topGroups ?? []) as Record<string, unknown>[]}
           columns={[
             { key: "name", label: "Group Name" },
             { key: "attendanceCount", label: "Attendance" },
@@ -390,7 +390,7 @@ function AdminHome({ sessionToken }: { sessionToken: string }) {
       <DataTable
         title="Recent Attendance"
         description="Latest attendance records from your sessions"
-        data={recentActivity || []}
+        data={(recentActivity || []) as Record<string, unknown>[]}
         columns={[
           { key: "user", label: "Member" },
           { key: "group", label: "CDS Group" },
@@ -478,7 +478,7 @@ function MemberHome({ userId }: { userId: any }) {
       <DataTable
         title="My Recent Attendance"
         description="Your latest attendance records"
-        data={recentActivity ?? []}
+        data={(recentActivity ?? []) as Record<string, unknown>[]}
         columns={[
           { key: "group", label: "CDS Group" },
           { 

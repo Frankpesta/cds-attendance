@@ -128,7 +128,7 @@ export default function AdminAssignmentsPage() {
       <DataTable
         title="Current Assignments"
         description={`${assignments?.length || 0} admin assignments`}
-        data={assignments || []}
+        data={(assignments || []) as Record<string, unknown>[]}
         columns={[
           { 
             key: "admin_id", 

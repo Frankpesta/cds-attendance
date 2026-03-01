@@ -242,7 +242,7 @@ export default function AttendanceMonitorPage() {
       <DataTable
         title="Live Attendance Records"
         description={`${filteredAttendance.length} records • Last updated: ${new Date().toLocaleTimeString()}`}
-        data={filteredAttendance}
+        data={filteredAttendance as Record<string, unknown>[]}
         columns={[
           { 
             key: "user_name", 

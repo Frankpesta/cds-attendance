@@ -556,7 +556,7 @@ export default function CorpMemberRequestsDocumentationPage() {
           <DataTable
             title="Submitted Requests"
             description={`${filteredRecords.length} requests${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
-            data={filteredRecords}
+            data={filteredRecords as Record<string, unknown>[]}
             columns={columns as any}
             selectable
             rowIdKey="_id"

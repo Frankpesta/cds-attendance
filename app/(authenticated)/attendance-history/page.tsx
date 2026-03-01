@@ -158,7 +158,7 @@ export default function AttendanceHistoryPage() {
       <DataTable
         title="Attendance Records"
         description={`${filteredAttendance.length} records found`}
-        data={filteredAttendance}
+        data={filteredAttendance as Record<string, unknown>[]}
         columns={[
           { 
             key: "date", 

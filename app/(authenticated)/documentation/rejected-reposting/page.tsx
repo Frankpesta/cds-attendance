@@ -561,7 +561,7 @@ export default function RejectedRepostingDocumentationPage() {
           <DataTable
             title="Submitted Records"
             description={`${filteredRecords.length} records${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
-            data={filteredRecords}
+            data={filteredRecords as Record<string, unknown>[]}
             columns={columns as any}
             selectable
             rowIdKey="_id"

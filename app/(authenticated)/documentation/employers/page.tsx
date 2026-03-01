@@ -417,7 +417,7 @@ export default function EmployersDocumentationPage() {
           <DataTable
             title="Employer Records"
             description={`${filteredEmployers.length} submissions${selectedIds.length > 0 ? ` • ${selectedIds.length} selected` : ""}`}
-            data={filteredEmployers}
+            data={filteredEmployers as Record<string, unknown>[]}
             columns={columns as any}
             selectable
             rowIdKey="_id"
