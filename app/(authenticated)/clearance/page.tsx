@@ -86,16 +86,11 @@ export default function ClearancePage() {
       if (printWindow) {
         printWindow.document.write(html);
         printWindow.document.close();
-        
-        // Wait for content to load before printing
-        printWindow.onload = () => {
-          setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-            // Don't close immediately, let user see the result
-            // printWindow.close();
-          }, 500);
-        };
+        // Use setTimeout: onload may fire before we attach when using document.write
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+        }, 500);
       } else {
         throw new Error("Could not open print window. Please check your popup blocker settings.");
       }
