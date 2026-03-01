@@ -7,7 +7,7 @@ export async function listAdminAssignments() {
     _id: a.id,
     admin_id: a.admin_id,
     cds_group_id: a.cds_group_id,
-    created_at: a.created_at,
+    created_at: Number(a.created_at),
   }));
 }
 
@@ -55,7 +55,7 @@ export async function getByAdmin(adminId: string) {
     _id: a.id,
     admin_id: a.admin_id,
     cds_group_id: a.cds_group_id,
-    created_at: a.created_at,
+    created_at: Number(a.created_at),
   }));
 }
 
@@ -67,6 +67,6 @@ export async function getByGroup(cdsGroupId: string) {
     _id: a.id,
     admin_id: a.admin_id,
     cds_group_id: a.cds_group_id,
-    created_at: a.created_at,
+    created_at: Number(a.created_at),
   }));
 }

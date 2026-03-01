@@ -11,11 +11,14 @@ export async function monthlyReport(args: {
   const start = `${year}-${monthStr}-01`;
   const end = `${year}-${monthStr}-31`;
 
-  const groups = cdsGroupId
+  const rawGroups = cdsGroupId
     ? [await prisma.cdsGroup.findUnique({ where: { id: cdsGroupId } })].filter(
         Boolean,
       )
     : await prisma.cdsGroup.findMany({ take: 100 });
+  const groups = rawGroups.map((g) =>
+    g ? { ...g, created_at: Number(g.created_at), updated_at: Number(g.updated_at) } : g,
+  );
   const groupIds = new Set(groups.map((g) => g!.id));
 
   // Fetch only needed columns; filter users by group to avoid full table scan

@@ -75,7 +75,20 @@ export async function getSession(sessionToken: string) {
   if (Number(session.expires_at) <= now || now - Number(session.created_at) > SESSION_MAX_AGE_MS) {
     return null;
   }
-  return { session, user: session.user };
+  return {
+    session: {
+      ...session,
+      created_at: Number(session.created_at),
+      last_active_at: Number(session.last_active_at),
+      expires_at: Number(session.expires_at),
+    },
+    user: {
+      ...session.user,
+      created_at: Number(session.user.created_at),
+      updated_at: Number(session.user.updated_at),
+      blocked_at: session.user.blocked_at != null ? Number(session.user.blocked_at) : null,
+    },
+  };
 }
 
 export async function refreshSession(sessionToken: string) {

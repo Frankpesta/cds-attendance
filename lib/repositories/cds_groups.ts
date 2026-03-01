@@ -3,7 +3,12 @@ import { generateId } from "@/lib/id";
 
 export async function listCdsGroups() {
   const groups = await prisma.cdsGroup.findMany();
-  return groups.map((g) => ({ ...g, _id: g.id }));
+  return groups.map((g) => ({
+    ...g,
+    _id: g.id,
+    created_at: Number(g.created_at),
+    updated_at: Number(g.updated_at),
+  }));
 }
 
 export async function getCdsGroup(id: string) {
@@ -16,8 +21,8 @@ export async function getCdsGroup(id: string) {
     meeting_time: group.meeting_time,
     meeting_duration: group.meeting_duration,
     venue_name: group.venue_name,
-    created_at: group.created_at,
-    updated_at: group.updated_at,
+    created_at: Number(group.created_at),
+    updated_at: Number(group.updated_at),
   };
 }
 

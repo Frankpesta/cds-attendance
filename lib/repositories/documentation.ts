@@ -69,10 +69,15 @@ export async function toggleLinkStatus(
 
 export async function listLinks(sessionToken: string, type: DocLinkType) {
   await requireAdminSession(sessionToken);
-  return prisma.documentationLink.findMany({
+  const links = await prisma.documentationLink.findMany({
     where: { type },
     take: 500,
   });
+  return links.map((l) => ({
+    ...l,
+    created_at: Number(l.created_at),
+    deactivated_at: l.deactivated_at != null ? Number(l.deactivated_at) : null,
+  }));
 }
 
 export async function validateLink(token: string, type: DocLinkType) {
@@ -271,21 +276,41 @@ export async function listCorpMembers(sessionToken: string) {
 
 export async function listEmployers(sessionToken: string) {
   await requireAdminSession(sessionToken);
-  return prisma.employerDoc.findMany({
+  const records = await prisma.employerDoc.findMany({
     where: { is_deleted: false },
     orderBy: { created_at: "desc" },
     take: 2000,
   });
+  return records.map((r) => ({
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  }));
 }
 
 export async function getCorpMember(sessionToken: string, id: string) {
   await requireAdminSession(sessionToken);
-  return prisma.corpMemberDoc.findUnique({ where: { id } });
+  const r = await prisma.corpMemberDoc.findUnique({ where: { id } });
+  if (!r) return null;
+  return {
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  };
 }
 
 export async function getEmployer(sessionToken: string, id: string) {
   await requireAdminSession(sessionToken);
-  return prisma.employerDoc.findUnique({ where: { id } });
+  const r = await prisma.employerDoc.findUnique({ where: { id } });
+  if (!r) return null;
+  return {
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  };
 }
 
 export async function updateCorpMember(
@@ -530,16 +555,29 @@ export async function submitRejectedReposting(
 
 export async function listRejectedReposting(sessionToken: string) {
   await requireAdminSession(sessionToken);
-  return prisma.rejectedRepostingDoc.findMany({
+  const records = await prisma.rejectedRepostingDoc.findMany({
     where: { is_deleted: false },
     orderBy: { created_at: "desc" },
     take: 2000,
   });
+  return records.map((r) => ({
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  }));
 }
 
 export async function getRejectedReposting(sessionToken: string, id: string) {
   await requireAdminSession(sessionToken);
-  return prisma.rejectedRepostingDoc.findUnique({ where: { id } });
+  const r = await prisma.rejectedRepostingDoc.findUnique({ where: { id } });
+  if (!r) return null;
+  return {
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  };
 }
 
 export async function updateRejectedReposting(
@@ -639,16 +677,29 @@ export async function submitCorpMemberRequest(
 
 export async function listCorpMemberRequests(sessionToken: string) {
   await requireAdminSession(sessionToken);
-  return prisma.corpMemberRequest.findMany({
+  const records = await prisma.corpMemberRequest.findMany({
     where: { is_deleted: false },
     orderBy: { created_at: "desc" },
     take: 2000,
   });
+  return records.map((r) => ({
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  }));
 }
 
 export async function getCorpMemberRequest(sessionToken: string, id: string) {
   await requireAdminSession(sessionToken);
-  return prisma.corpMemberRequest.findUnique({ where: { id } });
+  const r = await prisma.corpMemberRequest.findUnique({ where: { id } });
+  if (!r) return null;
+  return {
+    ...r,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+    deleted_at: r.deleted_at != null ? Number(r.deleted_at) : null,
+  };
 }
 
 export async function updateCorpMemberRequest(
