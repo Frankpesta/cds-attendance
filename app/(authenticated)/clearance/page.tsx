@@ -99,7 +99,7 @@ export default function ClearancePage() {
       } else {
         throw new Error("Could not open print window. Please check your popup blocker settings.");
       }
-      push({ variant: "success", title: "PDF Generated", description: "Clearance certificate has been generated for printing." });
+      push({ variant: "success", title: "PDF Generated", description: "Clearance slip has been generated for printing." });
     } catch (e: any) {
       push({ variant: "error", title: "Export failed", description: extractErrorMessage(e, "Failed to export PDF") });
     } finally {
@@ -128,8 +128,8 @@ export default function ClearancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">CDS Clearance Certificate</h1>
-        <p className="text-muted-foreground">Download your monthly CDS attendance clearance certificate</p>
+        <h1 className="text-3xl font-bold tracking-tight">CDS CLEARANCE SLIP</h1>
+        <p className="text-muted-foreground">Download your monthly CDS attendance clearance slip</p>
       </div>
 
       {/* Month Selection */}
@@ -208,14 +208,14 @@ export default function ClearancePage() {
         </Card>
       )}
 
-      {/* Clearance Certificate Preview */}
+      {/* Clearance Slip Preview */}
       {data && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5" />
-                <h3 className="text-lg font-semibold">Clearance Certificate Preview</h3>
+                <h3 className="text-lg font-semibold">Clearance Slip Preview</h3>
               </div>
               <Button 
                 onClick={exportPdf} 
@@ -236,7 +236,7 @@ export default function ClearancePage() {
           <CardContent>
             <div className="bg-white border-2 border-gray-200 rounded-lg p-6 space-y-4">
               <div className="text-center border-b pb-4">
-                <h2 className="text-2xl font-bold text-gray-800">CDS ATTENDANCE CLEARANCE CERTIFICATE</h2>
+                <h2 className="text-2xl font-bold text-gray-800">CDS ATTENDANCE CLEARANCE SLIP</h2>
                 <p className="text-gray-600 mt-2">{monthNames[month - 1]} {year}</p>
               </div>
               
@@ -292,7 +292,7 @@ export default function ClearancePage() {
               </div>
               
               <div className="text-center text-sm text-gray-500 mt-6">
-                <p>This certificate is generated automatically by the CDS Attendance Management System</p>
+                <p>This slip is generated automatically by the CDS Attendance Management System</p>
                 <p>Generated on: {new Date().toLocaleDateString()}</p>
               </div>
             </div>
@@ -319,12 +319,12 @@ export default function ClearancePage() {
           <h3 className="text-lg font-semibold">Instructions</h3>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-600">
-          <p>• Select the month and year for which you want to generate your clearance certificate</p>
-          <p>• The certificate will show your attendance statistics for the selected month</p>
+          <p>• Select the month and year for which you want to generate your clearance slip</p>
+          <p>• The slip will show your attendance statistics for the selected month</p>
           <p>• You need at least <strong>{requiredCount} attendance(s)</strong> (set by admin) to print and be cleared for the month</p>
           <p>• Once you meet the required attendances, you have 100% clearance and can print</p>
-          <p>• Download the PDF certificate for your records or submission</p>
-          <p>• This certificate is automatically generated and can be verified by administrators</p>
+          <p>• Download the PDF slip for your records or submission</p>
+          <p>• This slip is automatically generated and can be verified by administrators</p>
         </CardContent>
       </Card>
     </div>

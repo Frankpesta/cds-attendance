@@ -48,9 +48,9 @@ export default async function VerifyClearancePage({
                 <CheckCircle className="h-12 w-12 text-green-600" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold">Clearance Certificate Verified</h1>
+            <h1 className="text-2xl font-bold">Clearance Slip Verified</h1>
             <p className="text-muted-foreground">
-              This certificate is authentic and was issued by the CDS Attendance Management System.
+              This slip is authentic and was issued by the CDS Attendance Management System.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
