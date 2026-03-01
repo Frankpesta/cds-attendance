@@ -93,7 +93,9 @@ export async function monthlyReport(args: {
   }
 
   for (const u of users) {
-    if (!u.cds_group_id || !groupIds.has(u.cds_group_id)) continue;
+    if (!u.cds_group_id) continue;
+    // When userId is passed (clearance page), always include the user; otherwise filter by groupIds
+    if (!userId && !groupIds.has(u.cds_group_id)) continue;
     if (userId && u.id !== userId) continue;
     const rec =
       byUser.get(u.id) || { count: 0, dates: [], groupId: u.cds_group_id };
@@ -321,7 +323,7 @@ export async function exportUserPdf(args: {
 <html>
 <head>
 <meta charset="utf-8">
-<title>CDS Clearance Certificate - ${user.name}</title>
+<title>CDS Clearance Slip - ${user.name}</title>
 <style>
 @media print { body { margin: 0; } .page-break { page-break-before: always; } }
 body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #000; background: white; }
@@ -355,7 +357,7 @@ body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #0
 </head>
 <body>
 <div class="header">
-<h1>CDS ATTENDANCE CLEARANCE CERTIFICATE</h1>
+<h1>CDS ATTENDANCE CLEARANCE SLIP</h1>
 <p>${monthName} ${args.year}</p>
 </div>
 <div class="certificate">
@@ -391,7 +393,7 @@ ${rep.data.map((row) => row.dates.map((d) => `<span class="date-tag">${d}</span>
 </div>
 <div class="footer">
 <p><strong>CDS Attendance Management System</strong></p>
-<p>This certificate is uniquely signed. Scan the QR code above to verify authenticity.</p>
+<p>This slip is uniquely signed. Scan the QR code above to verify authenticity.</p>
 <p>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
 </div>
 </body>
