@@ -29,7 +29,15 @@ export async function getTodayGroups(sessionToken?: string) {
   );
 
   if (user.role === "super_admin" || user.role === "admin") {
-    return meetingToday;
+    return meetingToday.map((g) => ({
+      id: g.id,
+      name: g.name,
+      meeting_days: g.meeting_days,
+      meeting_time: g.meeting_time,
+      meeting_duration: g.meeting_duration,
+      venue_name: g.venue_name,
+      admin_ids: g.admin_ids,
+    }));
   }
   return [];
 }
@@ -258,7 +266,7 @@ export async function getAllActiveQr(meetingDate?: string) {
           expiresAt: 0,
           attendanceCount,
           adminName,
-          activatedAt: meeting.activated_at,
+          activatedAt: meeting.activated_at != null ? Number(meeting.activated_at) : null,
           hasSecret: true,
         };
       }
@@ -274,10 +282,10 @@ export async function getAllActiveQr(meetingDate?: string) {
         sessionId: meeting.session_id || null,
         token: current.token,
         rotation: current.rotation_sequence,
-        expiresAt: current.expires_at,
+        expiresAt: Number(current.expires_at),
         attendanceCount,
         adminName,
-        activatedAt: meeting.activated_at,
+        activatedAt: meeting.activated_at != null ? Number(meeting.activated_at) : null,
         hasSecret: false,
       };
     }),
@@ -306,6 +314,6 @@ export async function getMyActiveSessions(sessionToken: string) {
   return meetings.map((m) => ({
     meetingId: m.id,
     sessionId: m.session_id || null,
-    activatedAt: m.activated_at,
+    activatedAt: m.activated_at != null ? Number(m.activated_at) : null,
   }));
 }

@@ -22,7 +22,8 @@ function LoginForm() {
     setError(null);
     setLoading(true);
     const form = e.currentTarget;
-    const next = searchParams.get("next") || "/dashboard";
+    const next = (searchParams.get("next") || "/dashboard").trim() || "/dashboard";
+    const nextPath = next === "/" ? "/dashboard" : next;
     const fingerprintInput = document.createElement("input");
     fingerprintInput.type = "hidden";
     fingerprintInput.name = "deviceFingerprint";
@@ -31,7 +32,7 @@ function LoginForm() {
     const nextInput = document.createElement("input");
     nextInput.type = "hidden";
     nextInput.name = "next";
-    nextInput.value = next;
+    nextInput.value = nextPath;
     form.appendChild(nextInput);
     // Form POST triggers full page navigation; browser follows 302, URL updates
   };
