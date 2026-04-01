@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { generateDeviceFingerprint } from "@/lib/utils";
+import { loginAction } from "@/app/actions/auth";
 import Link from "next/link";
 
 function LoginForm() {
@@ -12,29 +13,44 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
+  const router = useRouter();
 
+  // Legacy /api/auth/login URLs used ?error= — show message and clean the address bar
   useEffect(() => {
     const err = searchParams.get("error");
-    if (err) setError(decodeURIComponent(err.replace(/\+/g, " ")));
-  }, [searchParams]);
+    if (!err) return;
+    setError(decodeURIComponent(err.replace(/\+/g, " ")));
+    const next = searchParams.get("next");
+    const qs = new URLSearchParams();
+    if (next) qs.set("next", next);
+    const href = qs.toString() ? `/login?${qs}` : "/login";
+    router.replace(href, { scroll: false });
+  }, [searchParams, router]);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setError(null);
     setLoading(true);
-    const form = e.currentTarget;
-    const next = (searchParams.get("next") || "/dashboard").trim() || "/dashboard";
-    const nextPath = next === "/" ? "/dashboard" : next;
-    const fingerprintInput = document.createElement("input");
-    fingerprintInput.type = "hidden";
-    fingerprintInput.name = "deviceFingerprint";
-    fingerprintInput.value = generateDeviceFingerprint();
-    form.appendChild(fingerprintInput);
-    const nextInput = document.createElement("input");
-    nextInput.type = "hidden";
-    nextInput.name = "next";
-    nextInput.value = nextPath;
-    form.appendChild(nextInput);
-    // Form POST triggers full page navigation; browser follows 302, URL updates
+    try {
+      const next = (searchParams.get("next") || "/dashboard").trim() || "/dashboard";
+      const nextPath = next === "/" ? "/dashboard" : next;
+      const fd = new FormData();
+      fd.set("stateCode", stateCode);
+      fd.set("password", password);
+      fd.set("deviceFingerprint", generateDeviceFingerprint());
+      fd.set("next", nextPath);
+      const result = await loginAction(fd);
+      if (result.ok) {
+        // Full navigation so middleware reliably sees the new cookie (better on mobile than client routing alone)
+        window.location.assign(result.redirect);
+      } else {
+        setError(result.error);
+        setLoading(false);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,7 +62,7 @@ function LoginForm() {
         </div>
         <div className="rounded-lg border bg-white shadow-sm p-6">
           <h1 className="text-xl font-semibold mb-4">Sign in</h1>
-      <form action="/api/auth/login" method="POST" onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="block text-sm mb-1">State Code</label>
           <Input

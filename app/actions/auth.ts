@@ -1,30 +1,56 @@
 "use server";
+
 import { cookies } from "next/headers";
 import { extractErrorMessage } from "@/lib/utils";
 import * as authRepo from "@/lib/repositories/auth";
 
+/** True when cookie must be Secure (HTTPS — Vercel prod/preview). */
+function useSecureCookies() {
+  return process.env.NODE_ENV === "production";
+}
+
+function sessionCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: useSecureCookies(),
+    path: "/",
+    maxAge: 60 * 60 * 24,
+  };
+}
+
+/**
+ * Sign in — sets httpOnly session cookie. Errors are returned in the body (no ?error= in URL).
+ */
 export async function loginAction(formData: FormData) {
   const stateCode = String(formData.get("stateCode") || "").trim();
   const password = String(formData.get("password") || "");
   const deviceFingerprint = String(formData.get("deviceFingerprint") || "").trim();
-  const nextPath = String(formData.get("next") || "/dashboard").trim() || "/dashboard";
-  if (!stateCode || !password) {
-    return { ok: false, error: "Missing credentials" } as const;
+  let nextPath = String(formData.get("next") || "/dashboard").trim() || "/dashboard";
+  if (nextPath === "/") nextPath = "/dashboard";
+  if (!nextPath.startsWith("/") || nextPath.startsWith("//")) {
+    nextPath = "/dashboard";
   }
+
+  if (!stateCode || !password) {
+    return { ok: false as const, error: "Please enter your state code and password." };
+  }
+
   try {
-    const res = await authRepo.login(stateCode, password, deviceFingerprint || undefined);
+    const res = await authRepo.login(
+      stateCode,
+      password,
+      deviceFingerprint || undefined,
+    );
     const c = await cookies();
-    c.set("session_token", res.sessionToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 1 day
-    });
-    return { ok: true, redirect: nextPath } as const;
+    c.set("session_token", res.sessionToken, sessionCookieOptions());
+    return { ok: true as const, redirect: nextPath };
   } catch (e: unknown) {
-    const errorMsg = extractErrorMessage(e, "Login failed");
-    return { ok: false, error: errorMsg } as const;
+    const message = extractErrorMessage(
+      e,
+      "Sign in failed. Please check your credentials.",
+    );
+    return { ok: false as const, error: message };
   }
 }
 
@@ -58,16 +84,16 @@ export async function signupAction(formData: FormData) {
   }
 
   try {
-    const res = await authRepo.signup(name, email, state_code, password, cds_group_id || undefined);
+    const res = await authRepo.signup(
+      name,
+      email,
+      state_code,
+      password,
+      cds_group_id || undefined,
+    );
 
     const c = await cookies();
-    c.set("session_token", res.sessionToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 1 day
-    });
+    c.set("session_token", res.sessionToken, sessionCookieOptions());
 
     return { ok: true } as const;
   } catch (e: unknown) {
