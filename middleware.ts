@@ -42,7 +42,13 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/(.*)"],
+  matcher: [
+    /*
+     * Skip static assets and Next internals so Edge runs less often
+     * (faster loads, especially on mobile).
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };
 
 
