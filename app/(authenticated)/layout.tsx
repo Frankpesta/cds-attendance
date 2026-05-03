@@ -3,7 +3,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AppShell } from "@/components/layout/AppShell";
 import { getSessionAction } from "../actions/session";
-import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield, FileText } from "lucide-react";
+import { Home, Building2, QrCode, Scan, UserPlus, BarChart3, Users, UserCheck, Calendar, Activity, Shield, FileText, ShieldAlert } from "lucide-react";
 
 export default function AuthenticatedLayout({
   children,
@@ -41,6 +41,10 @@ export default function AuthenticatedLayout({
       router.replace("/dashboard");
       return;
     }
+    if (pathname.startsWith("/blocked-users") && role !== "super_admin") {
+      router.replace("/dashboard");
+      return;
+    }
     if (pathname.startsWith("/documentation") && !pathname.match(/^\/documentation\/(corp-members|employers|rejected-reposting|corp-member-requests)\//)) {
       if (role !== "admin" && role !== "super_admin") {
         router.replace("/dashboard");
@@ -66,6 +70,7 @@ export default function AuthenticatedLayout({
       ? [
           { label: "Dashboard", href: "/dashboard", icon: Home },
           { label: "Users", href: "/users", icon: Users },
+          { label: "Blocked users", href: "/blocked-users", icon: ShieldAlert },
           { label: "Groups", href: "/groups", icon: Building2 },
           { label: "Admin Assignments", href: "/admin-assignments", icon: UserCheck },
           { label: "Reports", href: "/reports", icon: BarChart3 },

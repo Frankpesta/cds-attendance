@@ -1,5 +1,9 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
+import { listBlockedUsersAction } from "@/app/actions/users";
+import {
+  listManualAttendanceTodayAction,
+} from "@/app/actions/attendance";
 
 type DocumentationType =
   | "corp_member"
@@ -105,6 +109,33 @@ export function useUsersList() {
   return useQuery({
     queryKey: ["users"],
     queryFn: () => fetchApi<{ _id: string; id?: string; name: string; email: string; role: string }[]>("/api/users"),
+  });
+}
+
+/** Blocked users (super_admin) — batched server action, staleTime reduces refetches */
+export function useBlockedUsersList() {
+  return useQuery({
+    queryKey: ["blocked-users"],
+    queryFn: async () => {
+      const res = await listBlockedUsersAction();
+      if (!res.ok) throw new Error(res.error || "Failed to load blocked users");
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+/** Today's manually marked attendance rows (super_admin), single query */
+export function useManualAttendanceTodayList(enabled: boolean) {
+  return useQuery({
+    queryKey: ["manual-attendance-today"],
+    queryFn: async () => {
+      const res = await listManualAttendanceTodayAction();
+      if (!res.ok) throw new Error(res.error || "Failed to load manual attendance");
+      return res.data;
+    },
+    enabled,
+    staleTime: 45_000,
   });
 }
 

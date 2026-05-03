@@ -84,12 +84,14 @@ export async function signupAction(formData: FormData) {
   }
 
   try {
+    const deviceFingerprint = String(formData.get("deviceFingerprint") || "").trim();
     const res = await authRepo.signup(
       name,
       email,
       state_code,
       password,
       cds_group_id || undefined,
+      deviceFingerprint || undefined,
     );
 
     const c = await cookies();

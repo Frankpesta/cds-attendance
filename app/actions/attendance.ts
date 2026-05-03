@@ -47,3 +47,42 @@ export async function markAttendanceManuallyAction(
     } as const;
   }
 }
+
+export async function listManualAttendanceTodayAction() {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false as const, error: "Unauthorized" };
+  }
+
+  try {
+    const data = await attendanceRepo.listManualAttendanceForToday(sessionToken);
+    return { ok: true as const, data };
+  } catch (e: unknown) {
+    return {
+      ok: false as const,
+      error: extractErrorMessage(e, "Failed to load manual attendance"),
+    };
+  }
+}
+
+export async function unmarkManualAttendanceAction(attendanceId: string) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false as const, error: "Unauthorized" };
+  }
+
+  try {
+    const data = await attendanceRepo.unmarkManualAttendance(
+      sessionToken,
+      attendanceId,
+    );
+    return { ok: true as const, data };
+  } catch (e: unknown) {
+    return {
+      ok: false as const,
+      error: extractErrorMessage(e, "Failed to remove attendance"),
+    };
+  }
+}

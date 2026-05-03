@@ -157,3 +157,21 @@ export async function unblockUserAction(
     } as const;
   }
 }
+
+export async function listBlockedUsersAction() {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false as const, error: "Unauthorized" };
+  }
+
+  try {
+    const data = await usersRepo.listBlockedUsers(sessionToken);
+    return { ok: true as const, data };
+  } catch (e: unknown) {
+    return {
+      ok: false as const,
+      error: extractErrorMessage(e, "Failed to load blocked users"),
+    };
+  }
+}

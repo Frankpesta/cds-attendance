@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { useCdsGroupsList } from "@/hooks/useApiQueries";
 import { validateEmail, validatePassword, validateStateCode, validateName } from "@/lib/validation";
-import { extractErrorMessage } from "@/lib/utils";
+import { extractErrorMessage, generateDeviceFingerprint } from "@/lib/utils";
 import Link from "next/link";
 
 export default function SignupPage() {
@@ -82,6 +82,7 @@ export default function SignupPage() {
       fd.set("cds_group_id", cdsGroupId);
       fd.set("password", password);
       fd.set("confirmPassword", confirmPassword);
+      fd.set("deviceFingerprint", generateDeviceFingerprint());
 
       const res = await signupAction(fd);
       if (!res.ok) {

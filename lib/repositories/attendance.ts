@@ -13,6 +13,7 @@ import {
   setCachedCdsGroup,
   getCachedTodayAttendance,
   setCachedTodayAttendance,
+  invalidateCachedTodayAttendance,
 } from "@/lib/cache";
 
 const nowMs = () => Date.now();
@@ -198,6 +199,8 @@ export async function submitScan(sessionToken: string, token: string) {
     },
   });
 
+  invalidateCachedTodayAttendance(todayDate);
+
   return { attendanceId };
 }
 
@@ -375,8 +378,71 @@ export async function markAttendanceManually(
       scanned_at: BigInt(now),
       qr_token_id: qrTokenId,
       status: "present",
+      manual_marked_by_user_id: currentUser.id,
     },
   });
 
+  invalidateCachedTodayAttendance(today);
+
   return { attendanceId, meetingDate: today };
+}
+
+export async function listManualAttendanceForToday(sessionToken: string) {
+  const session = await prisma.session.findUnique({
+    where: { session_token: sessionToken },
+    include: { user: true },
+  });
+  if (!session) throw new Error("Unauthorized");
+  if (!session.user || session.user.role !== "super_admin") {
+    throw new Error("Forbidden: Super admin access required");
+  }
+
+  const meetingDate = toNigeriaYYYYMMDD(new Date());
+  const rows = await prisma.attendance.findMany({
+    where: {
+      meeting_date: meetingDate,
+      manual_marked_by_user_id: { not: null },
+    },
+    select: { id: true, user_id: true },
+    take: 2000,
+  });
+
+  return {
+    meetingDate,
+    rows: rows.map((r) => ({
+      attendanceId: r.id,
+      userId: r.user_id,
+    })),
+  };
+}
+
+export async function unmarkManualAttendance(
+  sessionToken: string,
+  attendanceId: string,
+) {
+  const session = await prisma.session.findUnique({
+    where: { session_token: sessionToken },
+    include: { user: true },
+  });
+  if (!session) throw new Error("Unauthorized");
+  if (!session.user || session.user.role !== "super_admin") {
+    throw new Error("Forbidden: Super admin access required");
+  }
+
+  const row = await prisma.attendance.findFirst({
+    where: {
+      id: attendanceId,
+      manual_marked_by_user_id: { not: null },
+    },
+  });
+  if (!row) {
+    throw new Error(
+      "Attendance not found or was not marked manually; it cannot be removed here.",
+    );
+  }
+
+  await prisma.attendance.delete({ where: { id: attendanceId } });
+  invalidateCachedTodayAttendance(row.meeting_date);
+
+  return { success: true as const, meetingDate: row.meeting_date };
 }
