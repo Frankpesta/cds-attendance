@@ -46,6 +46,10 @@ export function setCachedTodayAttendance<T>(todayDate: string, value: T): void {
   set(`today-attendance:${todayDate}`, value, TODAY_ATTENDANCE_TTL);
 }
 
+export function invalidateCachedTodayAttendance(todayDate: string): void {
+  caches.delete(`today-attendance:${todayDate}`);
+}
+
 /** Cache CDS group by id. TTL 60s - groups rarely change. */
 const CDS_GROUP_TTL = 60;
 

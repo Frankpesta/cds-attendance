@@ -131,13 +131,14 @@ model QrToken {
 }
 
 model Attendance {
-  id           String   @id @db.VarChar(64)
-  user_id      String   @db.VarChar(64)
-  cds_group_id String   @db.VarChar(64)
-  meeting_date String   @db.VarChar(16)
-  scanned_at   BigInt
-  qr_token_id  String   @db.VarChar(64)
-  status       String   @db.VarChar(16)  // present | absent
+  id                       String   @id @db.VarChar(64)
+  user_id                  String   @db.VarChar(64)
+  cds_group_id             String   @db.VarChar(64)
+  meeting_date             String   @db.VarChar(16)
+  scanned_at               BigInt
+  qr_token_id              String   @db.VarChar(64)
+  status                   String   @db.VarChar(16)  // present | absent
+  manual_marked_by_user_id String?  @db.VarChar(64)
 
   user User   @relation(fields: [user_id], references: [id])
   cds_group CdsGroup @relation(fields: [cds_group_id], references: [id])

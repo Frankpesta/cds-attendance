@@ -30,7 +30,11 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24,
     });
     return response;
-  } catch {
-    return NextResponse.redirect(new URL("/login?error=Invalid+credentials", request.url));
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error && e.message ? e.message : "Invalid credentials";
+    const url = new URL("/login", request.url);
+    url.searchParams.set("error", message);
+    return NextResponse.redirect(url, 302);
   }
 }

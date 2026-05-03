@@ -1,16 +1,16 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useDashboardStats, useUsersList } from "@/hooks/useApiQueries";
+import { useDashboardStats, useUsersList, useManualAttendanceTodayList } from "@/hooks/useApiQueries";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/ui/data-table";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Search, Unlock, AlertCircle, CheckCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Unlock, AlertCircle, CheckCircle, Undo2 } from "lucide-react";
 import { deleteUserAction, unblockUserAction, batchDeleteUsersAction } from "@/app/actions/users";
-import { markAttendanceManuallyAction } from "@/app/actions/attendance";
+import { markAttendanceManuallyAction, unmarkManualAttendanceAction } from "@/app/actions/attendance";
 import { extractErrorMessage } from "@/lib/utils";
 import { getSessionAction } from "@/app/actions/session";
 import Link from "next/link";
@@ -32,6 +32,8 @@ export default function UsersPage() {
   const [unblocking, setUnblocking] = useState<string | null>(null);
   const [markingAttendance, setMarkingAttendance] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [unmarkDialog, setUnmarkDialog] = useState<{ attendanceId: string; name: string } | null>(null);
+  const [unmarking, setUnmarking] = useState(false);
   const { push } = useToast();
 
   // Get current user's role
@@ -47,11 +49,21 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   useDashboardStats(); // Keep for cache warming
   const { data: allUsers } = useUsersList();
+  const { data: manualToday } = useManualAttendanceTodayList(currentUserRole === "super_admin");
+
+  const manualAttendanceByUserId = useMemo(() => {
+    const m: Record<string, string> = {};
+    manualToday?.rows.forEach((r) => {
+      m[r.userId] = r.attendanceId;
+    });
+    return m;
+  }, [manualToday]);
 
   const invalidateAfterManualMark = () => {
     queryClient.invalidateQueries({ queryKey: ["today-attendance"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     queryClient.invalidateQueries({ queryKey: ["recent-activity"] });
+    queryClient.invalidateQueries({ queryKey: ["manual-attendance-today"] });
   };
 
   const getManualAttendanceErrorMessage = (error: unknown) => {
@@ -338,6 +350,24 @@ export default function UsersPage() {
                     <CheckCircle className="w-4 h-4" />
                   </Button>
                 )}
+                {currentUserRole === "super_admin" &&
+                  user.role === "corps_member" &&
+                  manualAttendanceByUserId[user._id] && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-amber-700 hover:text-amber-800"
+                      title="Remove today’s manually marked attendance"
+                      onClick={() =>
+                        setUnmarkDialog({
+                          attendanceId: manualAttendanceByUserId[user._id],
+                          name: user.name,
+                        })
+                      }
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 {(user.is_blocked === true || user.is_blocked === "true") && (
                   <Button 
                     variant="primary" 
@@ -400,6 +430,65 @@ export default function UsersPage() {
           }
         ]}
       />
+
+      {unmarkDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="mx-4 max-w-md w-full">
+            <CardHeader>
+              <h3 className="text-lg font-semibold">Remove manual attendance?</h3>
+              <p className="text-sm text-muted-foreground">
+                This removes today&apos;s attendance for <strong>{unmarkDialog.name}</strong> that was
+                marked manually. QR scans are not affected. This cannot be undone.
+              </p>
+            </CardHeader>
+            <CardContent className="flex gap-2 justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => !unmarking && setUnmarkDialog(null)}
+                disabled={unmarking}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-amber-700 hover:bg-amber-800"
+                disabled={unmarking}
+                onClick={async () => {
+                  setUnmarking(true);
+                  try {
+                    const res = await unmarkManualAttendanceAction(unmarkDialog.attendanceId);
+                    if (!res.ok) {
+                      push({
+                        variant: "error",
+                        title: "Could not remove attendance",
+                        description: res.error || "Unmark failed.",
+                      });
+                      return;
+                    }
+                    push({
+                      variant: "success",
+                      title: "Attendance removed",
+                      description: `Manual attendance for ${unmarkDialog.name} was removed.`,
+                    });
+                    setUnmarkDialog(null);
+                    invalidateAfterManualMark();
+                  } catch (err: unknown) {
+                    push({
+                      variant: "error",
+                      title: "Could not remove attendance",
+                      description: extractErrorMessage(err, "Unmark failed."),
+                    });
+                  } finally {
+                    setUnmarking(false);
+                  }
+                }}
+              >
+                {unmarking ? "Removing…" : "Remove attendance"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Batch Delete Confirmation Dialog */}
       {batchDeleteDialogOpen && (

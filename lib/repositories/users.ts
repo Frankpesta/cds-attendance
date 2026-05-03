@@ -268,3 +268,39 @@ export async function unblockUser(
   });
   return { success: true };
 }
+
+export async function listBlockedUsers(sessionToken: string) {
+  const session = await prisma.session.findUnique({
+    where: { session_token: sessionToken },
+    include: { user: true },
+  });
+  if (!session) throw new Error("Unauthorized");
+  if (session.user.role !== "super_admin") {
+    throw new Error("Forbidden: Super admin access required");
+  }
+
+  const rows = await prisma.user.findMany({
+    where: { is_blocked: true },
+    orderBy: [{ blocked_at: "desc" }, { updated_at: "desc" }],
+    take: 500,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      state_code: true,
+      role: true,
+      blocked_at: true,
+      blocked_reason: true,
+    },
+  });
+
+  return rows.map((u) => ({
+    _id: u.id,
+    name: u.name,
+    email: u.email,
+    state_code: u.state_code,
+    role: u.role,
+    blocked_at: u.blocked_at != null ? Number(u.blocked_at) : null,
+    blocked_reason: u.blocked_reason ?? null,
+  }));
+}

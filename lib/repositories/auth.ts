@@ -6,6 +6,20 @@ import { generateId } from "@/lib/id";
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
+const DEVICE_MISMATCH_BLOCKED_REASON = "Multiple device login detected";
+
+function sessionInvalidForCorpsDeviceBinding(params: {
+  role: string;
+  allowedFingerprint: string | null;
+  sessionFingerprint: string | null;
+}) {
+  if (params.role !== "corps_member") return false;
+  const allowed = params.allowedFingerprint?.trim();
+  if (!allowed) return false;
+  const sess = params.sessionFingerprint?.trim() ?? "";
+  return sess !== allowed;
+}
+
 export async function getUserByStateCode(stateCode: string) {
   return prisma.user.findFirst({ where: { state_code: stateCode } });
 }
@@ -22,6 +36,7 @@ export async function login(stateCode: string, password: string, deviceFingerpri
   if (!ok) throw new Error("Invalid state code or password");
 
   const now = Number(nowMs());
+  const fp = deviceFingerprint?.trim() || undefined;
 
   if ((user.role === "admin" || user.role === "super_admin") && user.is_blocked === true) {
     await prisma.user.update({
@@ -30,18 +45,40 @@ export async function login(stateCode: string, password: string, deviceFingerpri
     });
   }
 
-  if (user.role === "corps_member" && user.is_blocked === true) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { is_blocked: false, blocked_at: null, blocked_reason: null, updated_at: BigInt(now) },
-    });
-  }
-
-  if (user.role === "corps_member" && deviceFingerprint) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { allowed_device_fingerprint: deviceFingerprint, updated_at: BigInt(now) },
-    });
+  if (user.role === "corps_member") {
+    if (user.is_blocked === true) {
+      throw new Error(
+        "Your account has been blocked. Please contact the administrator.",
+      );
+    }
+    if (!fp) {
+      throw new Error(
+        "Sign-in requires device verification. Please refresh the page and try again.",
+      );
+    }
+    const allowed = user.allowed_device_fingerprint?.trim() ?? "";
+    if (allowed && allowed !== fp) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          is_blocked: true,
+          blocked_at: BigInt(now),
+          blocked_reason: DEVICE_MISMATCH_BLOCKED_REASON,
+          updated_at: BigInt(now),
+        },
+      });
+      await prisma.session.deleteMany({ where: { user_id: user.id } });
+      throw new Error(
+        "This account is locked because a sign-in was attempted from another device. Contact your administrator to unblock.",
+      );
+    }
+    if (!allowed) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { allowed_device_fingerprint: fp, updated_at: BigInt(now) },
+      });
+    }
+    await prisma.session.deleteMany({ where: { user_id: user.id } });
   }
 
   const token = crypto.randomUUID();
@@ -54,7 +91,7 @@ export async function login(stateCode: string, password: string, deviceFingerpri
       created_at: BigInt(now),
       last_active_at: BigInt(now),
       expires_at: BigInt(now + SESSION_TTL_MS),
-      device_fingerprint: deviceFingerprint ?? null,
+      device_fingerprint: fp ?? null,
     },
   });
 
@@ -75,6 +112,21 @@ export async function getSession(sessionToken: string) {
   if (Number(session.expires_at) <= now || now - Number(session.created_at) > SESSION_MAX_AGE_MS) {
     return null;
   }
+
+  const u = session.user;
+  if (u.is_blocked === true) {
+    return null;
+  }
+  if (
+    sessionInvalidForCorpsDeviceBinding({
+      role: u.role,
+      allowedFingerprint: u.allowed_device_fingerprint,
+      sessionFingerprint: session.device_fingerprint,
+    })
+  ) {
+    return null;
+  }
+
   return {
     session: {
       ...session,
@@ -92,11 +144,28 @@ export async function getSession(sessionToken: string) {
 }
 
 export async function refreshSession(sessionToken: string) {
-  const session = await prisma.session.findUnique({ where: { session_token: sessionToken } });
+  const session = await prisma.session.findUnique({
+    where: { session_token: sessionToken },
+    include: { user: true },
+  });
   if (!session) return null;
 
   const now = nowMs();
   if (Number(session.expires_at) <= now || now - Number(session.created_at) > SESSION_MAX_AGE_MS) {
+    return null;
+  }
+
+  const u = session.user;
+  if (u.is_blocked === true) {
+    return null;
+  }
+  if (
+    sessionInvalidForCorpsDeviceBinding({
+      role: u.role,
+      allowedFingerprint: u.allowed_device_fingerprint,
+      sessionFingerprint: session.device_fingerprint,
+    })
+  ) {
     return null;
   }
 
@@ -124,6 +193,7 @@ export async function signup(
   state_code: string,
   password: string,
   cds_group_id?: string,
+  deviceFingerprint?: string,
 ) {
   if (!passwordMeetsPolicy(password)) {
     throw new Error("Password must be at least 8 characters and include upper, lower, and number");
@@ -134,6 +204,11 @@ export async function signup(
 
   const existingStateCode = await prisma.user.findFirst({ where: { state_code } });
   if (existingStateCode) throw new Error("A user with this state code already exists");
+
+  const fp = deviceFingerprint?.trim();
+  if (!fp) {
+    throw new Error("Sign-up requires device verification. Please refresh the page and try again.");
+  }
 
   const hashedPassword = bcrypt.hashSync(password, 10);
   const now = nowMs();
@@ -151,6 +226,7 @@ export async function signup(
       created_at: BigInt(now),
       updated_at: BigInt(now),
       is_blocked: false,
+      allowed_device_fingerprint: fp,
     },
   });
 
@@ -179,6 +255,7 @@ export async function signup(
       created_at: BigInt(now),
       last_active_at: BigInt(now),
       expires_at: BigInt(now + SESSION_TTL_MS),
+      device_fingerprint: fp,
     },
   });
 
