@@ -175,3 +175,32 @@ export async function listBlockedUsersAction() {
     };
   }
 }
+
+export async function batchUnblockUsersAction(
+  userIds: string[],
+  allowAnyDevice: boolean = true,
+) {
+  const c = await cookies();
+  const sessionToken = c.get("session_token")?.value || "";
+  if (!sessionToken) {
+    return { ok: false as const, error: "Unauthorized" };
+  }
+
+  if (userIds.length === 0) {
+    return { ok: false as const, error: "No users selected" } as const;
+  }
+
+  try {
+    const data = await usersRepo.batchUnblockUsers(
+      sessionToken,
+      userIds,
+      allowAnyDevice,
+    );
+    return { ok: true as const, data };
+  } catch (e: unknown) {
+    return {
+      ok: false as const,
+      error: extractErrorMessage(e, "Failed to unblock users"),
+    };
+  }
+}
