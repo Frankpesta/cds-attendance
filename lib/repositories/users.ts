@@ -269,6 +269,57 @@ export async function unblockUser(
   return { success: true };
 }
 
+export async function batchUnblockUsers(
+  sessionToken: string,
+  userIds: string[],
+  allowAnyDevice?: boolean,
+): Promise<{ unblocked: number; errors: string[] }> {
+  const session = await prisma.session.findUnique({
+    where: { session_token: sessionToken },
+    include: { user: true },
+  });
+  if (!session) throw new Error("Unauthorized");
+  if (session.user.role !== "super_admin") {
+    throw new Error("Forbidden: Super admin access required");
+  }
+
+  const uniqueIds = [...new Set(userIds)];
+  const errors: string[] = [];
+  let unblocked = 0;
+  const now = Date.now();
+  const updates: Record<string, unknown> = {
+    is_blocked: false,
+    blocked_at: null,
+    blocked_reason: null,
+    updated_at: BigInt(now),
+  };
+  if (allowAnyDevice) {
+    updates.allowed_device_fingerprint = null;
+  }
+  const data = updates as Parameters<typeof prisma.user.update>[0]["data"];
+
+  for (const userId of uniqueIds) {
+    try {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        errors.push(`User ${userId} not found`);
+        continue;
+      }
+      await prisma.user.update({
+        where: { id: userId },
+        data,
+      });
+      unblocked++;
+    } catch (e) {
+      errors.push(
+        `${userId}: ${e instanceof Error ? e.message : "Unknown error"}`,
+      );
+    }
+  }
+
+  return { unblocked, errors };
+}
+
 export async function listBlockedUsers(sessionToken: string) {
   const session = await prisma.session.findUnique({
     where: { session_token: sessionToken },
