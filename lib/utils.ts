@@ -294,3 +294,38 @@ export function generateDeviceFingerprint(): string {
   
   return Math.abs(hash).toString(36);
 }
+
+/** NYSC state code batch segment (e.g. AK/A1/1234 → A1). */
+export function extractBatchFromStateCode(stateCode: string): string {
+  const parts = String(stateCode || "")
+    .split("/")
+    .map((p) => p.trim());
+  return parts.length >= 2 ? parts[1] : "";
+}
+
+export function batchLabelFromStateCode(stateCode: string): string {
+  const batch = extractBatchFromStateCode(stateCode);
+  return batch || "(no batch)";
+}
+
+export function filterDocumentationByBatches<T extends { state_code?: string | null }>(
+  items: T[],
+  batches?: string[] | null,
+): T[] {
+  if (!batches?.length) return items;
+  const set = new Set(batches.map((b) => b.trim().toLowerCase()).filter(Boolean));
+  return items.filter((item) => {
+    const batch = extractBatchFromStateCode(item.state_code ?? "").toLowerCase();
+    return batch && set.has(batch);
+  });
+}
+
+export function buildDocumentationExportFilename(
+  baseName: string,
+  batches?: string[] | null,
+): string {
+  const date = new Date().toISOString().split("T")[0];
+  if (!batches?.length) return `${baseName}-documentation-${date}.xlsx`;
+  const label = [...batches].sort().join("-");
+  return `${baseName}-batch-${label}-${date}.xlsx`;
+}

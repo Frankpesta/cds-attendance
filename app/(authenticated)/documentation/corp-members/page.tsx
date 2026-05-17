@@ -18,8 +18,10 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
-import { extractErrorMessage } from "@/lib/utils";
-import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield, Download } from "lucide-react";
+import { extractErrorMessage, batchLabelFromStateCode } from "@/lib/utils";
+import { downloadDocumentationExport } from "@/lib/export-documentation-client";
+import { DocumentationBatchExportBar } from "@/components/documentation/DocumentationBatchExportBar";
+import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Shield } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
 interface MedicalFile {
@@ -52,18 +54,13 @@ function formatDate(ms?: number) {
   return new Date(ms).toLocaleString();
 }
 
-function extractBatchFromStateCode(stateCode: string): string {
-  const parts = String(stateCode || "").split("/");
-  return parts.length >= 2 ? parts[1] : "";
-}
-
 export default function CorpMembersDocumentationPage() {
   const sessionToken = useSessionToken();
   const { push } = useToast();
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
   const [medicalFilter, setMedicalFilter] = useState("");
-  const [batchFilter, setBatchFilter] = useState("");
+  const [batchFilters, setBatchFilters] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
@@ -103,40 +100,56 @@ export default function CorpMembersDocumentationPage() {
     }
   }, [selectedRecord]);
 
-  const handleExportExcel = async () => {
+  const runExport = async (batches?: string[]) => {
     if (!sessionToken) {
       push({ variant: "error", title: "Error", description: "Session token not available" });
       return;
     }
     setExporting(true);
     try {
-      const response = await fetch("/api/export-documentation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ sessionToken, type: "corp_member" }),
+      const { filename, rowCount } = await downloadDocumentationExport({
+        sessionToken,
+        type: "corp_member",
+        batches,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Export failed");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `corp-members-documentation-${new Date().toISOString().split("T")[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      push({ variant: "success", title: "Export successful", description: "Excel file downloaded" });
-    } catch (error: any) {
-      push({ variant: "error", title: "Export failed", description: extractErrorMessage(error, "Failed to export") });
+      const batchNote =
+        batches?.length && batches.length > 0
+          ? ` (${batches.join(", ")})`
+          : "";
+      push({
+        variant: "success",
+        title: "Export successful",
+        description: `${rowCount ?? "Records"} exported to ${filename}${batchNote}`,
+      });
+    } catch (error: unknown) {
+      push({
+        variant: "error",
+        title: "Export failed",
+        description: extractErrorMessage(error, "Failed to export"),
+      });
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleExportAll = () => runExport();
+
+  const handleExportSelectedBatches = () => {
+    if (batchFilters.length === 0) {
+      push({
+        variant: "error",
+        title: "Select batches",
+        description: "Choose one or more batches (e.g. A1, B2) before exporting.",
+      });
+      return;
+    }
+    runExport(batchFilters);
+  };
+
+  const toggleBatchFilter = (label: string) => {
+    setBatchFilters((prev) =>
+      prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label],
+    );
   };
 
   const filteredMembers = useMemo(() => {
@@ -151,22 +164,21 @@ export default function CorpMembersDocumentationPage() {
           : medicalFilter === "yes"
           ? member.medical_history
           : !member.medical_history;
-      const userBatch = extractBatchFromStateCode(member.state_code || "");
-      const matchesBatch = !batchFilter || userBatch === batchFilter;
+      const userBatch = batchLabelFromStateCode(member.state_code || "");
+      const matchesBatch =
+        batchFilters.length === 0 || batchFilters.includes(userBatch);
       return matchesSearch && matchesGender && matchesMedical && matchesBatch;
     });
-  }, [corpMembers, search, genderFilter, medicalFilter, batchFilter]);
+  }, [corpMembers, search, genderFilter, medicalFilter, batchFilters]);
 
-  const batchOptions = useMemo(() => {
+  const batchKeys = useMemo(() => {
     const batches = new Set<string>();
-    corpMembers?.forEach((m: any) => {
-      const b = extractBatchFromStateCode(m.state_code || "");
-      if (b) batches.add(b);
+    (corpMembers as { state_code?: string }[] | undefined)?.forEach((m) => {
+      batches.add(batchLabelFromStateCode(m.state_code || ""));
     });
-    return [
-      { value: "", label: "All Batches" },
-      ...Array.from(batches).sort().map((b) => ({ value: b, label: b })),
-    ];
+    return Array.from(batches).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true }),
+    );
   }, [corpMembers]);
 
   const paginatedLinks = useMemo(() => {
@@ -351,12 +363,6 @@ export default function CorpMembersDocumentationPage() {
           <p className="text-muted-foreground">Create secure registration links and manage submitted records.</p>
         </div>
         <div className="flex gap-2">
-          {session?.user?.role === "super_admin" && (
-            <Button onClick={handleExportExcel} loading={exporting} variant="secondary">
-              <Download className="mr-2 h-4 w-4" />
-              Export Excel
-            </Button>
-          )}
         <Button onClick={handleCreateLink}>
           <Link2 className="mr-2 h-4 w-4" />
           Create Registration Link
@@ -476,15 +482,48 @@ export default function CorpMembersDocumentationPage() {
                 ]}
               />
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium">Batch</label>
-              <Select
-                value={batchFilter}
-                onChange={(event) => setBatchFilter(event.target.value)}
-                options={batchOptions}
-              />
-            </div>
           </div>
+          {batchKeys.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm font-medium">Filter by batch</label>
+              <p className="text-xs text-muted-foreground">
+                No selection = all batches. Select one or more to narrow the table (e.g. A1, A2, B1).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {batchKeys.map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => toggleBatchFilter(label)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      batchFilters.includes(label)
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background hover:bg-muted"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {batchFilters.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setBatchFilters([])}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          {session?.user?.role === "super_admin" && (
+            <DocumentationBatchExportBar
+              batchKeys={batchKeys}
+              batchFilters={batchFilters}
+              onToggleBatch={toggleBatchFilter}
+              onClearBatchFilters={() => setBatchFilters([])}
+              onExportAll={handleExportAll}
+              onExportSelectedBatches={handleExportSelectedBatches}
+              exporting={exporting}
+              hideBatchPicker
+            />
+          )}
         </CardContent>
       </Card>
 
