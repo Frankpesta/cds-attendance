@@ -17,8 +17,10 @@ import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/data-table";
 import { Pagination } from "@/components/ui/pagination";
 import { useToast } from "@/components/ui/toast";
-import { extractErrorMessage } from "@/lib/utils";
-import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Download, Printer, Edit } from "lucide-react";
+import { extractErrorMessage, batchLabelFromStateCode } from "@/lib/utils";
+import { downloadDocumentationExport } from "@/lib/export-documentation-client";
+import { DocumentationBatchExportBar } from "@/components/documentation/DocumentationBatchExportBar";
+import { ClipboardCopy, Link2, RefreshCw, Eye, Trash2, Printer, Edit } from "lucide-react";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { getSessionTokenAction, getSessionAction } from "@/app/actions/session";
 function formatDate(ms?: number) {
@@ -31,17 +33,12 @@ function formatDateOnly(ms?: number) {
   return new Date(ms).toLocaleDateString();
 }
 
-function extractBatchFromStateCode(stateCode: string): string {
-  const parts = String(stateCode || "").split("/");
-  return parts.length >= 2 ? parts[1] : "";
-}
-
 export default function RejectedRepostingDocumentationPage() {
   const sessionToken = useSessionToken();
   const { push } = useToast();
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [batchFilter, setBatchFilter] = useState("");
+  const [batchFilters, setBatchFilters] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
@@ -95,20 +92,28 @@ export default function RejectedRepostingDocumentationPage() {
         const recordDate = formatDateOnly(record.created_at);
         matchesDate = recordDate === selectedDate;
       }
-      const userBatch = extractBatchFromStateCode(record.state_code || "");
-      const matchesBatch = !batchFilter || userBatch === batchFilter;
+      const userBatch = batchLabelFromStateCode(record.state_code || "");
+      const matchesBatch =
+        batchFilters.length === 0 || batchFilters.includes(userBatch);
       return matchesSearch && matchesDate && matchesBatch;
     });
-  }, [records, search, selectedDate, batchFilter]);
+  }, [records, search, selectedDate, batchFilters]);
 
-  const batchOptions = useMemo(() => {
+  const batchKeys = useMemo(() => {
     const batches = new Set<string>();
-    records?.forEach((r: any) => {
-      const b = extractBatchFromStateCode(r.state_code || "");
-      if (b) batches.add(b);
+    (records as { state_code?: string }[] | undefined)?.forEach((r) => {
+      batches.add(batchLabelFromStateCode(r.state_code || ""));
     });
-    return [{ value: "", label: "All Batches" }, ...Array.from(batches).sort().map((b) => ({ value: b, label: b }))];
+    return Array.from(batches).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true }),
+    );
   }, [records]);
+
+  const toggleBatchFilter = (label: string) => {
+    setBatchFilters((prev) =>
+      prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label],
+    );
+  };
 
   const paginatedLinks = useMemo(() => {
     if (!listLinks) return [];
@@ -201,46 +206,50 @@ export default function RejectedRepostingDocumentationPage() {
     }
   };
 
-  const handleExportExcel = async () => {
+  const runExport = async (batches?: string[]) => {
     if (!sessionToken) {
       push({ variant: "error", title: "Error", description: "Session token not available" });
       return;
     }
     setExporting(true);
     try {
-      const response = await fetch("/api/export-documentation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionToken, type: "rejected_reposting" }),
-        credentials: "same-origin",
+      const { filename, rowCount } = await downloadDocumentationExport({
+        sessionToken,
+        type: "rejected_reposting",
+        batches,
       });
-
-      if (!response.ok) {
-        let errorMessage = "Export failed";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          errorMessage = `Export failed (${response.status})`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `rejected-reposting-documentation-${new Date().toISOString().split("T")[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      push({ variant: "success", title: "Export successful", description: "Excel file downloaded" });
-    } catch (error: any) {
-      push({ variant: "error", title: "Export failed", description: extractErrorMessage(error, "Failed to export") });
+      const batchNote =
+        batches?.length && batches.length > 0
+          ? ` (${batches.join(", ")})`
+          : "";
+      push({
+        variant: "success",
+        title: "Export successful",
+        description: `${rowCount ?? "Records"} exported to ${filename}${batchNote}`,
+      });
+    } catch (error: unknown) {
+      push({
+        variant: "error",
+        title: "Export failed",
+        description: extractErrorMessage(error, "Failed to export"),
+      });
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleExportAll = () => runExport();
+
+  const handleExportSelectedBatches = () => {
+    if (batchFilters.length === 0) {
+      push({
+        variant: "error",
+        title: "Select batches",
+        description: "Choose one or more batches (e.g. A1, C2) before exporting.",
+      });
+      return;
+    }
+    runExport(batchFilters);
   };
 
   const handlePrint = () => {
@@ -538,16 +547,47 @@ export default function RejectedRepostingDocumentationPage() {
                 ]}
               />
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium">Batch</label>
-              <Select value={batchFilter} onChange={(event) => setBatchFilter(event.target.value)} options={batchOptions} />
-            </div>
           </div>
-          <div className="mt-4 flex gap-2">
-            <Button onClick={handleExportExcel} disabled={exporting} variant="secondary">
-              <Download className="mr-2 h-4 w-4" />
-              {exporting ? "Exporting..." : "Export Excel"}
-            </Button>
+          {batchKeys.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <label className="block text-sm font-medium">Filter by batch</label>
+              <p className="text-xs text-muted-foreground">
+                No selection = all batches. Select one or more to narrow the table.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {batchKeys.map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => toggleBatchFilter(label)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      batchFilters.includes(label)
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-background hover:bg-muted"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {batchFilters.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setBatchFilters([])}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          <DocumentationBatchExportBar
+            batchKeys={batchKeys}
+            batchFilters={batchFilters}
+            onToggleBatch={toggleBatchFilter}
+            onClearBatchFilters={() => setBatchFilters([])}
+            onExportAll={handleExportAll}
+            onExportSelectedBatches={handleExportSelectedBatches}
+            exporting={exporting}
+            hideBatchPicker
+          />
+          <div className="mt-4 flex gap-2 border-t pt-4">
             <Button onClick={handlePrint} variant="secondary">
               <Printer className="mr-2 h-4 w-4" />
               Print/PDF {selectedDate ? `(${selectedDate})` : "All Records"}

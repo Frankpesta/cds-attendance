@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import * as authRepo from "@/lib/repositories/auth";
 import * as docRepo from "@/lib/repositories/documentation";
+import {
+  buildDocumentationExportFilename,
+  extractBatchFromStateCode,
+  filterDocumentationByBatches,
+} from "@/lib/utils";
 import ExcelJS from "exceljs";
 
 export async function POST(request: NextRequest) {
@@ -9,6 +14,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     let sessionToken = body.sessionToken;
     const type = body.type;
+    const batches: string[] | undefined = Array.isArray(body.batches)
+      ? body.batches.filter((b: unknown) => typeof b === "string" && b.trim())
+      : undefined;
 
     if (!sessionToken) {
       const c = await cookies();
@@ -39,7 +47,14 @@ export async function POST(request: NextRequest) {
 
     if (type === "corp_member") {
       data = (await docRepo.listCorpMembers(sessionToken)) || [];
+      if (batches?.length) {
+        data = filterDocumentationByBatches(
+          data as { state_code?: string }[],
+          batches,
+        );
+      }
       headers = [
+        "Batch",
         "Full Name",
         "State Code",
         "Phone Number",
@@ -83,7 +98,14 @@ export async function POST(request: NextRequest) {
       ];
     } else if (type === "rejected_reposting") {
       data = (await docRepo.listRejectedReposting(sessionToken)) || [];
+      if (batches?.length) {
+        data = filterDocumentationByBatches(
+          data as { state_code?: string }[],
+          batches,
+        );
+      }
       headers = [
+        "Batch",
         "Name",
         "State Code",
         "Sex",
@@ -140,9 +162,22 @@ export async function POST(request: NextRequest) {
     headerRow.alignment = { vertical: "middle", horizontal: "center" };
 
     const items = data as Record<string, unknown>[];
+    if (
+      (type === "corp_member" || type === "rejected_reposting") &&
+      batches?.length &&
+      items.length === 0
+    ) {
+      return NextResponse.json(
+        { error: "No records found for the selected batch(es)." },
+        { status: 404 },
+      );
+    }
+
     items.forEach((item) => {
+      const batch = extractBatchFromStateCode(String(item.state_code ?? ""));
       if (type === "corp_member") {
         worksheet.addRow([
+          batch,
           item.full_name ?? "",
           item.state_code ?? "",
           item.phone_number ?? "",
@@ -189,6 +224,7 @@ export async function POST(request: NextRequest) {
         ]);
       } else if (type === "rejected_reposting") {
         worksheet.addRow([
+          batch,
           item.name || "",
           item.state_code || "",
           item.sex || "",
@@ -225,7 +261,7 @@ export async function POST(request: NextRequest) {
 
     const buffer = await workbook.xlsx.writeBuffer();
 
-    const filename =
+    const baseName =
       type === "corp_member"
         ? "corp-members"
         : type === "employer"
@@ -233,11 +269,13 @@ export async function POST(request: NextRequest) {
           : type === "rejected_reposting"
             ? "rejected-reposting"
             : "corp-member-requests";
+    const filename = buildDocumentationExportFilename(baseName, batches);
     return new NextResponse(buffer, {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${filename}-documentation-${new Date().toISOString().split("T")[0]}.xlsx"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "X-Export-Row-Count": String(items.length),
       },
     });
   } catch (error: unknown) {
